@@ -1,5 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { rateLimit, resetRateLimits } from "@/lib/rate-limit";
+import {
+  checkRateLimit,
+  MAX_KEYS,
+  rateLimit,
+  rateLimitSize,
+  recordRateLimit,
+  resetRateLimits,
+} from "@/lib/rate-limit";
 
 describe("rateLimit (sliding window)", () => {
   beforeEach(() => {
@@ -42,5 +49,36 @@ describe("rateLimit (sliding window)", () => {
     expect(rateLimit("k", 1, 60_000).ok).toBe(false);
     vi.advanceTimersByTime(1_001);
     expect(rateLimit("k", 1, 60_000).ok).toBe(true);
+  });
+
+  it("check does not record; record adds a hit", () => {
+    expect(checkRateLimit("e", 1, 60_000).ok).toBe(true);
+    expect(checkRateLimit("e", 1, 60_000).ok).toBe(true);
+    recordRateLimit("e", 60_000);
+    const r = checkRateLimit("e", 1, 60_000);
+    expect(r.ok).toBe(false);
+    expect(r.retryAfterSec).toBe(60);
+  });
+
+  it("sweeping by a short window does not evict long-window counters", () => {
+    const HOUR = 60 * 60 * 1000;
+    for (let i = 0; i < 3; i++) rateLimit("email:x", 3, HOUR);
+    // Many short-lived keys, then let them expire.
+    for (let i = 0; i < MAX_KEYS - 1; i++) rateLimit(`ip:a${i}`, 5, 600_000);
+    vi.advanceTimersByTime(11 * 60 * 1000);
+    // More unrelated keys: total unrelated keys > MAX_KEYS, triggers sweeps.
+    for (let i = 0; i < 5_000; i++) rateLimit(`ip:b${i}`, 5, 600_000);
+    expect(rateLimit("email:x", 3, HOUR).ok).toBe(false);
+  });
+
+  it("never holds more than MAX_KEYS entries", () => {
+    for (let i = 0; i < MAX_KEYS + 2_500; i++) {
+      rateLimit(`k${i}`, 5, 600_000);
+      if (i % 997 === 0) expect(rateLimitSize()).toBeLessThanOrEqual(MAX_KEYS);
+    }
+    expect(rateLimitSize()).toBeLessThanOrEqual(MAX_KEYS);
+    // newest key survives eviction, oldest is gone
+    expect(rateLimit(`k${MAX_KEYS + 2_499}`, 1, 600_000).ok).toBe(false);
+    expect(rateLimit("k0", 1, 600_000).ok).toBe(true);
   });
 });

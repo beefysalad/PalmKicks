@@ -117,7 +117,7 @@ const post = (
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-forwarded-for": `10.0.0.${++ipCounter}, 172.16.0.1`,
+        "x-real-ip": `10.0.${Math.floor(++ipCounter / 250)}.${ipCounter % 250}`,
         ...headers,
       },
       body: typeof body === "string" ? body : JSON.stringify(body),
@@ -315,7 +315,9 @@ describe("POST /api/orders", () => {
     const b = await post(baseBody(), { "idempotency-key": "abc_DEF-123" });
     expect(a.status).toBe(201);
     expect(b.status).toBe(200);
-    expect((await b.json()).data.id).toBe((await a.json()).data.id);
+    const aBody = await a.json();
+    expect(await b.json()).toEqual(aBody);
+    expect(aBody.data.id).toMatch(/^PK-/);
     expect(h.create).toHaveBeenCalledTimes(1);
   });
 
@@ -356,7 +358,7 @@ describe("POST /api/orders", () => {
   });
 
   it("rate limits 5 orders per 10 minutes per IP", async () => {
-    const ip = { "x-forwarded-for": "203.0.113.7" };
+    const ip = { "x-real-ip": "203.0.113.7" };
     for (let i = 0; i < 5; i++) {
       const r = await post(baseBody({ customerEmail: `u${i}@example.test` }), ip);
       expect(r.status).toBe(201);
@@ -373,5 +375,67 @@ describe("POST /api/orders", () => {
     const blocked = await post(baseBody({ customerEmail: "same@example.test" }));
     expect(blocked.status).toBe(429);
     expect(blocked.headers.get("retry-after")).toBeTruthy();
+  });
+
+  it("replay with a known key bypasses the rate limits (200, same body, no email)", async () => {
+    const email = { customerEmail: "limit@example.test" };
+    const first = await post(baseBody(email), { "idempotency-key": "k1" });
+    const firstBody = await first.json();
+    await post(baseBody(email), { "idempotency-key": "k2" });
+    await post(baseBody(email), { "idempotency-key": "k3" });
+    // email limit now exhausted for new orders
+    expect((await post(baseBody(email), { "idempotency-key": "k4" })).status).toBe(429);
+    const replay = await post(baseBody(email), { "idempotency-key": "k1" });
+    expect(replay.status).toBe(200);
+    expect(await replay.json()).toEqual(firstBody);
+    expect(h.after).toHaveBeenCalledTimes(3);
+  });
+
+  it("replay is served even when the IP limit is exhausted", async () => {
+    const ip = { "x-real-ip": "198.51.100.77" };
+    const first = await post(baseBody({ customerEmail: "a0@example.test" }), { ...ip, "idempotency-key": "ipkey" });
+    for (let i = 1; i < 5; i++) await post(baseBody({ customerEmail: `a${i}@example.test` }), ip);
+    expect((await post(baseBody({ customerEmail: "a9@example.test" }), ip)).status).toBe(429);
+    const replay = await post(baseBody({ customerEmail: "a0@example.test" }), { ...ip, "idempotency-key": "ipkey" });
+    expect(replay.status).toBe(200);
+    expect((await replay.json()).data.id).toBe((await first.json()).data.id);
+  });
+
+  it("a 400 (validation or stock) does not consume the per-email limit", async () => {
+    const email = { customerEmail: "oops@example.test" };
+    for (let i = 0; i < 4; i++) {
+      const bad = await post(baseBody({ ...email, items: [{ productId: "nope", size: "9", color: "White", quantity: 1 }] }));
+      expect(bad.status).toBe(400);
+    }
+    h.state.products = [product({ inStock: false })];
+    expect((await post(baseBody(email))).status).toBe(400);
+    h.state.products = [product()];
+    for (let i = 0; i < 3; i++) {
+      expect((await post(baseBody(email))).status).toBe(201);
+    }
+    expect((await post(baseBody(email))).status).toBe(429);
+  });
+
+  it("a throwing after() registration still returns the created order (201)", async () => {
+    h.after.mockImplementationOnce(() => {
+      throw new Error("`after` was called outside a request scope");
+    });
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const res = await post(baseBody());
+    expect(res.status).toBe(201);
+    expect((await res.json()).data.id).toMatch(/^PK-/);
+    expect(h.state.orders.size).toBe(1);
+    err.mockRestore();
+  });
+
+  it("rejects totals above Decimal(10,2) max with 400", async () => {
+    h.state.products = [product({ price: "99999999.99" })];
+    const res = await post(baseBody({ items: [{ productId: "p1", size: "9", color: "White", quantity: 2 }] }));
+    expect(res.status).toBe(400);
+    expect(h.create).not.toHaveBeenCalled();
+    h.state.products = [product({ price: "99999999.99" })];
+    expect(
+      (await post(baseBody({ items: [{ productId: "p1", size: "9", color: "White", quantity: 1 }] }))).status
+    ).toBe(201);
   });
 });

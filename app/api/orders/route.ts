@@ -1,8 +1,10 @@
 import { requireAdmin } from "@/lib/require-admin";
 import { apiError, apiOk } from "@/lib/api-response";
-import { rateLimit } from "@/lib/rate-limit";
+import { checkRateLimit, rateLimit, recordRateLimit } from "@/lib/rate-limit";
+import { getClientIp } from "@/lib/client-ip";
 import {
   addOrderWithResult,
+  findOrderByIdempotencyKey,
   getOrders,
   OrderValidationError,
   toPublicOrder,
@@ -55,11 +57,6 @@ export async function GET(request: NextRequest) {
 const IP_LIMIT = { limit: 5, windowMs: 10 * 60 * 1000 };
 const EMAIL_LIMIT = { limit: 3, windowMs: 60 * 60 * 1000 };
 
-function clientIp(request: NextRequest): string {
-  const first = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return first || "unknown";
-}
-
 function tooManyRequests(retryAfterSec: number): NextResponse {
   const res = apiError(429, "Too many orders. Please try again later.");
   res.headers.set("Retry-After", String(retryAfterSec));
@@ -67,13 +64,6 @@ function tooManyRequests(retryAfterSec: number): NextResponse {
 }
 
 export async function POST(request: NextRequest) {
-  const ipCheck = rateLimit(
-    `orders:ip:${clientIp(request)}`,
-    IP_LIMIT.limit,
-    IP_LIMIT.windowMs
-  );
-  if (!ipCheck.ok) return tooManyRequests(ipCheck.retryAfterSec);
-
   const rawKey = request.headers.get("idempotency-key");
   let idempotencyKey: string | undefined;
   if (rawKey !== null) {
@@ -82,30 +72,50 @@ export async function POST(request: NextRequest) {
     idempotencyKey = parsedKey.data;
   }
 
-  let body: unknown;
   try {
-    body = await request.json();
-  } catch {
-    return apiError(400, "Invalid JSON body");
-  }
+    // A retry of an order that already exists is answered before any rate
+    // limit, so a client recovering from a lost response is never blocked.
+    if (idempotencyKey) {
+      const existing = await findOrderByIdempotencyKey(idempotencyKey);
+      if (existing) return apiOk(toPublicOrder(existing), 200);
+    }
 
-  const parsed = orderSchema.safeParse(body);
-  if (!parsed.success) {
-    return apiError(400, parsed.error.issues[0]?.message || "Invalid order data");
-  }
+    // The IP limit counts every attempt that reaches this point.
+    const ipCheck = rateLimit(
+      `orders:ip:${getClientIp(request.headers)}`,
+      IP_LIMIT.limit,
+      IP_LIMIT.windowMs
+    );
+    if (!ipCheck.ok) return tooManyRequests(ipCheck.retryAfterSec);
 
-  const emailCheck = rateLimit(
-    `orders:email:${parsed.data.customerEmail.toLowerCase()}`,
-    EMAIL_LIMIT.limit,
-    EMAIL_LIMIT.windowMs
-  );
-  if (!emailCheck.ok) return tooManyRequests(emailCheck.retryAfterSec);
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return apiError(400, "Invalid JSON body");
+    }
 
-  try {
+    const parsed = orderSchema.safeParse(body);
+    if (!parsed.success) {
+      return apiError(400, parsed.error.issues[0]?.message || "Invalid order data");
+    }
+
+    // The email limit only counts orders that were actually created, so a
+    // rejected (400) attempt does not use up the customer's slots.
+    const emailKey = `orders:email:${parsed.data.customerEmail.toLowerCase()}`;
+    const emailCheck = checkRateLimit(
+      emailKey,
+      EMAIL_LIMIT.limit,
+      EMAIL_LIMIT.windowMs
+    );
+    if (!emailCheck.ok) return tooManyRequests(emailCheck.retryAfterSec);
+
     const { order, replayed } = await addOrderWithResult(
       parsed.data,
       idempotencyKey
     );
+    if (!replayed) recordRateLimit(emailKey, EMAIL_LIMIT.windowMs);
+
     // Return the public view only: the client needs the id for the redirect.
     return apiOk(toPublicOrder(order), replayed ? 200 : 201);
   } catch (error) {

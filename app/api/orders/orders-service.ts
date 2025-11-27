@@ -3,6 +3,7 @@ import prisma from "../../../lib/prisma";
 import { sendOrderConfirmation } from "@/lib/send-mail";
 import { runAfterResponse } from "@/lib/after";
 import { fromCentavos, toCentavos } from "@/lib/money";
+import { isOnSale } from "@/lib/pricing";
 import type { PublicOrder } from "@/app/shared/types/order";
 import type { Prisma } from "@/app/generated/prisma/client";
 import type { CreateOrderInput } from "@/app/shared/zod/order-zod";
@@ -62,6 +63,8 @@ export class OrderValidationError extends Error {
 const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const ORDER_ID_RANDOM_CHARS = 10;
 const MAX_ID_ATTEMPTS = 3;
+// orders.total is Decimal(10,2): 99,999,999.99
+const MAX_TOTAL_CENTAVOS = 9_999_999_999;
 
 // Generate order ID: PK-YYYY-<10 Crockford base32 chars> (50 bits of entropy)
 export function generateOrderId(): string {
@@ -143,8 +146,8 @@ function unitPriceCentavos(product: {
   discountPrice: DbNumeric | null;
   sale: boolean;
 }): number {
-  return product.sale && product.discountPrice !== null
-    ? toCentavos(product.discountPrice)
+  return isOnSale(product)
+    ? toCentavos(product.discountPrice!)
     : toCentavos(product.price);
 }
 
@@ -239,6 +242,13 @@ export interface AddOrderResult {
   replayed: boolean;
 }
 
+/** Existing order for an Idempotency-Key, or null. */
+export async function findOrderByIdempotencyKey(
+  idempotencyKey: string
+): Promise<Order | null> {
+  return findByIdempotencyKey(prisma, idempotencyKey);
+}
+
 async function findByIdempotencyKey(
   client: Pick<typeof prisma, "order">,
   idempotencyKey: string
@@ -308,6 +318,10 @@ export async function addOrderWithResult(
             };
           });
 
+          if (totalCentavos > MAX_TOTAL_CENTAVOS) {
+            throw new OrderValidationError("Order total is too large");
+          }
+
           const isShipping = data.deliveryMethod === "shipping";
           const created = await tx.order.create({
             data: {
@@ -330,14 +344,7 @@ export async function addOrderWithResult(
         }
       );
 
-      if (!result.replayed) {
-        const order = result.order;
-        // Off the request path; sendOrderConfirmation never throws, and
-        // runAfterResponse swallows anything unexpected.
-        runAfterResponse("order-confirmation-email", () =>
-          sendOrderConfirmation(order)
-        );
-      }
+      if (!result.replayed) scheduleConfirmationEmail(result.order);
       return result;
     } catch (error) {
       if (!isUniqueViolation(error)) throw error;
@@ -350,6 +357,20 @@ export async function addOrderWithResult(
     }
   }
   throw new Error("Could not allocate a unique order id");
+}
+
+/**
+ * The order is already committed here, so nothing in scheduling may throw:
+ * runAfterResponse never throws, and this guard keeps it that way.
+ */
+function scheduleConfirmationEmail(order: Order): void {
+  try {
+    runAfterResponse("order-confirmation-email", () =>
+      sendOrderConfirmation(order)
+    );
+  } catch (error) {
+    console.error("Could not schedule order confirmation email:", error);
+  }
 }
 
 export async function addOrder(

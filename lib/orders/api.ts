@@ -1,6 +1,7 @@
 import {
   CreateOrderPayload,
   Order,
+  PublicOrder,
   UpdateOrderStatusPayload,
 } from "@/app/shared/types/order";
 import { api, ApiResponse } from "../axios";
@@ -24,6 +25,14 @@ export const ordersApi = {
 
   fetchOrderById: async (id: string): Promise<Order> => {
     const response = await api.get<ApiResponse<Order>>(`/orders/${id}`);
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data.error || "Failed to fetch order");
+  },
+
+  fetchPublicOrderById: async (id: string): Promise<PublicOrder> => {
+    const response = await api.get<ApiResponse<PublicOrder>>(`/orders/${id}`);
     if (response.data.success && response.data.data) {
       return response.data.data;
     }

@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useState } from "react";
-import { useOrder } from "@/lib/orders/hooks";
+import { usePublicOrder } from "@/lib/orders/hooks";
 
 const statusSteps = [
   {
@@ -62,7 +62,7 @@ const Tracking = () => {
   const [searchedOrderId, setSearchedOrderId] = useState<string | null>(null);
 
   // Use the hook with the searched order ID
-  const { data: order, isLoading, error } = useOrder(searchedOrderId || "");
+  const { data: order, isLoading, error } = usePublicOrder(searchedOrderId || "");
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -217,7 +217,7 @@ const Tracking = () => {
                 <CardContent className='space-y-4'>
                   <div className='space-y-3'>
                     {order.items.map((item) => (
-                      <div key={item.id} className='flex gap-3'>
+                      <div key={`${item.name}-${item.size}-${item.color}`} className='flex gap-3'>
                         <div className='relative h-16 w-16 flex-shrink-0 overflow-hidden rounded border border-border'>
                           <Image
                             src={item.image || "/placeholder.svg"}
@@ -259,23 +259,11 @@ const Tracking = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className='font-medium'>{order.customerName}</p>
-                  <p className='text-sm text-muted-foreground'>
-                    {order.customerEmail}
-                  </p>
-                  <p className='text-sm text-muted-foreground'>
-                    {order.customerPhone}
-                  </p>
+                  <p className='font-medium'>{order.customerFirstName}</p>
                   <p className='mt-2 text-sm'>
-                    {order.meetupLocation ? (
-                      order.meetupLocation
-                    ) : (
-                      <>
-                        {order.shippingAddress}
-                        <br />
-                        {order.shippingCity}, {order.shippingZipCode}
-                      </>
-                    )}
+                    {order.meetupLocation
+                      ? order.meetupLocation
+                      : order.shippingCity}
                   </p>
                 </CardContent>
               </Card>

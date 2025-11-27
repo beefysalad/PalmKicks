@@ -52,3 +52,21 @@ export interface CreateOrderPayload {
 export interface UpdateOrderStatusPayload {
   status: "pending" | "confirmed" | "processing" | "shipped" | "delivered";
 }
+
+export interface PublicOrder {
+  id: string;
+  status: Order["status"];
+  total: number;
+  createdAt: string;
+  meetupLocation: string | null;
+  shippingCity: string | null;
+  customerFirstName: string;
+  items: {
+    name: string;
+    price: number;
+    image: string;
+    size: string;
+    color: string;
+    quantity: number;
+  }[];
+}

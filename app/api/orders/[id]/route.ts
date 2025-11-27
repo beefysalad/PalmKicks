@@ -1,7 +1,9 @@
+import { auth } from "@/lib/auth";
 import { requireAdmin } from "@/lib/require-admin";
 import {
   deleteOrderById,
   getOrderById,
+  getPublicOrderById,
   updateOrderStatus,
 } from "@/app/api/orders/orders-service";
 import { updateOrderStatusSchema } from "@/app/shared/zod/order-zod";
@@ -16,7 +18,10 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const order = await getOrderById(id);
+    const session = await auth();
+    const order = session?.user?.id
+      ? await getOrderById(id)
+      : await getPublicOrderById(id);
 
     if (!order) {
       return NextResponse.json(

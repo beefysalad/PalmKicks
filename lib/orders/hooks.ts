@@ -32,6 +32,14 @@ export const useOrder = (id: string) => {
   });
 };
 
+export const usePublicOrder = (id: string) => {
+  return useQuery({
+    queryKey: [...orderKeys.detail(id), "public"],
+    queryFn: () => ordersApi.fetchPublicOrderById(id),
+    enabled: !!id,
+  });
+};
+
 export const useCreateOrder = () => {
   const queryClient = useQueryClient();
 

@@ -1,4 +1,5 @@
 import prisma from "../../../lib/prisma";
+import type { PublicOrder } from "@/app/shared/types/order";
 
 type OrderStatus =
   | "pending"
@@ -142,6 +143,31 @@ export async function getOrderById(id: string): Promise<Order | null> {
     items: order.items.map((item) => ({
       ...item,
       price: Number(item.price),
+    })),
+  };
+}
+
+export async function getPublicOrderById(
+  id: string
+): Promise<PublicOrder | null> {
+  const order = await getOrderById(id);
+  if (!order) return null;
+
+  return {
+    id: order.id,
+    status: order.status,
+    total: order.total,
+    createdAt: new Date(order.createdAt).toISOString(),
+    meetupLocation: order.meetupLocation,
+    shippingCity: order.shippingCity,
+    customerFirstName: order.customerName.trim().split(/\s+/)[0] ?? "",
+    items: order.items.map((item) => ({
+      name: item.name,
+      price: item.price,
+      image: item.image,
+      size: item.size,
+      color: item.color,
+      quantity: item.quantity,
     })),
   };
 }

@@ -10,6 +10,7 @@ import {
   addOrderWithResult,
   findOrderByIdempotencyKey,
   getOrders,
+  type OrderFilters,
   OrderValidationError,
   toPublicOrder,
 } from "@/app/api/orders/orders-service";
@@ -24,9 +25,10 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
 
-    const filters: {
-      status?: "pending" | "confirmed" | "processing" | "shipped" | "delivered";
-    } = {};
+    const filters: OrderFilters = {
+      page: Number(searchParams.get("page")),
+      pageSize: Number(searchParams.get("pageSize")),
+    };
     if (status !== null) {
       const validStatuses = [
         "pending",

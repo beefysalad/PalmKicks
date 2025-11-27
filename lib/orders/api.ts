@@ -1,6 +1,8 @@
 import {
   CreateOrderPayload,
   Order,
+  OrderStats,
+  PagedOrders,
   PublicOrder,
   UpdateOrderStatusPayload,
 } from "@/app/shared/types/order";
@@ -10,18 +12,28 @@ import { api, ApiResponse } from "../axios";
 export const ordersApi = {
   fetchOrders: async (filters?: {
     status?: "pending" | "confirmed" | "processing" | "shipped" | "delivered";
-  }): Promise<Order[]> => {
+    page?: number;
+    pageSize?: number;
+  }): Promise<PagedOrders> => {
     const params = new URLSearchParams();
-    if (filters?.status) {
-      params.append("status", filters.status);
-    }
+    if (filters?.status) params.append("status", filters.status);
+    if (filters?.page) params.append("page", String(filters.page));
+    if (filters?.pageSize) params.append("pageSize", String(filters.pageSize));
     const queryString = params.toString();
     const url = `/orders${queryString ? `?${queryString}` : ""}`;
-    const response = await api.get<ApiResponse<Order[]>>(url);
+    const response = await api.get<ApiResponse<PagedOrders>>(url);
     if (response.data.success && response.data.data) {
       return response.data.data;
     }
     throw new Error(response.data.error || "Failed to fetch orders");
+  },
+
+  fetchOrderStats: async (): Promise<OrderStats> => {
+    const response = await api.get<ApiResponse<OrderStats>>("/orders/stats");
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data.error || "Failed to fetch order stats");
   },
 
   fetchOrderById: async (id: string): Promise<Order> => {

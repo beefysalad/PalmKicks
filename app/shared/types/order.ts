@@ -82,3 +82,17 @@ export interface PublicOrder {
     quantity: number;
   }[];
 }
+
+export interface PagedOrders {
+  items: Order[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface OrderStats {
+  total: number;
+  /** Sum of totals of all non-pending orders. */
+  revenue: number;
+  byStatus: Record<Order["status"], number>;
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ordersApi } from "./api";
 import { useRouter } from "next/navigation";
@@ -16,12 +16,22 @@ export type OrderStatus =
   | "delivered";
 export interface OrderFilters {
   status?: OrderStatus;
+  page?: number;
+  pageSize?: number;
 }
 
 export const useOrders = (filters?: OrderFilters) => {
   return useQuery({
     queryKey: orderKeys.list(filters),
     queryFn: () => ordersApi.fetchOrders(filters),
+    placeholderData: keepPreviousData,
+  });
+};
+
+export const useOrderStats = () => {
+  return useQuery({
+    queryKey: orderKeys.stats(),
+    queryFn: () => ordersApi.fetchOrderStats(),
   });
 };
 
@@ -47,7 +57,7 @@ export const useCreateOrder = () => {
   return useMutation({
     mutationFn: (payload: CreateOrderPayload) => ordersApi.createOrder(payload),
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: orderKeys.all });
       toast.success("Order placed successfully!", {
         description: `Order #${data.id} has been created`,
       });
@@ -99,9 +109,6 @@ export const useUpdateOrderStatus = () => {
       await queryClient.cancelQueries({ queryKey: orderKeys.detail(id) });
 
       // Snapshot the previous values
-      const previousOrders = queryClient.getQueryData<Order[]>(
-        orderKeys.lists()
-      );
       const previousOrder = queryClient.getQueryData<Order>(
         orderKeys.detail(id)
       );
@@ -113,16 +120,7 @@ export const useUpdateOrderStatus = () => {
         });
       }
 
-      if (previousOrders) {
-        queryClient.setQueryData<Order[]>(orderKeys.lists(), (old) => {
-          if (!old) return old;
-          return old.map((order) =>
-            order.id === id ? { ...order, status } : order
-          );
-        });
-      }
-
-      return { previousOrders, previousOrder };
+      return { previousOrder };
     },
     onError: (error, variables, context) => {
       if (context?.previousOrder) {
@@ -130,10 +128,6 @@ export const useUpdateOrderStatus = () => {
           orderKeys.detail(variables.id),
           context.previousOrder
         );
-      }
-
-      if (context?.previousOrders) {
-        queryClient.setQueryData(orderKeys.list(), context.previousOrders);
       }
 
       const axiosError = error as AxiosError<{ error?: string }>;

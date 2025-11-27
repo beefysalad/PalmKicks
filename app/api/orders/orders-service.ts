@@ -165,43 +165,80 @@ function unitPriceCentavos(product: {
     : toCentavos(product.price);
 }
 
-export async function getOrders(filters?: {
+export const DEFAULT_PAGE_SIZE = 20;
+export const MAX_PAGE_SIZE = 100;
+
+export interface OrderFilters {
   status?: OrderStatus;
-}): Promise<Order[]> {
-  //eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const where: any = {};
+  page?: number;
+  pageSize?: number;
+}
+
+export interface PagedOrders {
+  items: Order[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+function clampInt(value: unknown, fallback: number, max: number): number {
+  const n = typeof value === "number" ? value : Number.NaN;
+  if (!Number.isFinite(n) || n < 1) return fallback;
+  return Math.min(Math.floor(n), max);
+}
+
+export async function getOrders(filters?: OrderFilters): Promise<PagedOrders> {
+  const page = clampInt(filters?.page, 1, Number.MAX_SAFE_INTEGER);
+  const pageSize = clampInt(filters?.pageSize, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
+  const where: Prisma.OrderWhereInput = {};
   if (filters?.status !== undefined) {
     where.status = filters.status;
   }
 
-  const orders = await prisma.order.findMany({
-    where,
-    include: {
-      items: {
-        include: {
-          product: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-        },
-        orderBy: {
-          createdAt: "asc",
-        },
-      },
-    },
-    orderBy: { createdAt: "desc" },
-  });
+  const [orders, total] = await prisma.$transaction([
+    prisma.order.findMany({
+      where,
+      include: orderInclude,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.order.count({ where }),
+  ]);
 
-  return orders.map((order) => ({
-    ...order,
-    total: Number(order.total),
-    items: order.items.map((item) => ({
-      ...item,
-      price: Number(item.price),
-    })),
-  }));
+  return { items: orders.map(mapOrder), total, page, pageSize };
+}
+
+export interface OrderStats {
+  total: number;
+  /** Sum of totals of all non-pending orders. */
+  revenue: number;
+  byStatus: Record<OrderStatus, number>;
+}
+
+export async function getOrderStats(): Promise<OrderStats> {
+  const groups = await prisma.order.groupBy({
+    by: ["status"],
+    _count: { _all: true },
+    _sum: { total: true },
+  });
+  const byStatus: Record<OrderStatus, number> = {
+    pending: 0,
+    confirmed: 0,
+    processing: 0,
+    shipped: 0,
+    delivered: 0,
+  };
+  let total = 0;
+  let revenueCentavos = 0;
+  for (const g of groups) {
+    byStatus[g.status as OrderStatus] = g._count._all;
+    total += g._count._all;
+    if (g.status !== "pending" && g._sum.total != null) {
+      revenueCentavos += toCentavos(g._sum.total);
+    }
+  }
+  return { total, revenue: revenueCentavos / 100, byStatus };
 }
 
 export async function deleteOrderById(id: string): Promise<void> {

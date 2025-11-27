@@ -4,6 +4,7 @@ import { sendOrderConfirmation } from "@/lib/send-mail";
 import { runAfterResponse } from "@/lib/after";
 import { fromCentavos, toCentavos } from "@/lib/money";
 import { isOnSale } from "@/lib/pricing";
+import { DomainError } from "@/lib/api-errors";
 import type { PublicOrder } from "@/app/shared/types/order";
 import type { Prisma } from "@/app/generated/prisma/client";
 import type { CreateOrderInput } from "@/app/shared/zod/order-zod";
@@ -50,15 +51,33 @@ export type { CreateOrderInput };
 
 export interface UpdateOrderStatusData {
   status: OrderStatus;
+  /** When set, the update only applies if the order is still in this status. */
+  expectedStatus?: OrderStatus;
 }
 
 /** Thrown when an order request is well-formed but cannot be fulfilled. */
-export class OrderValidationError extends Error {
+export class OrderValidationError extends DomainError {
   constructor(message: string) {
-    super(message);
+    super(message, 400);
     this.name = "OrderValidationError";
   }
 }
+
+/** Thrown when a status change is not a valid single forward step. */
+export class OrderTransitionError extends DomainError {
+  constructor(message: string) {
+    super(message, 409);
+    this.name = "OrderTransitionError";
+  }
+}
+
+const STATUS_FLOW: OrderStatus[] = [
+  "pending",
+  "confirmed",
+  "processing",
+  "shipped",
+  "delivered",
+];
 
 const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const ORDER_ID_RANDOM_CHARS = 10;
@@ -380,38 +399,71 @@ export async function addOrder(
   return (await addOrderWithResult(data, idempotencyKey)).order;
 }
 
+const ORDER_INCLUDE = {
+  items: {
+    include: { product: { select: { id: true, name: true } } },
+    orderBy: { createdAt: "asc" },
+  },
+} as const;
+
+function toOrder(order: {
+  total: unknown;
+  items: { price: unknown }[];
+}): Order {
+  return {
+    ...order,
+    total: Number(order.total),
+    items: order.items.map((item) => ({ ...item, price: Number(item.price) })),
+  } as unknown as Order;
+}
+
 export async function updateOrderStatus(
   id: string,
   data: UpdateOrderStatusData
 ): Promise<Order> {
-  const order = await prisma.order.update({
+  const current = await prisma.order.findUnique({
     where: { id },
-    data: {
-      status: data.status,
-    },
-    include: {
-      items: {
-        include: {
-          product: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-        },
-        orderBy: {
-          createdAt: "asc",
-        },
-      },
-    },
+    include: ORDER_INCLUDE,
   });
+  if (!current) {
+    throw new DomainError("Order not found", 404);
+  }
 
-  return {
-    ...order,
-    total: Number(order.total),
-    items: order.items.map((item) => ({
-      ...item,
-      price: Number(item.price),
-    })),
-  };
+  const expected = data.expectedStatus ?? current.status;
+  if (current.status !== expected) {
+    throw new OrderTransitionError(
+      "Order status changed since you loaded it. Refresh and try again."
+    );
+  }
+
+  if (data.status === current.status) {
+    return toOrder(current);
+  }
+
+  const from = STATUS_FLOW.indexOf(current.status as OrderStatus);
+  const to = STATUS_FLOW.indexOf(data.status);
+  if (from === -1 || to !== from + 1) {
+    throw new OrderTransitionError(
+      `Cannot change order status from ${current.status} to ${data.status}`
+    );
+  }
+
+  const result = await prisma.order.updateMany({
+    where: { id, status: expected },
+    data: { status: data.status },
+  });
+  if (result.count === 0) {
+    throw new OrderTransitionError(
+      "Order status changed since you loaded it. Refresh and try again."
+    );
+  }
+
+  const updated = await prisma.order.findUnique({
+    where: { id },
+    include: ORDER_INCLUDE,
+  });
+  if (!updated) {
+    throw new DomainError("Order not found", 404);
+  }
+  return toOrder(updated);
 }

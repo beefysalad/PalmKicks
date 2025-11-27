@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/lib/require-admin";
+import { handleRouteError } from "@/lib/api-errors";
 import { NextRequest, NextResponse } from "next/server";
 import { getBrands, addBrand } from "@/app/api/brands/brands-service";
 
@@ -33,19 +34,6 @@ export async function POST(request: NextRequest) {
     const brand = await addBrand({ name: name.trim() });
     return NextResponse.json({ success: true, data: brand }, { status: 201 });
   } catch (error) {
-    console.error("Error creating brand:", error);
-
-    // Handle unique constraint violation (duplicate name)
-    if (error instanceof Error && error.message.includes("Unique constraint")) {
-      return NextResponse.json(
-        { success: false, error: "A brand with this name already exists" },
-        { status: 409 }
-      );
-    }
-
-    return NextResponse.json(
-      { success: false, error: "Failed to create brand" },
-      { status: 500 }
-    );
+    return handleRouteError(error, "Failed to create brand");
   }
 }

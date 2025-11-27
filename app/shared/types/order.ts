@@ -61,6 +61,8 @@ export type CreateOrderPayload =
 
 export interface UpdateOrderStatusPayload {
   status: "pending" | "confirmed" | "processing" | "shipped" | "delivered";
+  /** Server rejects (409) if the order is no longer in this status. */
+  expectedStatus?: "pending" | "confirmed" | "processing" | "shipped" | "delivered";
 }
 
 export interface PublicOrder {

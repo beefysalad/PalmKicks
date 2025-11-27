@@ -86,10 +86,12 @@ export const useUpdateOrderStatus = () => {
     mutationFn: ({
       id,
       status,
+      expectedStatus,
     }: {
       id: string;
       status: "pending" | "confirmed" | "processing" | "shipped" | "delivered";
-    }) => ordersApi.updateOrderStatus(id, { status }),
+      expectedStatus?: OrderStatus;
+    }) => ordersApi.updateOrderStatus(id, { status, expectedStatus }),
     onMutate: async ({ id, status }) => {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: orderKeys.all });

@@ -52,3 +52,6 @@ export const addConfigSchema = z.object({
 });
 
 export type TAddConfigSchema = z.infer<typeof addConfigSchema>;
+
+// PUT /api/settings/[id] only changes the value; the key is immutable.
+export const updateConfigSchema = addConfigSchema.pick({ value: true });

@@ -59,14 +59,17 @@ export const idempotencyKeySchema = z
   .regex(/^[A-Za-z0-9_-]+$/, "Invalid Idempotency-Key");
 
 // Update order status schema
+const orderStatusEnum = z.enum([
+  "pending",
+  "confirmed",
+  "processing",
+  "shipped",
+  "delivered",
+]);
+
 export const updateOrderStatusSchema = z.object({
-  status: z.enum([
-    "pending",
-    "confirmed",
-    "processing",
-    "shipped",
-    "delivered",
-  ]),
+  status: orderStatusEnum,
+  expectedStatus: orderStatusEnum.optional(),
 });
 
 export const deleteOrderSchema = z.object({

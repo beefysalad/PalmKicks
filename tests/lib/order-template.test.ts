@@ -47,4 +47,17 @@ describe("buildOrderConfirmationEmail escaping", () => {
     expect(html).not.toContain('" onerror="1');
     expect(html).toContain('src="http://x/a.png&quot; onerror=&quot;1"');
   });
+
+  it("keeps plain-text delivery info unescaped", () => {
+    const b = { ...base, deliveryMethod: DeliveryMethod.Meetup, customer: { ...base.customer, meetupLocation: "A & B" } };
+    const { html, text } = buildOrderConfirmationEmail(b);
+    expect(text).toContain("A & B");
+    expect(text).not.toContain("&amp;");
+    expect(html).toContain("A &amp; B");
+  });
+
+  it("omits the logo img when NEXT_PUBLIC_LOGO_URL is empty", () => {
+    process.env.NEXT_PUBLIC_LOGO_URL = "";
+    expect(buildOrderConfirmationEmail(base).html).not.toContain("<img");
+  });
 });

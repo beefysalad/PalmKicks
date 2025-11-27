@@ -8,6 +8,9 @@ export {
   type OrderConfirmationEmailContent,
 } from "./orders/order-confirmation-template";
 
+const SMTP_TIMEOUT_MS = 10_000;
+const ORDER_EMAIL_OVERALL_TIMEOUT_MS = 15_000;
+
 // Initialize transporter only if email credentials are configured
 const getTransporter = () => {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
@@ -18,6 +21,9 @@ const getTransporter = () => {
     service: "gmail",
     port: 587,
     secure: false,
+    connectionTimeout: SMTP_TIMEOUT_MS,
+    greetingTimeout: SMTP_TIMEOUT_MS,
+    socketTimeout: SMTP_TIMEOUT_MS,
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
@@ -125,13 +131,27 @@ export async function sendOrderConfirmation(
         ? DeliveryMethod.Meetup
         : DeliveryMethod.Shipping,
     });
-    const result = await sendMail({
-      sendTo: order.customerEmail,
-      subject: content.subject,
-      html: content.html,
-      text: content.text,
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<{ success: false }>((resolve) => {
+      timer = setTimeout(() => {
+        console.error("Order confirmation email timed out");
+        resolve({ success: false });
+      }, ORDER_EMAIL_OVERALL_TIMEOUT_MS);
     });
-    return { sent: result.success };
+    try {
+      const result = await Promise.race([
+        sendMail({
+          sendTo: order.customerEmail,
+          subject: content.subject,
+          html: content.html,
+          text: content.text,
+        }),
+        timeout,
+      ]);
+      return { sent: result.success };
+    } finally {
+      clearTimeout(timer);
+    }
   } catch (error) {
     console.error(
       "Failed to send order confirmation:",

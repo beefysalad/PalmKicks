@@ -36,6 +36,27 @@ describe("send-mail", () => {
     expect(await sendOrderConfirmation(order)).toEqual({ sent: true });
   });
 
+  it("sets transport timeouts", async () => {
+    sendMailFn.mockResolvedValue({ messageId: "m" });
+    await sendMail({ sendTo: "a@b.test", subject: "s", text: "t" });
+    const opts = (createTransport.mock.calls[0] as unknown[])[0] as Record<string, number>;
+    expect(opts.connectionTimeout).toBe(10_000);
+    expect(opts.greetingTimeout).toBe(10_000);
+    expect(opts.socketTimeout).toBe(10_000);
+  });
+
+  it("hanging sendMail resolves {sent:false} after the overall bound", async () => {
+    vi.useFakeTimers();
+    try {
+      sendMailFn.mockReturnValue(new Promise(() => {}));
+      const p = sendOrderConfirmation(order);
+      await vi.advanceTimersByTimeAsync(15_001);
+      expect(await p).toEqual({ sent: false });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("sendOrderConfirmation never throws", async () => {
     sendMailFn.mockRejectedValue(new Error("boom"));
     expect(await sendOrderConfirmation(order)).toEqual({ sent: false });

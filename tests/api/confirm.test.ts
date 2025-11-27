@@ -27,10 +27,13 @@ describe("POST /api/orders/confirm", () => {
 
   it("admin resend returns emailSent", async () => {
     vi.mocked(auth).mockResolvedValue({ user: { id: "1" } } as never);
-    vi.mocked(svc.getOrderById).mockResolvedValue({ id: "PK-1" } as never);
+    const loaded = { id: "PK-1" } as never;
+    vi.mocked(svc.getOrderById).mockResolvedValue(loaded);
     const res = await POST(req({ orderId: "PK-1" }));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ success: true, data: { emailSent: true } });
+    expect(sendOrderConfirmation).toHaveBeenCalledTimes(1);
+    expect(sendOrderConfirmation).toHaveBeenCalledWith(loaded);
   });
 
   it("404 for unknown order, 400 for bad body", async () => {

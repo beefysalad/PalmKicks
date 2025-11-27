@@ -50,6 +50,9 @@ export function buildOrderConfirmationEmail(
       : order.customer.meetupLocation || "Location TBD";
   const deliveryInfo = escapeHtml(deliveryInfoRaw);
   const logoUrl = escapeHtml(process.env.NEXT_PUBLIC_LOGO_URL ?? "");
+  const logoImg = logoUrl
+    ? `<img src="${logoUrl}" alt="PalmKicks Logo" style="width: 80px; height: 80px; border-radius: 50%; margin-bottom: 20px; border: 3px solid rgba(255, 255, 255, 0.3);" />`
+    : "";
 
   // Build items table HTML
   const itemsHtml = buildOrderItemsHtml(order);
@@ -70,7 +73,7 @@ export function buildOrderConfirmationEmail(
           <!-- Header -->
           <tr>
             <td style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 40px 30px; text-align: center;">
-              <img src="${logoUrl}" alt="PalmKicks Logo" style="width: 80px; height: 80px; border-radius: 50%; margin-bottom: 20px; border: 3px solid rgba(255, 255, 255, 0.3);" />
+              ${logoImg}
               <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">Order Confirmed! (${getDevelopmentEnvironment()})</h1>
               <p style="margin: 8px 0 0; color: rgba(255, 255, 255, 0.9); font-size: 16px;">Thank you for your purchase</p>
             </td>
@@ -210,7 +213,7 @@ ${deliveryMethodLabel}: ${
 Total: ₱${order.total.toFixed(2)}
 
 ${deliveryMethodLabel.toUpperCase()}
-${deliveryInfo}
+${deliveryInfoRaw}
 
 CUSTOMER INFORMATION
 Name: ${order.customer.name}

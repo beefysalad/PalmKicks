@@ -14,13 +14,7 @@ import type {
 } from "@/app/shared/types/order";
 import type { Prisma } from "@/app/generated/prisma/client";
 import type { CreateOrderInput } from "@/app/shared/zod/order-zod";
-
-type OrderStatus =
-  | "pending"
-  | "confirmed"
-  | "processing"
-  | "shipped"
-  | "delivered";
+import type { OrderStatus, PaymentStatus } from "@/app/shared/order-lifecycle";
 
 export interface Order {
   id: string;
@@ -33,6 +27,18 @@ export interface Order {
   meetupLocation: string | null;
   total: number;
   status: OrderStatus;
+  paymentStatus: PaymentStatus;
+  paymentMethod: string | null;
+  paymentRef: string | null;
+  paidAt: Date | null;
+  adminNote: string | null;
+  courier: string | null;
+  trackingNumber: string | null;
+  shippedAt: Date | null;
+  cancelledAt: Date | null;
+  restockedAt: Date | null;
+  confirmedEmailAt: Date | null;
+  shippedEmailAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   items: {
@@ -126,6 +132,10 @@ export function toPublicOrder(order: Order): PublicOrder {
     meetupLocation: order.meetupLocation,
     shippingCity: order.shippingCity,
     customerFirstName: order.customerName.trim().split(/\s+/)[0] || "Customer",
+    courier: order.courier,
+    trackingNumber: order.trackingNumber,
+    shippedAt: order.shippedAt ? new Date(order.shippedAt).toISOString() : null,
+    paymentStatus: order.paymentStatus,
     items: order.items.map((item) => ({
       name: item.name,
       price: item.price,
@@ -205,6 +215,7 @@ export async function getOrderStats(): Promise<OrderStats> {
     processing: 0,
     shipped: 0,
     delivered: 0,
+    cancelled: 0,
   };
   let total = 0;
   let revenueCentavos = 0;

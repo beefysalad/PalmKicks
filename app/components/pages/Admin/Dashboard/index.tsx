@@ -47,6 +47,7 @@ const DashboardPage = () => {
       processing: "bg-purple-500/10 text-purple-600",
       shipped: "bg-indigo-500/10 text-indigo-600",
       delivered: "bg-green-500/10 text-green-600",
+      cancelled: "bg-red-500/10 text-red-600",
     };
     return colors[status] || colors.pending;
   };

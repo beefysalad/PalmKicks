@@ -110,6 +110,7 @@ describe("GET /api/orders/stats", () => {
         processing: 0,
         shipped: 3,
         delivered: 0,
+        cancelled: 0,
       },
     });
   });

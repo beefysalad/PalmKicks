@@ -44,6 +44,10 @@ const h = vi.hoisted(() => {
     const row = {
       ...data,
       status: data.status ?? "pending",
+      paymentStatus: "unpaid",
+      courier: null,
+      trackingNumber: null,
+      shippedAt: null,
       createdAt: new Date("2026-01-01T00:00:00Z"),
       updatedAt: new Date("2026-01-01T00:00:00Z"),
       items,

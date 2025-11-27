@@ -64,6 +64,7 @@ const OrdersListPage = () => {
       processing: "bg-purple-500/10 text-purple-600 border-purple-500/20",
       shipped: "bg-indigo-500/10 text-indigo-600 border-indigo-500/20",
       delivered: "bg-green-500/10 text-green-600 border-green-500/20",
+      cancelled: "bg-red-500/10 text-red-600 border-red-500/20",
     };
     return colors[status] || colors.pending;
   };

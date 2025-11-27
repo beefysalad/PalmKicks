@@ -7,13 +7,9 @@ import { useRouter } from "next/navigation";
 import type { AxiosError } from "axios";
 import { orderKeys } from "./order-keys";
 import { Order, OrderFilters } from "@/app/shared/types/order";
+import type { OrderStatus } from "@/app/shared/order-lifecycle";
 
-export type OrderStatus =
-  | "pending"
-  | "confirmed"
-  | "processing"
-  | "shipped"
-  | "delivered";
+export type { OrderStatus };
 export type { OrderFilters };
 
 export const useOrders = (filters?: OrderFilters) => {
@@ -77,7 +73,7 @@ export const useUpdateOrderStatus = () => {
       expectedStatus,
     }: {
       id: string;
-      status: "pending" | "confirmed" | "processing" | "shipped" | "delivered";
+      status: OrderStatus;
       expectedStatus?: OrderStatus;
     }) => ordersApi.updateOrderStatus(id, { status, expectedStatus }),
     onMutate: async ({ id, status }) => {

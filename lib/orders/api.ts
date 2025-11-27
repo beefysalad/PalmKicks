@@ -1,6 +1,7 @@
 import {
   CreateOrderPayload,
   Order,
+  OrderFilters,
   OrderStats,
   PagedOrders,
   PublicOrder,
@@ -10,11 +11,7 @@ import { isAxiosError } from "axios";
 import { api, ApiResponse } from "../axios";
 
 export const ordersApi = {
-  fetchOrders: async (filters?: {
-    status?: "pending" | "confirmed" | "processing" | "shipped" | "delivered";
-    page?: number;
-    pageSize?: number;
-  }): Promise<PagedOrders> => {
+  fetchOrders: async (filters?: OrderFilters): Promise<PagedOrders> => {
     const params = new URLSearchParams();
     if (filters?.status) params.append("status", filters.status);
     if (filters?.page) params.append("page", String(filters.page));

@@ -4,7 +4,7 @@ import { sendOrderConfirmation } from "@/lib/send-mail";
 import { runAfterResponse } from "@/lib/after";
 import { fromCentavos, toCentavos } from "@/lib/money";
 import { isOnSale } from "@/lib/pricing";
-import { ORDER_STATUS_FLOW } from "@/app/shared/order-status";
+import { canTransition, canRefund } from "@/app/shared/order-lifecycle";
 import { DomainError } from "@/lib/api-errors";
 import type {
   OrderFilters,
@@ -13,7 +13,7 @@ import type {
   PublicOrder,
 } from "@/app/shared/types/order";
 import type { Prisma } from "@/app/generated/prisma/client";
-import type { CreateOrderInput } from "@/app/shared/zod/order-zod";
+import type { AdminOrderUpdate, CreateOrderInput } from "@/app/shared/zod/order-zod";
 import type { OrderStatus, PaymentStatus } from "@/app/shared/order-lifecycle";
 
 export interface Order {
@@ -59,7 +59,7 @@ export interface Order {
   }[];
 }
 
-export type { CreateOrderInput, OrderFilters, OrderStats, PagedOrders };
+export type { AdminOrderUpdate, CreateOrderInput, OrderFilters, OrderStats, PagedOrders };
 
 export interface UpdateOrderStatusData {
   status: OrderStatus;
@@ -75,15 +75,13 @@ export class OrderValidationError extends DomainError {
   }
 }
 
-/** Thrown when a status change is not a valid single forward step. */
+/** Thrown when an order edit conflicts with its current state. */
 export class OrderTransitionError extends DomainError {
   constructor(message: string) {
     super(message, 409);
     this.name = "OrderTransitionError";
   }
 }
-
-const STATUS_FLOW: readonly OrderStatus[] = ORDER_STATUS_FLOW;
 
 const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const ORDER_ID_RANDOM_CHARS = 10;
@@ -205,7 +203,7 @@ export async function getOrders(filters?: OrderFilters): Promise<PagedOrders<Ord
 
 export async function getOrderStats(): Promise<OrderStats> {
   const groups = await prisma.order.groupBy({
-    by: ["status"],
+    by: ["status", "paymentStatus"],
     _count: { _all: true },
     _sum: { total: true },
   });
@@ -219,19 +217,31 @@ export async function getOrderStats(): Promise<OrderStats> {
   };
   let total = 0;
   let revenueCentavos = 0;
+  let unpaidOrders = 0;
   for (const g of groups) {
-    byStatus[g.status as OrderStatus] = g._count._all;
+    byStatus[g.status] += g._count._all;
     total += g._count._all;
-    if (g.status !== "pending" && g._sum.total != null) {
+    if (g.status !== "cancelled" && g.paymentStatus === "unpaid") {
+      unpaidOrders += g._count._all;
+    }
+    if (g.status !== "cancelled" && g.paymentStatus === "paid" && g._sum.total != null) {
       revenueCentavos += toCentavos(g._sum.total);
     }
   }
-  return { total, revenue: revenueCentavos / 100, byStatus };
+  return { total, revenue: revenueCentavos / 100, byStatus, unpaidOrders };
 }
 
 export async function deleteOrderById(id: string): Promise<void> {
-  await prisma.order.delete({
-    where: { id },
+  await prisma.$transaction(async (tx) => {
+    const current = await tx.order.findUnique({ where: { id } });
+    if (!current) throw new DomainError("Order not found", 404);
+    if (current.status !== "cancelled") {
+      throw new OrderTransitionError("Cancel the order before deleting");
+    }
+    const result = await tx.order.deleteMany({ where: { id, status: "cancelled" } });
+    if (result.count === 0) {
+      throw new OrderTransitionError("Order changed before deletion. Refresh and try again.");
+    }
   });
 }
 
@@ -388,53 +398,83 @@ function scheduleConfirmationEmail(order: Order): void {
   }
 }
 
+const STATUS_CONFLICT = "Order status changed since you loaded it. Refresh and try again.";
+
+export async function updateOrderAdmin(
+  id: string,
+  input: AdminOrderUpdate
+): Promise<Order> {
+  return prisma.$transaction(async (tx) => {
+    const current = await tx.order.findUnique({ where: { id }, include: orderInclude });
+    if (!current) throw new DomainError("Order not found", 404);
+    const expected = input.expectedStatus ?? current.status;
+    if (current.status !== expected) throw new OrderTransitionError(STATUS_CONFLICT);
+
+    // The resolved spec permits a paid cancellation to be refunded; all other
+    // cancelled-order edits are limited to the internal note.
+    if (current.status === "cancelled") {
+      const allowed = new Set(["expectedStatus", "adminNote", "paymentStatus"]);
+      if (Object.entries(input).some(([key, value]) => value !== undefined && !allowed.has(key)) ||
+          (input.paymentStatus !== undefined && input.paymentStatus !== "refunded")) {
+        throw new OrderTransitionError("Cancelled orders only allow notes and refunds");
+      }
+    }
+
+    const confirmedStatus = current.status === "pending" ? "confirmed" : current.status;
+    if (input.markPaidAndConfirm &&
+        ((input.paymentStatus !== undefined && input.paymentStatus !== "paid") ||
+         (input.status !== undefined && input.status !== confirmedStatus))) {
+      throw new OrderValidationError("Mark paid and confirm conflicts with the requested status or payment");
+    }
+    const status = input.markPaidAndConfirm ? confirmedStatus : input.status ?? current.status;
+    const paymentStatus = input.markPaidAndConfirm ? "paid" : input.paymentStatus;
+    const changingStatus = status !== current.status;
+    if (changingStatus && !canTransition(current.status, status)) {
+      throw new OrderTransitionError(`Cannot change order status from ${current.status} to ${status}`);
+    }
+    if (paymentStatus === "refunded" && !canRefund(current.paymentStatus)) {
+      throw new OrderTransitionError("Only paid orders can be refunded");
+    }
+
+    const data: Prisma.OrderUpdateManyMutationInput = {};
+    for (const key of ["paymentMethod", "paymentRef", "adminNote", "courier", "trackingNumber"] as const) {
+      if (input[key] !== undefined) data[key] = input[key];
+    }
+    const now = new Date();
+    if (changingStatus) {
+      data.status = status;
+      if (status === "cancelled") data.cancelledAt = now;
+      if (status === "shipped") {
+        // Re-shipping must explicitly reconfirm the shipping details. On the
+        // first shipment, saved details can be supplied by an earlier edit.
+        const courier = input.courier !== undefined || current.shippedAt
+          ? input.courier : current.courier;
+        const tracking = input.trackingNumber !== undefined || current.shippedAt
+          ? input.trackingNumber : current.trackingNumber;
+        if (!courier?.trim() || !tracking?.trim()) {
+          throw new OrderValidationError("Courier and tracking number are required to ship an order");
+        }
+        if (!current.shippedAt) data.shippedAt = now;
+      }
+    }
+    if (paymentStatus !== undefined) {
+      data.paymentStatus = paymentStatus;
+      if (paymentStatus === "paid" && !current.paidAt) data.paidAt = now;
+    }
+    if (Object.keys(data).length === 0) return mapOrder(current);
+
+    const result = await tx.order.updateMany({ where: { id, status: expected }, data });
+    if (result.count === 0) throw new OrderTransitionError(STATUS_CONFLICT);
+    const updated = await tx.order.findUnique({ where: { id }, include: orderInclude });
+    if (!updated) throw new DomainError("Order not found", 404);
+    return mapOrder(updated);
+  });
+}
+
+/** Compatibility entry point for existing status-only callers. */
 export async function updateOrderStatus(
   id: string,
   data: UpdateOrderStatusData
 ): Promise<Order> {
-  const current = await prisma.order.findUnique({
-    where: { id },
-    include: orderInclude,
-  });
-  if (!current) {
-    throw new DomainError("Order not found", 404);
-  }
-
-  const expected = data.expectedStatus ?? current.status;
-  if (current.status !== expected) {
-    throw new OrderTransitionError(
-      "Order status changed since you loaded it. Refresh and try again."
-    );
-  }
-
-  if (data.status === current.status) {
-    return mapOrder(current);
-  }
-
-  const from = STATUS_FLOW.indexOf(current.status as OrderStatus);
-  const to = STATUS_FLOW.indexOf(data.status);
-  if (from === -1 || to !== from + 1) {
-    throw new OrderTransitionError(
-      `Cannot change order status from ${current.status} to ${data.status}`
-    );
-  }
-
-  const result = await prisma.order.updateMany({
-    where: { id, status: expected },
-    data: { status: data.status },
-  });
-  if (result.count === 0) {
-    throw new OrderTransitionError(
-      "Order status changed since you loaded it. Refresh and try again."
-    );
-  }
-
-  const updated = await prisma.order.findUnique({
-    where: { id },
-    include: orderInclude,
-  });
-  if (!updated) {
-    throw new DomainError("Order not found", 404);
-  }
-  return mapOrder(updated);
+  return updateOrderAdmin(id, data);
 }

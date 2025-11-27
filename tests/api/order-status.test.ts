@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 
 const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {
+    $transaction: vi.fn(),
     order: {
       findUnique: vi.fn(),
       updateMany: vi.fn(),
@@ -25,6 +26,7 @@ const row = (status: string) => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  prismaMock.$transaction.mockImplementation(async (fn) => fn(prismaMock));
   vi.spyOn(console, "error").mockImplementation(() => {});
   prismaMock.order.updateMany.mockResolvedValue({ count: 1 });
 });
@@ -42,6 +44,12 @@ describe("updateOrderStatus", () => {
         data: { status: "confirmed" },
       }),
     );
+  });
+
+  it("allows one step back without changing payment", async () => {
+    prismaMock.order.findUnique.mockResolvedValueOnce(row("confirmed")).mockResolvedValueOnce(row("pending"));
+    expect((await updateOrderStatus("o1", { status: "pending" })).status).toBe("pending");
+    expect(prismaMock.order.updateMany).toHaveBeenCalledWith({ where: { id: "o1", status: "confirmed" }, data: { status: "pending" } });
   });
 
   it("same status is a no-op success", async () => {

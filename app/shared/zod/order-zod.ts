@@ -1,4 +1,5 @@
 import z from "zod";
+import { PAYMENT_METHODS } from "../order-lifecycle";
 
 // Order item as sent by the client. Price, name and image are NOT accepted:
 // the server reads them from the product record (unknown keys are stripped).
@@ -65,12 +66,30 @@ const orderStatusEnum = z.enum([
   "processing",
   "shipped",
   "delivered",
+  "cancelled",
 ]);
 
 export const updateOrderStatusSchema = z.object({
   status: orderStatusEnum,
   expectedStatus: orderStatusEnum.optional(),
 });
+
+const nullableText = (max: number) => z.string().trim().max(max).nullable()
+  .transform((value) => value || null).optional();
+
+export const adminOrderUpdateSchema = z.object({
+  status: orderStatusEnum.optional(),
+  expectedStatus: orderStatusEnum.optional(),
+  paymentStatus: z.enum(["unpaid", "paid", "refunded"]).optional(),
+  paymentMethod: z.enum(PAYMENT_METHODS).optional(),
+  paymentRef: nullableText(100),
+  adminNote: nullableText(2000),
+  courier: nullableText(100),
+  trackingNumber: nullableText(100),
+  markPaidAndConfirm: z.boolean().optional(),
+}).strict();
+
+export type AdminOrderUpdate = z.infer<typeof adminOrderUpdateSchema>;
 
 export const deleteOrderSchema = z.object({
   id: z.string().min(1, "Order ID is required"),

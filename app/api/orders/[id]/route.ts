@@ -4,9 +4,9 @@ import {
   deleteOrderById,
   getOrderById,
   getPublicOrderById,
-  updateOrderStatus,
+  updateOrderAdmin,
 } from "@/app/api/orders/orders-service";
-import { updateOrderStatusSchema } from "@/app/shared/zod/order-zod";
+import { adminOrderUpdateSchema } from "@/app/shared/zod/order-zod";
 import { handleRouteError, parseJsonBody } from "@/lib/api-errors";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -75,11 +75,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
     const body = await parseJsonBody(request);
 
-    const validatedData = updateOrderStatusSchema.parse(body);
+    const validatedData = adminOrderUpdateSchema.parse(body);
 
-    const order = await updateOrderStatus(id, validatedData);
+    const order = await updateOrderAdmin(id, validatedData);
     return NextResponse.json({ success: true, data: order });
   } catch (error) {
-    return handleRouteError(error, "Failed to update order status");
+    return handleRouteError(error, "Failed to update order");
   }
 }

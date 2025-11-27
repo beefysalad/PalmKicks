@@ -94,16 +94,17 @@ describe("GET /api/orders pagination", () => {
 });
 
 describe("GET /api/orders/stats", () => {
-  it("returns counts per status, total and revenue excluding pending", async () => {
+  it("returns counts per status, total and paid revenue and unpaid count", async () => {
     prismaMock.order.groupBy.mockResolvedValue([
-      { status: "pending", _count: { _all: 2 }, _sum: { total: "20.00" } },
-      { status: "shipped", _count: { _all: 3 }, _sum: { total: "300.50" } },
+      { status: "pending", paymentStatus: "unpaid", _count: { _all: 2 }, _sum: { total: "20.00" } },
+      { status: "shipped", paymentStatus: "paid", _count: { _all: 3 }, _sum: { total: "300.50" } },
     ]);
     const res = await STATS();
     const body = await res.json();
     expect(body.data).toEqual({
       total: 5,
       revenue: 300.5,
+      unpaidOrders: 2,
       byStatus: {
         pending: 2,
         confirmed: 0,

@@ -118,7 +118,8 @@ export interface PagedOrders<T = Order> {
 
 export interface OrderStats {
   total: number;
-  /** Sum of totals of all non-pending orders. */
+  /** Sum of paid, non-cancelled order totals. */
   revenue: number;
   byStatus: Record<Order["status"], number>;
+  unpaidOrders: number;
 }

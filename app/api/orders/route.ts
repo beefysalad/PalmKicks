@@ -1,6 +1,10 @@
 import { requireAdmin } from "@/lib/require-admin";
 import { apiError, apiOk } from "@/lib/api-response";
-import { checkRateLimit, rateLimit, recordRateLimit } from "@/lib/rate-limit";
+import {
+  rateLimit,
+  releaseRateLimit,
+  reserveRateLimit,
+} from "@/lib/rate-limit";
 import { getClientIp } from "@/lib/client-ip";
 import {
   addOrderWithResult,
@@ -80,7 +84,9 @@ export async function POST(request: NextRequest) {
       if (existing) return apiOk(toPublicOrder(existing), 200);
     }
 
-    // The IP limit counts every attempt that reaches this point.
+    // The IP limit counts every attempt that reaches this point (abuse
+    // control on raw request volume), so it is never released. rateLimit()
+    // is already an atomic synchronous check-and-increment.
     const ipCheck = rateLimit(
       `orders:ip:${getClientIp(request.headers)}`,
       IP_LIMIT.limit,
@@ -100,21 +106,28 @@ export async function POST(request: NextRequest) {
       return apiError(400, parsed.error.issues[0]?.message || "Invalid order data");
     }
 
-    // The email limit only counts orders that were actually created, so a
-    // rejected (400) attempt does not use up the customer's slots.
+    // The email limit only counts orders that were actually created. The slot
+    // is reserved synchronously (atomic check-and-increment) before the
+    // awaited create, so concurrent requests cannot all see a free slot, and
+    // it is released if the request ends without creating an order (400,
+    // replay, or server error).
     const emailKey = `orders:email:${parsed.data.customerEmail.toLowerCase()}`;
-    const emailCheck = checkRateLimit(
+    const emailSlot = reserveRateLimit(
       emailKey,
       EMAIL_LIMIT.limit,
       EMAIL_LIMIT.windowMs
     );
-    if (!emailCheck.ok) return tooManyRequests(emailCheck.retryAfterSec);
+    if (!emailSlot.ok) return tooManyRequests(emailSlot.retryAfterSec);
 
-    const { order, replayed } = await addOrderWithResult(
-      parsed.data,
-      idempotencyKey
-    );
-    if (!replayed) recordRateLimit(emailKey, EMAIL_LIMIT.windowMs);
+    let result;
+    try {
+      result = await addOrderWithResult(parsed.data, idempotencyKey);
+    } catch (error) {
+      releaseRateLimit(emailKey, emailSlot.reservation!);
+      throw error;
+    }
+    const { order, replayed } = result;
+    if (replayed) releaseRateLimit(emailKey, emailSlot.reservation!);
 
     // Return the public view only: the client needs the id for the redirect.
     return apiOk(toPublicOrder(order), replayed ? 200 : 201);

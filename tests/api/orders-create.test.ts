@@ -438,4 +438,46 @@ describe("POST /api/orders", () => {
       (await post(baseBody({ items: [{ productId: "p1", size: "9", color: "White", quantity: 1 }] }))).status
     ).toBe(201);
   });
+
+  it("concurrent orders for one email: exactly 3 succeed, 1 is 429 (atomic reserve)", async () => {
+    const realCreate = h.create.getMockImplementation()!;
+    let releaseGate!: () => void;
+    const gate = new Promise<void>((r) => (releaseGate = r));
+    h.create.mockImplementation(async (args) => {
+      await gate;
+      return realCreate(args);
+    });
+    const email = { customerEmail: "burst@example.test" };
+    const pending = Array.from({ length: 4 }, () => post(baseBody(email)));
+    // Let every request reach the slow create before any finishes.
+    await new Promise((r) => setTimeout(r, 20));
+    releaseGate();
+    const statuses = (await Promise.all(pending)).map((r) => r.status).sort();
+    expect(statuses).toEqual([201, 201, 201, 429]);
+    h.create.mockImplementation(realCreate);
+  });
+
+  it("a server error releases the reserved email slot", async () => {
+    const email = { customerEmail: "flaky@example.test" };
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    for (let i = 0; i < 3; i++) {
+      h.findMany.mockRejectedValueOnce(new Error("db down"));
+      expect((await post(baseBody(email))).status).toBe(500);
+    }
+    err.mockRestore();
+    for (let i = 0; i < 3; i++) expect((await post(baseBody(email))).status).toBe(201);
+    expect((await post(baseBody(email))).status).toBe(429);
+  });
+
+  it("a race replay (P2002 on key) releases the reserved email slot", async () => {
+    const email = { customerEmail: "racer@example.test" };
+    await post(baseBody(email), { "idempotency-key": "rk" });
+    // Route-level lookup misses, in-transaction lookup misses -> P2002 -> replay
+    h.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+    const replay = await post(baseBody(email), { "idempotency-key": "rk" });
+    expect(replay.status).toBe(200);
+    expect((await post(baseBody(email))).status).toBe(201);
+    expect((await post(baseBody(email))).status).toBe(201);
+    expect((await post(baseBody(email))).status).toBe(429);
+  });
 });

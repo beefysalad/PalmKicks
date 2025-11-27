@@ -4,7 +4,10 @@ import {
   MAX_KEYS,
   rateLimit,
   rateLimitSize,
+  rateLimitStats,
   recordRateLimit,
+  releaseRateLimit,
+  reserveRateLimit,
   resetRateLimits,
 } from "@/lib/rate-limit";
 
@@ -80,5 +83,42 @@ describe("rateLimit (sliding window)", () => {
     // newest key survives eviction, oldest is gone
     expect(rateLimit(`k${MAX_KEYS + 2_499}`, 1, 600_000).ok).toBe(false);
     expect(rateLimit("k0", 1, 600_000).ok).toBe(true);
+  });
+
+  it("reserve is check-and-increment in one call; release frees that slot", () => {
+    const a = reserveRateLimit("r", 2, 60_000);
+    const b = reserveRateLimit("r", 2, 60_000);
+    const c = reserveRateLimit("r", 2, 60_000);
+    expect([a.ok, b.ok, c.ok]).toEqual([true, true, false]);
+    expect(c.reservation).toBeUndefined();
+    releaseRateLimit("r", b.reservation!);
+    expect(reserveRateLimit("r", 2, 60_000).ok).toBe(true);
+    expect(reserveRateLimit("r", 2, 60_000).ok).toBe(false);
+  });
+
+  it("releasing twice or an unknown reservation is a no-op", () => {
+    const a = reserveRateLimit("r", 1, 60_000);
+    releaseRateLimit("r", a.reservation!);
+    releaseRateLimit("r", a.reservation!);
+    releaseRateLimit("missing", 123);
+    expect(reserveRateLimit("r", 1, 60_000).ok).toBe(true);
+    expect(reserveRateLimit("r", 1, 60_000).ok).toBe(false);
+  });
+
+  it("at capacity, inserts evict one entry without scanning the map", () => {
+    for (let i = 0; i < MAX_KEYS; i++) rateLimit(`fill${i}`, 5, 600_000);
+    expect(rateLimitSize()).toBe(MAX_KEYS);
+    const scansBefore = rateLimitStats().fullScans;
+    // Same instant: no sweep interval has elapsed.
+    for (let i = 0; i < 2_000; i++) {
+      rateLimit(`new${i}`, 5, 600_000);
+      expect(rateLimitSize()).toBeLessThanOrEqual(MAX_KEYS);
+    }
+    expect(rateLimitStats().fullScans).toBe(scansBefore);
+    // After the interval, at most one sweep for many requests.
+    vi.advanceTimersByTime(61_000);
+    for (let i = 0; i < 2_000; i++) rateLimit(`later${i}`, 5, 600_000);
+    expect(rateLimitStats().fullScans).toBe(scansBefore + 1);
+    expect(rateLimitSize()).toBeLessThanOrEqual(MAX_KEYS);
   });
 });

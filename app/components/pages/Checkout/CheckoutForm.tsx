@@ -17,7 +17,7 @@ import { motion } from "framer-motion";
 import { CheckCircle2, MapPin, Truck } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCart } from "../../shared/CartProvider";
 import ProgressIndicator from "./ProgressIndicator";
@@ -32,6 +32,13 @@ import { checkoutFn } from "../../../../lib/checkout/checkout";
 
 export { DeliveryMethod };
 
+function newIdempotencyKey(): string {
+  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  // randomUUID needs a secure context; fall back to random hex.
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 const CheckoutForm = () => {
   const { items, total, clearCart } = useCart();
   const router = useRouter();
@@ -40,6 +47,9 @@ const CheckoutForm = () => {
     DeliveryMethod.Shipping
   );
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  // One Idempotency-Key per checkout attempt: retries after a network error
+  // reuse it so the server returns the same order instead of a duplicate.
+  const idempotencyKeyRef = useRef<string | null>(null);
 
   const form = useForm<TCheckoutSchema>({
     resolver: zodResolver(checkoutSchema),
@@ -54,13 +64,20 @@ const CheckoutForm = () => {
     },
   });
 
+  const getIdempotencyKey = () => {
+    if (!idempotencyKeyRef.current) {
+      idempotencyKeyRef.current = newIdempotencyKey();
+    }
+    return idempotencyKeyRef.current;
+  };
+
   const checkoutMutation = useMutation({
     mutationFn: (values: TCheckoutSchema) =>
       checkoutFn({
         values,
         items,
-        total,
         deliveryMethod,
+        idempotencyKey: getIdempotencyKey(),
         clearCart,
       }),
     onSuccess: (orderId) => {

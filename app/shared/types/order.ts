@@ -29,25 +29,35 @@ export interface Order {
   }[];
 }
 
-export interface CreateOrderPayload {
+/**
+ * Order creation request. Prices, totals, names and images are intentionally
+ * absent: the server computes them from the product records.
+ */
+export interface CreateOrderItemPayload {
+  productId: string;
+  size: string;
+  color: string;
+  quantity: number;
+}
+
+interface CreateOrderPayloadBase {
   customerName: string;
   customerEmail: string;
   customerPhone: string;
-  shippingAddress?: string;
-  shippingCity?: string;
-  shippingZipCode?: string;
-  meetupLocation?: string;
-  items: Array<{
-    productId?: string;
-    name: string;
-    price: number;
-    image: string;
-    size: string;
-    color: string;
-    quantity: number;
-  }>;
-  total: number;
+  items: CreateOrderItemPayload[];
 }
+
+export type CreateOrderPayload =
+  | (CreateOrderPayloadBase & {
+      deliveryMethod: "shipping";
+      shippingAddress: string;
+      shippingCity: string;
+      shippingZipCode: string;
+    })
+  | (CreateOrderPayloadBase & {
+      deliveryMethod: "meetup";
+      meetupLocation: string;
+    });
 
 export interface UpdateOrderStatusPayload {
   status: "pending" | "confirmed" | "processing" | "shipped" | "delivered";

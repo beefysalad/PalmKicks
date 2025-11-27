@@ -4,6 +4,7 @@ import {
   PublicOrder,
   UpdateOrderStatusPayload,
 } from "@/app/shared/types/order";
+import { isAxiosError } from "axios";
 import { api, ApiResponse } from "../axios";
 
 export const ordersApi = {
@@ -41,8 +42,26 @@ export const ordersApi = {
     throw new Error(response.data.error || "Failed to fetch order");
   },
 
-  createOrder: async (payload: CreateOrderPayload): Promise<Order> => {
-    const response = await api.post<ApiResponse<Order>>("/orders", payload);
+  createOrder: async (
+    payload: CreateOrderPayload,
+    idempotencyKey?: string
+  ): Promise<PublicOrder> => {
+    let response;
+    try {
+      response = await api.post<ApiResponse<PublicOrder>>(
+        "/orders",
+        payload,
+        idempotencyKey
+          ? { headers: { "Idempotency-Key": idempotencyKey } }
+          : undefined
+      );
+    } catch (error) {
+      // Surface the server's message (validation, stock, rate limit).
+      const message = isAxiosError<ApiResponse<unknown>>(error)
+        ? error.response?.data?.error
+        : undefined;
+      throw new Error(message || "Failed to create order");
+    }
     if (response.data.success && response.data.data) {
       return response.data.data;
     }

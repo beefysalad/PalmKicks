@@ -60,9 +60,11 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
       });
       return;
     }
-    const price = product.discountPrice
-      ? Number(product.discountPrice)
-      : Number(product.price);
+    // Display only: the server charges discountPrice only when sale is on.
+    const price =
+      product.sale && product.discountPrice != null
+        ? Number(product.discountPrice)
+        : Number(product.price);
     addItem({
       id: product.id,
       name: product.name,

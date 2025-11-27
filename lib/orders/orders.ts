@@ -30,14 +30,3 @@ export interface Order {
   createdAt: string;
   deliveryMethod: DeliveryMethod;
 }
-
-/**
- * Generate order ID (moved to server-side in orders-service.ts)
- * Kept here for reference but should not be used client-side
- * @deprecated Use the server-side generateOrderId in orders-service.ts
- */
-export function generateOrderId(): string {
-  const year = new Date().getFullYear();
-  const random = Math.random().toString(36).substring(2, 7);
-  return `PK-${year}-${random}`.toUpperCase();
-}

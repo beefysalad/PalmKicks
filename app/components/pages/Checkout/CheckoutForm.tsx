@@ -1,4 +1,6 @@
 "use client";
+
+import { DeliveryMethod } from "@/app/shared/types/delivery";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -28,10 +30,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { checkoutFn } from "../../../../lib/checkout/checkout";
 
-export enum DeliveryMethod {
-  Shipping = "shipping",
-  Meetup = "meetup",
-}
+export { DeliveryMethod };
 
 const CheckoutForm = () => {
   const { items, total, clearCart } = useCart();

@@ -1,4 +1,5 @@
 import prisma from "../../../lib/prisma";
+import { sendOrderConfirmation } from "@/lib/send-mail";
 import type { PublicOrder } from "@/app/shared/types/order";
 
 type OrderStatus =
@@ -217,7 +218,7 @@ export async function addOrder(data: CreateOrderData): Promise<Order> {
     },
   });
 
-  return {
+  const created: Order = {
     ...order,
     total: Number(order.total),
     items: order.items.map((item) => ({
@@ -225,6 +226,11 @@ export async function addOrder(data: CreateOrderData): Promise<Order> {
       price: Number(item.price),
     })),
   };
+
+  // Never throws; a failed email must not fail the order.
+  await sendOrderConfirmation(created);
+
+  return created;
 }
 
 export async function updateOrderStatus(

@@ -1,4 +1,4 @@
-import { DeliveryMethod } from "@/app/components/pages/Checkout/CheckoutForm";
+import { DeliveryMethod } from "@/app/shared/types/delivery";
 
 /**
  * Order interface for email template compatibility

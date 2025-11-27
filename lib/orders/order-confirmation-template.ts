@@ -1,5 +1,6 @@
 import { getDevelopmentEnvironment } from "@/helpers";
 import { Order } from "./orders";
+import { escapeHtml } from "../escape-html";
 
 export interface OrderConfirmationEmailContent {
   subject: string;
@@ -14,9 +15,9 @@ function buildOrderItemsHtml(order: Order): string {
       (item) => `
       <tr>
         <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
-          <div style="font-weight: 600; color: #111827;">${item.name}</div>
+          <div style="font-weight: 600; color: #111827;">${escapeHtml(item.name)}</div>
           <div style="font-size: 14px; color: #6b7280; margin-top: 4px;">
-            Size ${item.size} • Color ${item.color} • Qty: ${item.quantity}
+            Size ${escapeHtml(item.size)} • Color ${escapeHtml(item.color)} • Qty: ${Number(item.quantity)}
           </div>
         </td>
         <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: 600; color: #111827;">
@@ -43,10 +44,12 @@ export function buildOrderConfirmationEmail(
 
   const deliveryMethodLabel =
     order.deliveryMethod === "shipping" ? "Ship to Address" : "Meet Up";
-  const deliveryInfo =
+  const deliveryInfoRaw =
     order.deliveryMethod === "shipping"
       ? `${order.customer.address}, ${order.customer.city}, ${order.customer.zipCode}`
       : order.customer.meetupLocation || "Location TBD";
+  const deliveryInfo = escapeHtml(deliveryInfoRaw);
+  const logoUrl = escapeHtml(process.env.NEXT_PUBLIC_LOGO_URL ?? "");
 
   // Build items table HTML
   const itemsHtml = buildOrderItemsHtml(order);
@@ -67,9 +70,7 @@ export function buildOrderConfirmationEmail(
           <!-- Header -->
           <tr>
             <td style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 40px 30px; text-align: center;">
-              <img src=${
-                process.env.NEXT_PUBLIC_LOGO_URL
-              } alt="PalmKicks Logo" style="width: 80px; height: 80px; border-radius: 50%; margin-bottom: 20px; border: 3px solid rgba(255, 255, 255, 0.3);" />
+              <img src="${logoUrl}" alt="PalmKicks Logo" style="width: 80px; height: 80px; border-radius: 50%; margin-bottom: 20px; border: 3px solid rgba(255, 255, 255, 0.3);" />
               <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">Order Confirmed! (${getDevelopmentEnvironment()})</h1>
               <p style="margin: 8px 0 0; color: rgba(255, 255, 255, 0.9); font-size: 16px;">Thank you for your purchase</p>
             </td>
@@ -83,9 +84,9 @@ export function buildOrderConfirmationEmail(
               <div style="background-color: #f9fafb; border-radius: 6px; padding: 20px; margin-bottom: 24px;">
                 <div style="margin-bottom: 12px;">
                   <span style="color: #6b7280; font-size: 14px;">Order ID:</span>
-                  <span style="color: #111827; font-weight: 600; font-size: 16px; margin-left: 8px;">${
+                  <span style="color: #111827; font-weight: 600; font-size: 16px; margin-left: 8px;">${escapeHtml(
                     order.id
-                  }</span>
+                  )}</span>
                 </div>
                 <div style="margin-bottom: 12px;">
                   <span style="color: #6b7280; font-size: 14px;">Order Date:</span>
@@ -93,9 +94,9 @@ export function buildOrderConfirmationEmail(
                 </div>
                 <div>
                   <span style="color: #6b7280; font-size: 14px;">Status:</span>
-                  <span style="color: #059669; font-weight: 600; font-size: 14px; margin-left: 8px; text-transform: capitalize;">${
+                  <span style="color: #059669; font-weight: 600; font-size: 14px; margin-left: 8px; text-transform: capitalize;">${escapeHtml(
                     order.status
-                  }</span>
+                  )}</span>
                 </div>
               </div>
 
@@ -143,9 +144,9 @@ export function buildOrderConfirmationEmail(
               <div style="background-color: #f9fafb; border-radius: 6px; padding: 20px; margin-bottom: 24px;">
                 <h4 style="margin: 0 0 12px; color: #111827; font-size: 16px; font-weight: 600;">Customer Information</h4>
                 <div style="color: #374151; font-size: 14px; line-height: 1.8;">
-                  <div><strong>Name:</strong> ${order.customer.name}</div>
-                  <div><strong>Email:</strong> ${order.customer.email}</div>
-                  <div><strong>Phone:</strong> ${order.customer.phone}</div>
+                  <div><strong>Name:</strong> ${escapeHtml(order.customer.name)}</div>
+                  <div><strong>Email:</strong> ${escapeHtml(order.customer.email)}</div>
+                  <div><strong>Phone:</strong> ${escapeHtml(order.customer.phone)}</div>
                 </div>
               </div>
 
@@ -153,9 +154,9 @@ export function buildOrderConfirmationEmail(
               <div style="background-color: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 6px; padding: 16px; margin-bottom: 24px;">
                 <h4 style="margin: 0 0 8px; color: #111827; font-size: 16px; font-weight: 600;">Next Steps</h4>
                 <p style="margin: 0; color: #374151; font-size: 14px; line-height: 1.6;">
-                  Please send your Order ID <strong>${
+                  Please send your Order ID <strong>${escapeHtml(
                     order.id
-                  }</strong> to our Instagram page <strong>@palmkicks</strong> to complete your purchase and coordinate delivery.
+                  )}</strong> to our Instagram page <strong>@palmkicks</strong> to complete your purchase and coordinate delivery.
                 </p>
               </div>
             </td>

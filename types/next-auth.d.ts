@@ -23,6 +23,5 @@ declare module "next-auth/jwt" {
     username?: string;
     firstTimeLogin?: boolean;
     passwordChangedAt?: number;
-    checkedAt?: number;
   }
 }

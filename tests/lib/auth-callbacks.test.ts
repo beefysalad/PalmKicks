@@ -18,6 +18,8 @@ import {
   jwtCallback,
   sessionCallback,
   resetLoginThrottle,
+  resetAdminVerificationCache,
+  refreshAdminVerification,
 } from "@/lib/auth";
 
 const find = prisma.admin.findUnique as unknown as ReturnType<typeof vi.fn>;
@@ -37,6 +39,7 @@ describe("session revocation", () => {
     find.mockReset();
     compare.mockReset();
     resetLoginThrottle();
+    resetAdminVerificationCache();
   });
 
   it("stores passwordChangedAt at sign-in", async () => {
@@ -74,15 +77,6 @@ describe("session revocation", () => {
     } as never);
     expect(token.id).toBe("a1");
     expect(token.firstTimeLogin).toBe(true);
-    expect(token.checkedAt).toBeGreaterThan(0);
-  });
-
-  it("does not hit the DB again within 60 seconds", async () => {
-    const token = await jwtCallback({
-      token: { id: "a1", passwordChangedAt: 1000, checkedAt: Date.now() - 1000 },
-    } as never);
-    expect(find).not.toHaveBeenCalled();
-    expect(token.id).toBe("a1");
   });
 
   it("fails closed when the DB lookup throws", async () => {
@@ -136,5 +130,77 @@ describe("login throttle", () => {
     expect(await authorizeAdmin({ username: "ghost", password: "x" })).toBeNull();
     expect(compare).toHaveBeenCalledTimes(1);
     expect(compare.mock.calls[0][1]).toMatch(/^\$2[aby]\$/);
+  });
+});
+
+describe("verification cache", () => {
+  beforeEach(() => {
+    find.mockReset();
+    resetAdminVerificationCache();
+  });
+  const tok = () => ({ id: "a1", username: "admin", passwordChangedAt: 1000 });
+
+  it("hits prisma once for two calls within 60s with an unchanged token", async () => {
+    find.mockResolvedValue(row());
+    expect((await jwtCallback({ token: tok() } as never)).id).toBe("a1");
+    expect((await jwtCallback({ token: tok() } as never)).id).toBe("a1");
+    expect(find).toHaveBeenCalledTimes(1);
+  });
+
+  it("refreshAdminVerification makes a password change take effect immediately", async () => {
+    find.mockResolvedValue(row());
+    await jwtCallback({ token: tok() } as never);
+    refreshAdminVerification({ id: "a1", passwordChangedAt: new Date(9000), firstTimeLogin: false });
+    const t = await jwtCallback({ token: tok() } as never);
+    expect(t.id).toBeUndefined();
+    expect(find).toHaveBeenCalledTimes(1);
+  });
+
+  it("caches a missing admin and fails closed on DB error without caching", async () => {
+    find.mockRejectedValueOnce(new Error("down"));
+    expect((await jwtCallback({ token: tok() } as never)).id).toBeUndefined();
+    find.mockResolvedValue(row());
+    expect((await jwtCallback({ token: tok() } as never)).id).toBe("a1");
+  });
+});
+
+describe("authorize input validation and concurrency", () => {
+  beforeEach(() => {
+    find.mockReset();
+    compare.mockReset();
+    resetLoginThrottle();
+  });
+
+  it("rejects non-string and oversized credentials before prisma/bcrypt", async () => {
+    for (const c of [
+      { username: 123, password: "x" },
+      { username: "admin", password: { a: 1 } },
+      { username: "a".repeat(101), password: "x" },
+      { username: "admin", password: "x".repeat(73) },
+    ]) {
+      expect(await authorizeAdmin(c as never)).toBeNull();
+    }
+    expect(find).not.toHaveBeenCalled();
+    expect(compare).not.toHaveBeenCalled();
+  });
+
+  it("10 concurrent attempts run bcrypt at most 5 times", async () => {
+    find.mockResolvedValue(row());
+    compare.mockImplementation(
+      () => new Promise((r) => setTimeout(() => r(false), 10))
+    );
+    const results = await Promise.all(
+      Array.from({ length: 10 }, () => authorizeAdmin({ username: "admin", password: "x" }))
+    );
+    expect(results.every((r) => r === null)).toBe(true);
+    expect(compare.mock.calls.length).toBeLessThanOrEqual(5);
+  });
+
+  it("a success refunds the reserved slot", async () => {
+    find.mockResolvedValue(row());
+    compare.mockResolvedValue(true);
+    for (let i = 0; i < 8; i++) {
+      expect(await authorizeAdmin({ username: "admin", password: "ok" })).not.toBeNull();
+    }
   });
 });

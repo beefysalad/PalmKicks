@@ -7,11 +7,11 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("bcryptjs", () => ({
   default: { compare: vi.fn(), hash: vi.fn() },
 }));
-vi.mock("@/lib/auth", () => ({ auth: vi.fn() }));
+vi.mock("@/lib/auth", () => ({ auth: vi.fn(), refreshAdminVerification: vi.fn() }));
 
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { auth, refreshAdminVerification } from "@/lib/auth";
 import { POST } from "@/app/api/settings/change-password/route";
 import { changePasswordSchema } from "@/app/shared/zod/settings-zod";
 
@@ -93,6 +93,14 @@ describe("POST /api/settings/change-password", () => {
     const res = await call(valid);
     expect(res.status).toBe(400);
     expect(update).not.toHaveBeenCalled();
+  });
+
+  it("refreshes the verification cache so the change applies immediately", async () => {
+    compare.mockResolvedValue(true);
+    await call(valid);
+    expect(refreshAdminVerification).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "a1", firstTimeLogin: false, passwordChangedAt: expect.any(Date) })
+    );
   });
 
   it("sets passwordChangedAt and clears firstTimeLogin", async () => {

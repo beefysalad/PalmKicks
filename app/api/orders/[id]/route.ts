@@ -1,5 +1,5 @@
 import { auth } from "@/lib/auth";
-import { requireAdmin } from "@/lib/require-admin";
+import { getAdminAccess, requireAdmin } from "@/lib/require-admin";
 import {
   deleteOrderById,
   getOrderById,
@@ -21,7 +21,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const publicView =
       request.nextUrl.searchParams.get("view") === "public";
     const session = publicView ? null : await auth();
-    const order = session?.user?.id
+    const { isAdmin, passwordChangeRequired } = getAdminAccess(session);
+    if (passwordChangeRequired) {
+      return NextResponse.json(
+        { success: false, error: "Password change required" },
+        { status: 403 }
+      );
+    }
+    const order = isAdmin
       ? await getOrderById(id)
       : await getPublicOrderById(id);
 

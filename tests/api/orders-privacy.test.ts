@@ -95,4 +95,12 @@ describe("GET /api/orders/[id] privacy", () => {
     expect(body.data.customerFirstName).toBe("Juan");
     expect(ordersSvc.getOrderById).not.toHaveBeenCalled();
   });
+
+  it("admin session still on first login gets 403, not the full record", async () => {
+    vi.mocked(auth).mockResolvedValue({ user: { id: "admin", firstTimeLogin: true } } as never);
+    const res = await call("PK-2026-X");
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toBe("Password change required");
+    expect(ordersSvc.getOrderById).not.toHaveBeenCalled();
+  });
 });

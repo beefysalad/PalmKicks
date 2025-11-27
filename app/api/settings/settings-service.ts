@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import { refreshAdminVerification } from "@/lib/auth";
 import prisma from "../../../lib/prisma";
 import {
   AddConfigDataPayload,
@@ -29,6 +30,7 @@ export async function changePassword(
   }
   const hashedPassword = await bcrypt.hash(values.newPassword, 10);
 
+  const passwordChangedAt = new Date();
   await prisma.admin.update({
     where: {
       username: values.username,
@@ -37,8 +39,13 @@ export async function changePassword(
       password: hashedPassword,
       firstTimeLogin: false,
       // Revokes every session issued before now (see lib/auth.ts).
-      passwordChangedAt: new Date(),
+      passwordChangedAt,
     },
+  });
+  refreshAdminVerification({
+    id: user.id,
+    passwordChangedAt,
+    firstTimeLogin: false,
   });
 }
 

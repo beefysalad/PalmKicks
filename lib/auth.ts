@@ -24,6 +24,8 @@ function isThrottled(username: string, now: number): boolean {
   return entry.count >= MAX_FAILURES;
 }
 
+// Reserve an attempt slot synchronously (before any await) so concurrent
+// requests cannot all pass the check. A successful login deletes the entry.
 function recordFailure(username: string, now: number): void {
   const entry = failures.get(username);
   if (entry && entry.resetAt > now) {
@@ -57,16 +59,25 @@ const DUMMY_HASH =
 export async function authorizeAdmin(
   credentials: Partial<Record<"username" | "password", unknown>> | undefined
 ) {
-  if (!credentials?.username || !credentials?.password) {
+  const username = credentials?.username;
+  const password = credentials?.password;
+  if (
+    typeof username !== "string" ||
+    typeof password !== "string" ||
+    username.length < 1 ||
+    username.length > 100 ||
+    password.length < 1 ||
+    password.length > 72
+  ) {
     return null;
   }
-  const username = credentials.username as string;
-  const password = credentials.password as string;
   const now = Date.now();
 
   if (isThrottled(username, now)) {
     return null;
   }
+  // Take the slot now, before the first await; refunded on success below.
+  recordFailure(username, now);
 
   const admin = await prisma.admin.findUnique({ where: { username } });
 
@@ -76,7 +87,6 @@ export async function authorizeAdmin(
   );
 
   if (!admin || !passwordsMatch) {
-    recordFailure(username, now);
     return null;
   }
 
@@ -92,6 +102,47 @@ export async function authorizeAdmin(
 // --- Session lifecycle ----------------------------------------------------
 // Re-check the admin row at most once per minute per token.
 const RECHECK_INTERVAL_MS = 60 * 1000;
+
+// Server-side verification cache, so the 60 s recheck does not depend on the
+// token cookie being re-issued (route handlers calling auth() do not forward
+// refreshed cookies). Per instance; bounded, oldest evicted first.
+interface AdminVerification {
+  exists: boolean;
+  passwordChangedAt: number;
+  firstTimeLogin: boolean;
+  checkedAt: number;
+}
+const MAX_VERIFICATION_ENTRIES = 100;
+const verificationCache = new Map<string, AdminVerification>();
+
+function cacheVerification(id: string, entry: AdminVerification): void {
+  verificationCache.delete(id);
+  while (verificationCache.size >= MAX_VERIFICATION_ENTRIES) {
+    const oldest = verificationCache.keys().next().value;
+    if (oldest === undefined) break;
+    verificationCache.delete(oldest);
+  }
+  verificationCache.set(id, entry);
+}
+
+export function resetAdminVerificationCache(): void {
+  verificationCache.clear();
+}
+
+// Called after a password change so it takes effect immediately on this
+// instance (other instances converge within the 60 s TTL).
+export function refreshAdminVerification(admin: {
+  id: string;
+  passwordChangedAt: Date;
+  firstTimeLogin: boolean;
+}): void {
+  cacheVerification(admin.id, {
+    exists: true,
+    passwordChangedAt: admin.passwordChangedAt.getTime(),
+    firstTimeLogin: admin.firstTimeLogin,
+    checkedAt: Date.now(),
+  });
+}
 
 function invalidate(token: JWT): JWT {
   delete token.id;
@@ -112,35 +163,37 @@ export async function jwtCallback({
     token.username = user.username;
     token.firstTimeLogin = user.firstTimeLogin;
     token.passwordChangedAt = user.passwordChangedAt;
-    token.checkedAt = Date.now();
     return token;
   }
 
   if (!token.id) return token;
 
   const now = Date.now();
-  if (token.checkedAt && now - token.checkedAt < RECHECK_INTERVAL_MS) {
-    return token;
-  }
-
-  try {
-    const admin = await prisma.admin.findUnique({
-      where: { id: token.id },
-      select: { firstTimeLogin: true, passwordChangedAt: true },
-    });
-    if (
-      !admin ||
-      admin.passwordChangedAt.getTime() > (token.passwordChangedAt ?? 0)
-    ) {
+  let v = verificationCache.get(token.id);
+  if (!v || now - v.checkedAt >= RECHECK_INTERVAL_MS) {
+    try {
+      const admin = await prisma.admin.findUnique({
+        where: { id: token.id },
+        select: { firstTimeLogin: true, passwordChangedAt: true },
+      });
+      v = {
+        exists: !!admin,
+        passwordChangedAt: admin ? admin.passwordChangedAt.getTime() : 0,
+        firstTimeLogin: admin ? admin.firstTimeLogin : false,
+        checkedAt: now,
+      };
+      cacheVerification(token.id, v);
+    } catch {
+      // Fail closed (and do not cache the failure).
       return invalidate(token);
     }
-    token.firstTimeLogin = admin.firstTimeLogin;
-    token.checkedAt = now;
-    return token;
-  } catch {
-    // Fail closed: if we cannot confirm the admin still exists, no session.
+  }
+
+  if (!v.exists || v.passwordChangedAt > (token.passwordChangedAt ?? 0)) {
     return invalidate(token);
   }
+  token.firstTimeLogin = v.firstTimeLogin;
+  return token;
 }
 
 export async function sessionCallback({

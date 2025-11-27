@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 vi.mock("@/lib/auth", () => ({ auth: vi.fn() }));
 
 import { auth } from "@/lib/auth";
-import { requireAdmin } from "@/lib/require-admin";
+import { requireAdmin, getAdminAccess } from "@/lib/require-admin";
 
 const mockAuth = auth as unknown as ReturnType<typeof vi.fn>;
 
@@ -46,5 +46,14 @@ describe("requireAdmin firstTimeLogin enforcement", () => {
   it("still returns 401 without id even with allowFirstTimeLogin", async () => {
     mockAuth.mockResolvedValue({ user: { firstTimeLogin: true } });
     expect((await requireAdmin({ allowFirstTimeLogin: true }))?.status).toBe(401);
+  });
+});
+
+describe("getAdminAccess", () => {
+  it("reports admin and password-change state", () => {
+    expect(getAdminAccess(null)).toEqual({ isAdmin: false, passwordChangeRequired: false });
+    expect(getAdminAccess({ user: {} } as never)).toEqual({ isAdmin: false, passwordChangeRequired: false });
+    expect(getAdminAccess({ user: { id: "a" } } as never)).toEqual({ isAdmin: true, passwordChangeRequired: false });
+    expect(getAdminAccess({ user: { id: "a", firstTimeLogin: true } } as never)).toEqual({ isAdmin: true, passwordChangeRequired: true });
   });
 });

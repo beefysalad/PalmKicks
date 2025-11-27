@@ -40,6 +40,7 @@ const OrderDetailsPage = () => {
 
   // Initialise (and re-sync after refetches) from the loaded order.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (loadedStatus) setStatus(loadedStatus);
   }, [loadedStatus]);
 

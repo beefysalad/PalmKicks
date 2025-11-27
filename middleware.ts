@@ -9,21 +9,40 @@ export async function middleware(request: NextRequest) {
   const isLoginPage = request.nextUrl.pathname === "/admin/login";
 
   // Auth.js v5 names the session cookie by protocol and uses that name as the
-  // JWT salt, so the two must match the cookie actually issued.
-  const secureCookie =
-    request.nextUrl.protocol === "https:" ||
-    request.headers.get("x-forwarded-proto") === "https";
+  // JWT salt, so the two must match the cookie actually issued. Like Auth.js,
+  // prefer the configured AUTH_URL / NEXTAUTH_URL protocol over the request's.
+  const configuredUrl = process.env.AUTH_URL ?? process.env.NEXTAUTH_URL;
+  let secureCookie: boolean;
+  if (configuredUrl) {
+    try {
+      secureCookie = new URL(configuredUrl).protocol === "https:";
+    } catch {
+      secureCookie = request.nextUrl.protocol === "https:";
+    }
+  } else {
+    secureCookie =
+      request.nextUrl.protocol === "https:" ||
+      request.headers.get("x-forwarded-proto") === "https";
+  }
   const cookieName = secureCookie
     ? "__Secure-authjs.session-token"
     : "authjs.session-token";
 
-  const token = await getToken({
-    req: request,
-    secret: process.env.AUTH_SECRET,
-    secureCookie,
-    cookieName,
-    salt: cookieName,
-  });
+  let token: unknown = null;
+  try {
+    token = await getToken({
+      // Only the cookie is forwarded so an Authorization header can't be
+      // used to influence the result.
+      req: { headers: new Headers({ cookie: request.headers.get("cookie") ?? "" }) },
+      secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
+      secureCookie,
+      cookieName,
+      salt: cookieName,
+    });
+  } catch {
+    // Fail closed: any decode/config error means "not authenticated".
+    token = null;
+  }
 
   if (isAdminRoute && !isLoginPage && !token) {
     return NextResponse.redirect(new URL("/admin/login", request.url));

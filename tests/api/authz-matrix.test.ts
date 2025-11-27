@@ -16,6 +16,7 @@ import * as productsSvc from "@/app/api/products/products-service";
 import * as ordersSvc from "@/app/api/orders/orders-service";
 import * as settingsSvc from "@/app/api/settings/settings-service";
 import { v2 as cloudinary } from "cloudinary";
+import { auth } from "@/lib/auth";
 
 const table: [string, string][] = [
   ["@/app/api/brands/route", "POST"],
@@ -44,7 +45,7 @@ describe("authz matrix: unauthenticated requests", () => {
       req: NextRequest,
       ctx: { params: Promise<{ id: string }> },
     ) => Promise<Response>;
-    const method = name === "GET" ? "GET" : name;
+    const method = name;
     const req = new NextRequest("http://localhost/api/x", {
       method,
       ...(method === "GET" ? {} : { body: "{}", headers: { "content-type": "application/json" } }),
@@ -59,5 +60,33 @@ describe("authz matrix: unauthenticated requests", () => {
       }
     }
     expect(cloudinary.uploader.upload_stream).not.toHaveBeenCalled();
+    expect(cloudinary.uploader.upload).not.toHaveBeenCalled();
+  });
+});
+
+describe("positive controls", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("admin session reaches the service (brands POST)", async () => {
+    vi.mocked(auth as unknown as () => Promise<unknown>).mockResolvedValueOnce({ user: { id: "a1" } });
+    vi.mocked(brandsSvc.addBrand).mockResolvedValueOnce({ id: "b1", name: "Nike" } as never);
+    const { POST } = await import("@/app/api/brands/route");
+    const res = await POST(
+      new NextRequest("http://localhost/api/brands", {
+        method: "POST",
+        body: JSON.stringify({ name: "Nike" }),
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    expect(res.status).not.toBe(401);
+    expect(brandsSvc.addBrand).toHaveBeenCalled();
+  });
+
+  it("public products GET works without a session", async () => {
+    vi.mocked(productsSvc.getProducts).mockResolvedValueOnce([] as never);
+    const { GET } = await import("@/app/api/products/route");
+    const res = await GET(new NextRequest("http://localhost/api/products"));
+    expect(res.status).not.toBe(401);
+    expect(productsSvc.getProducts).toHaveBeenCalled();
   });
 });

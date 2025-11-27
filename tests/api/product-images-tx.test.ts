@@ -4,6 +4,7 @@ const { tx, outer, prismaMock } = vi.hoisted(() => {
   const mk = () => ({
     product: { update: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
     productImage: { deleteMany: vi.fn(), createMany: vi.fn() },
+    $queryRaw: vi.fn(),
   });
   const tx = mk();
   const outer = mk();
@@ -42,6 +43,7 @@ beforeEach(() => {
     f.mockReset();
   tx.product.findUnique.mockReset().mockResolvedValue(full);
   tx.product.create.mockResolvedValue(full);
+  tx.$queryRaw.mockReset().mockResolvedValue([{ id: "p1" }]);
 });
 
 describe("product image writes are transactional", () => {
@@ -135,5 +137,36 @@ describe("updateProduct merged discount invariant", () => {
     current({ price: 100, sale: true, discountPrice: null });
     await updateProduct("p1", { featured: true });
     expect(updateArg()).toEqual({ featured: true });
+  });
+});
+
+describe("updateProduct row lock", () => {
+  it("locks the product row FOR UPDATE inside the transaction before reading", async () => {
+    const order: string[] = [];
+    tx.$queryRaw.mockImplementation(async () => {
+      order.push("lock");
+      return [{ id: "p1" }];
+    });
+    tx.product.findUnique.mockImplementation(async () => {
+      order.push("read");
+      return { ...full, price: 100, sale: true, discountPrice: 50 };
+    });
+    tx.product.update.mockImplementation(async () => void order.push("update"));
+
+    await updateProduct("p1", { discountPrice: 60 });
+
+    expect(order.slice(0, 3)).toEqual(["lock", "read", "update"]);
+    const [strings, ...values] = tx.$queryRaw.mock.calls[0];
+    expect((strings as string[]).join("?")).toMatch(
+      /SELECT id FROM products WHERE id = \? FOR UPDATE/
+    );
+    expect(values).toEqual(["p1"]);
+    expect(outer.$queryRaw).not.toHaveBeenCalled();
+  });
+
+  it("returns 404 when the locked row does not exist", async () => {
+    tx.$queryRaw.mockResolvedValue([]);
+    await expect(updateProduct("p1", { price: 10 })).rejects.toMatchObject({ status: 404 });
+    expect(tx.product.update).not.toHaveBeenCalled();
   });
 });

@@ -242,6 +242,10 @@ export async function updateProduct(
       rest.discountPrice !== undefined ||
       rest.sale !== undefined
     ) {
+      // Lock the row first so a concurrent update cannot change price/sale
+      // between this read and the write below (read-merge-validate-write).
+      const locked = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM products WHERE id = ${id} FOR UPDATE`;
+      if (locked.length === 0) throw new DomainError("Product not found", 404);
       const current = await tx.product.findUnique({
         where: { id },
         select: { price: true, discountPrice: true, sale: true },

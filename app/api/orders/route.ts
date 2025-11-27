@@ -1,8 +1,12 @@
+import { requireAdmin } from "@/lib/require-admin";
 import { addOrder, getOrders } from "@/app/api/orders/orders-service";
 import { orderSchema } from "@/app/shared/zod/order-zod";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   try {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");

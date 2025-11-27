@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/require-admin";
 import { addConfigSchema } from "@/app/shared/zod/settings-zod";
 import { NextRequest, NextResponse } from "next/server";
 import { addConfig, getAllConfigs } from "./settings-service";
@@ -20,6 +21,9 @@ export async function GET() {
   }
 }
 export async function POST(request: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   try {
     const body = await request.json();
     const validatedData = addConfigSchema.parse(body);

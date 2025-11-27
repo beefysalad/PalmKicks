@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/require-admin";
 import { NextRequest, NextResponse } from "next/server";
 import { deleteConfig, updateConfig } from "../settings-service";
 
@@ -7,6 +8,9 @@ interface RouteParams {
   }>;
 }
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   try {
     const { id } = await params;
     await deleteConfig(id);
@@ -33,6 +37,9 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 }
 
 export async function PUT(request: NextRequest, { params }: RouteParams) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   try {
     const { id } = await params;
     const body = await request.json();

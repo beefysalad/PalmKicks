@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/lib/require-admin";
 import { NextRequest, NextResponse } from "next/server";
 import { getProducts, addProduct } from "@/app/api/products/products-service";
 import { productSchema } from "@/app/shared/zod/product-zod";
@@ -29,6 +30,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   try {
     const body = await request.json();
     let brandId = body.brandId;

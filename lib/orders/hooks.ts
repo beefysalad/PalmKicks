@@ -1,12 +1,14 @@
 "use client";
 
+import type { AdminOrderUpdate } from "@/app/shared/zod/order-zod";
+
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ordersApi } from "./api";
 import { useRouter } from "next/navigation";
 import type { AxiosError } from "axios";
 import { orderKeys } from "./order-keys";
-import { Order, OrderFilters } from "@/app/shared/types/order";
+import { OrderFilters } from "@/app/shared/types/order";
 import type { OrderStatus } from "@/app/shared/order-lifecycle";
 
 export type { OrderStatus };
@@ -63,59 +65,24 @@ export const useDeleteOrder = () => {
   });
 };
 
-export const useUpdateOrderStatus = () => {
+export const useUpdateOrder = () => {
   const queryClient = useQueryClient();
-
   return useMutation({
-    mutationFn: ({
-      id,
-      status,
-      expectedStatus,
-    }: {
-      id: string;
-      status: OrderStatus;
-      expectedStatus?: OrderStatus;
-    }) => ordersApi.updateOrderStatus(id, { status, expectedStatus }),
-    onMutate: async ({ id, status }) => {
-      // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: orderKeys.all });
-      await queryClient.cancelQueries({ queryKey: orderKeys.detail(id) });
-
-      // Snapshot the previous values
-      const previousOrder = queryClient.getQueryData<Order>(
-        orderKeys.detail(id)
-      );
-
-      if (previousOrder) {
-        queryClient.setQueryData<Order>(orderKeys.detail(id), (old) => {
-          if (!old) return old;
-          return { ...old, status };
-        });
-      }
-
-      return { previousOrder };
-    },
-    onError: (error, variables, context) => {
-      if (context?.previousOrder) {
-        queryClient.setQueryData(
-          orderKeys.detail(variables.id),
-          context.previousOrder
-        );
-      }
-
+    mutationFn: ({ id, ...input }: AdminOrderUpdate & { id: string }) => ordersApi.updateOrder(id, input),
+    onError: (error, { id }) => {
       const axiosError = error as AxiosError<{ error?: string }>;
       if (axiosError.response?.status === 409) {
-        // Stale status: refetch so the next attempt sends a fresh expectedStatus.
-        queryClient.invalidateQueries({
-          queryKey: orderKeys.detail(variables.id),
-        });
+        queryClient.invalidateQueries({ queryKey: orderKeys.detail(id) });
         queryClient.invalidateQueries({ queryKey: orderKeys.all });
       }
       toast.error(axiosError.response?.data?.error ?? error.message);
     },
-    onSuccess: () => {
+    onSuccess: (order) => {
+      queryClient.setQueryData(orderKeys.detail(order.id), order);
       queryClient.invalidateQueries({ queryKey: orderKeys.all });
-      toast.success("Order status updated successfully");
+      toast.success("Order updated successfully");
     },
   });
 };
+
+export const useUpdateOrderStatus = useUpdateOrder;

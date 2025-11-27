@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Pagination } from "@/components/ui/pagination";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { OrderStatusBadge, PaymentStatusBadge } from "@/components/ui/order-status-badge";
 import { Order } from "@/app/shared/types/order";
 
 const ITEMS_PER_PAGE = 10;
@@ -57,17 +58,7 @@ const OrdersListPage = () => {
     });
   };
 
-  const getStatusColor = (status: Order["status"]) => {
-    const colors = {
-      pending: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20",
-      confirmed: "bg-blue-500/10 text-blue-600 border-blue-500/20",
-      processing: "bg-purple-500/10 text-purple-600 border-purple-500/20",
-      shipped: "bg-indigo-500/10 text-indigo-600 border-indigo-500/20",
-      delivered: "bg-green-500/10 text-green-600 border-green-500/20",
-      cancelled: "bg-red-500/10 text-red-600 border-red-500/20",
-    };
-    return colors[status] || colors.pending;
-  };
+
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
@@ -149,6 +140,7 @@ const OrdersListPage = () => {
                 <option value='processing'>Processing</option>
                 <option value='shipped'>Shipped</option>
                 <option value='delivered'>Delivered</option>
+                <option value='cancelled'>Cancelled</option>
               </select>
             </div>
           </div>
@@ -176,14 +168,9 @@ const OrdersListPage = () => {
                     <div className='font-mono text-sm font-semibold text-primary mb-1.5'>
                       #{order.id.toUpperCase()}
                     </div>
-                    <div className='flex items-center gap-2 mb-1.5'>
-                      <span
-                        className={`text-xs font-medium px-2 py-0.5 rounded-full border ${getStatusColor(
-                          order.status
-                        )}`}
-                      >
-                        {order.status}
-                      </span>
+                    <div className='flex flex-wrap items-center gap-2 mb-1.5'>
+                      <OrderStatusBadge status={order.status} />
+                      <PaymentStatusBadge status={order.paymentStatus} />
                       <span className='text-xs text-muted-foreground'>
                         {formatDate(order.createdAt)} •{" "}
                         {formatTime(order.createdAt)}

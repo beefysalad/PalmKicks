@@ -7,7 +7,7 @@ import { Package, ShoppingBag, DollarSign, Clock } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
-import { Order } from "@/app/shared/types/order";
+import { OrderStatusBadge, PaymentStatusBadge } from "@/components/ui/order-status-badge";
 
 const DashboardPage = () => {
   const { data: products = [] } = useProducts();
@@ -40,17 +40,7 @@ const DashboardPage = () => {
     });
   };
 
-  const getStatusColor = (status: Order["status"]) => {
-    const colors = {
-      pending: "bg-yellow-500/10 text-yellow-600",
-      confirmed: "bg-blue-500/10 text-blue-600",
-      processing: "bg-purple-500/10 text-purple-600",
-      shipped: "bg-indigo-500/10 text-indigo-600",
-      delivered: "bg-green-500/10 text-green-600",
-      cancelled: "bg-red-500/10 text-red-600",
-    };
-    return colors[status] || colors.pending;
-  };
+
 
   return (
     <div className='space-y-8'>
@@ -61,7 +51,7 @@ const DashboardPage = () => {
         </p>
       </div>
 
-      <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-4'>
+      <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <CardTitle className='text-sm font-medium'>
@@ -90,14 +80,14 @@ const DashboardPage = () => {
 
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>Total Revenue</CardTitle>
+            <CardTitle className='text-sm font-medium'>Paid revenue</CardTitle>
             <DollarSign className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
             <div className='text-2xl font-bold'>
               {formatCurrency(stats.totalRevenue)}
             </div>
-            <p className='text-xs text-muted-foreground'>All time revenue</p>
+            <p className='text-xs text-muted-foreground'>Paid orders, excluding cancellations</p>
           </CardContent>
         </Card>
 
@@ -112,6 +102,14 @@ const DashboardPage = () => {
             <div className='text-2xl font-bold'>{stats.pendingOrders}</div>
             <p className='text-xs text-muted-foreground'>Awaiting processing</p>
           </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className='text-sm font-medium'>Unpaid orders</CardTitle></CardHeader>
+          <CardContent><div className='text-2xl font-bold'>{orderStats?.unpaidOrders ?? 0}</div><p className='text-xs text-muted-foreground'>Active orders awaiting payment</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle className='text-sm font-medium'>Cancelled orders</CardTitle></CardHeader>
+          <CardContent><div className='text-2xl font-bold'>{orderStats?.byStatus.cancelled ?? 0}</div><p className='text-xs text-muted-foreground'>Excluded from paid revenue</p></CardContent>
         </Card>
       </div>
 
@@ -167,13 +165,8 @@ const DashboardPage = () => {
                         {formatCurrency(order.total)}
                       </td>
                       <td className='px-4 py-2'>
-                        <span
-                          className={`rounded-full px-2 py-1 text-xs font-medium ${getStatusColor(
-                            order.status
-                          )}`}
-                        >
-                          {order.status}
-                        </span>
+                      <OrderStatusBadge status={order.status} />
+                      <PaymentStatusBadge status={order.paymentStatus} />
                       </td>
                       <td className='px-4 py-2'>
                         {formatDate(order.createdAt)}

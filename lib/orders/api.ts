@@ -1,3 +1,4 @@
+import type { AdminOrderUpdate } from "@/app/shared/zod/order-zod";
 import {
   CreateOrderPayload,
   Order,
@@ -75,6 +76,15 @@ export const ordersApi = {
       return response.data.data;
     }
     throw new Error(response.data.error || "Failed to create order");
+  },
+
+  updateOrder: async (
+    id: string,
+    payload: AdminOrderUpdate
+  ): Promise<Order> => {
+    const response = await api.patch<ApiResponse<Order>>(`/orders/${id}`, payload);
+    if (response.data.success && response.data.data) return response.data.data;
+    throw new Error(response.data.error || "Failed to update order");
   },
 
   updateOrderStatus: async (

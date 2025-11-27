@@ -52,7 +52,8 @@ export const useDeleteOrder = () => {
     mutationFn: (id: string) => {
       return ordersApi.deleteOrderById(id);
     },
-    onSuccess: () => {
+    onSuccess: (_, id) => {
+      queryClient.removeQueries({ queryKey: orderKeys.detail(id) });
       queryClient.invalidateQueries({ queryKey: orderKeys.all });
       toast.success("Order deleted successfully");
       router.push("/admin/orders");
@@ -84,5 +85,3 @@ export const useUpdateOrder = () => {
     },
   });
 };
-
-export const useUpdateOrderStatus = useUpdateOrder;

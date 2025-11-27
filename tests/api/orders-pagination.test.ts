@@ -85,6 +85,19 @@ describe("GET /api/orders pagination", () => {
     });
   });
 
+  it("filters cancelled orders", async () => {
+    await get("?status=cancelled");
+    expect(prismaMock.order.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { status: "cancelled" } }),
+    );
+    expect(prismaMock.order.count).toHaveBeenCalledWith({ where: { status: "cancelled" } });
+  });
+
+  it("ignores unknown statuses", async () => {
+    await get("?status=unknown");
+    expect(prismaMock.order.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
+  });
+
   it("is admin only", async () => {
     requireAdmin.mockResolvedValue(new Response(null, { status: 401 }));
     const res = await get();

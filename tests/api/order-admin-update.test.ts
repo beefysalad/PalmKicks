@@ -130,7 +130,7 @@ describe("admin order lifecycle", () => {
       updateOrderAdmin("o1", { paymentStatus: "unpaid" }),
     ]);
     expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
-    expect(results.find((result) => result.status === "rejected")).toMatchObject({ reason: { status: 409 } });
+    expect(results.find((result) => result.status === "rejected")).toMatchObject({ reason: { status: 409, message: "Payment details changed since you loaded this order. Refresh and try again." } });
     expect(h.state.rows[0].paymentStatus).toBe("refunded");
   });
   it.each([{ paymentStatus: "paid" }, { paymentStatus: "unpaid" }, { markPaidAndConfirm: true }])("refunded is final: %j", async (input) => {

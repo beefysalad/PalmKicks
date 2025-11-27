@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { nextStatuses, statusLabel, paymentLabel, isBackStep, changedOrderFields } from "@/lib/orders/ui-helpers";
+import { nextStatuses, statusLabel, paymentLabel, isBackStep, changedOrderFields, reconcileOrderDraft } from "@/lib/orders/ui-helpers";
 
 describe("order UI helpers", () => {
   it("lists only valid transitions, including back-steps and cancel", () => {
@@ -22,5 +22,15 @@ describe("order UI helpers", () => {
   it("sends only changed fields for a cancelled order note", () => {
     expect(changedOrderFields({ status: "cancelled", adminNote: "old" }, { status: "cancelled", adminNote: "new" })).toEqual({ adminNote: "new" });
     expect(changedOrderFields({ courier: null as string | null }, { courier: " " })).toEqual({});
+  });
+});
+
+describe("order draft refresh", () => {
+  it("refreshes clean fields while preserving edits in other sections", () => {
+    const previous = { status: "pending", adminNote: "old", courier: "DHL", paymentRef: "" };
+    const current = { ...previous, status: "confirmed", adminNote: "server note", courier: "LBC", paymentRef: "paid" };
+    expect(reconcileOrderDraft(previous, current, { ...previous, adminNote: "unsaved note", courier: "unsaved courier" })).toEqual({
+      ...current, adminNote: "unsaved note", courier: "unsaved courier",
+    });
   });
 });

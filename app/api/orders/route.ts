@@ -14,7 +14,7 @@ import {
   OrderValidationError,
   toPublicOrder,
 } from "@/app/api/orders/orders-service";
-import { idempotencyKeySchema, orderSchema } from "@/app/shared/zod/order-zod";
+import { idempotencyKeySchema, orderSchema, orderStatusEnum } from "@/app/shared/zod/order-zod";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -29,23 +29,8 @@ export async function GET(request: NextRequest) {
       page: Number(searchParams.get("page")),
       pageSize: Number(searchParams.get("pageSize")),
     };
-    if (status !== null) {
-      const validStatuses = [
-        "pending",
-        "confirmed",
-        "processing",
-        "shipped",
-        "delivered",
-      ];
-      if (validStatuses.includes(status)) {
-        filters.status = status as
-          | "pending"
-          | "confirmed"
-          | "processing"
-          | "shipped"
-          | "delivered";
-      }
-    }
+    const parsedStatus = orderStatusEnum.safeParse(status);
+    if (parsedStatus.success) filters.status = parsedStatus.data;
 
     const orders = await getOrders(filters);
     return NextResponse.json({ success: true, data: orders });

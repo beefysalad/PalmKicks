@@ -33,3 +33,12 @@ export function changedOrderFields<T extends object, K extends keyof T>(current:
   }
   return changes;
 }
+
+/** Refresh clean fields without discarding unsaved edits in another section. */
+export function reconcileOrderDraft<T extends object>(previous: T, current: T, draft: T): T {
+  const result = { ...draft };
+  for (const key of Object.keys(draft) as (keyof T)[]) {
+    if (draft[key] === previous[key]) result[key] = current[key];
+  }
+  return result;
+}

@@ -6,7 +6,6 @@ import {
   OrderStats,
   PagedOrders,
   PublicOrder,
-  UpdateOrderStatusPayload,
 } from "@/app/shared/types/order";
 import { isAxiosError } from "axios";
 import { api, ApiResponse } from "../axios";
@@ -87,19 +86,6 @@ export const ordersApi = {
     throw new Error(response.data.error || "Failed to update order");
   },
 
-  updateOrderStatus: async (
-    id: string,
-    payload: UpdateOrderStatusPayload
-  ): Promise<Order> => {
-    const response = await api.patch<ApiResponse<Order>>(
-      `/orders/${id}`,
-      payload
-    );
-    if (response.data.success && response.data.data) {
-      return response.data.data;
-    }
-    throw new Error(response.data.error || "Failed to update order status");
-  },
   deleteOrderById: async (id: string): Promise<void> => {
     await api.delete<ApiResponse<Order>>(`/orders/${id}`);
   },

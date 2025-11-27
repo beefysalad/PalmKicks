@@ -23,7 +23,7 @@ import {
 import { PAYMENT_METHODS } from "@/app/shared/order-lifecycle";
 import type { PaymentMethod } from "@/app/shared/order-lifecycle";
 import type { AdminOrderUpdate } from "@/app/shared/zod/order-zod";
-import { changedOrderFields, isBackStep, nextStatuses, statusLabel } from "@/lib/orders/ui-helpers";
+import { changedOrderFields, reconcileOrderDraft, isBackStep, nextStatuses, statusLabel } from "@/lib/orders/ui-helpers";
 import { OrderStatusBadge, PaymentStatusBadge } from "@/components/ui/order-status-badge";
 import { Input } from "@/components/ui/input";
 import { Order } from "@/app/shared/types/order";
@@ -215,7 +215,7 @@ const OrderDetailsPage = () => {
           </div>
         </div>
 
-        <OrderManagement key={`${order.id}:${order.updatedAt}`} order={order} />
+        <OrderManagement key={order.id} order={order} />
       </div>
 
     </div>
@@ -227,12 +227,20 @@ export default OrderDetailsPage;
 function OrderManagement({ order }: { order: Order }) {
   const update = useUpdateOrder();
   const remove = useDeleteOrder();
-  const [status, setStatus] = useState(order.status);
-  const [courier, setCourier] = useState(order.courier ?? "");
-  const [trackingNumber, setTrackingNumber] = useState(order.trackingNumber ?? "");
-  const [paymentMethod, setPaymentMethod] = useState(order.paymentMethod ?? "");
-  const [paymentRef, setPaymentRef] = useState(order.paymentRef ?? "");
-  const [adminNote, setAdminNote] = useState(order.adminNote ?? "");
+  const toDraft = (value: Order) => ({
+    status: value.status, courier: value.courier ?? "", trackingNumber: value.trackingNumber ?? "",
+    paymentMethod: value.paymentMethod ?? "", paymentRef: value.paymentRef ?? "", adminNote: value.adminNote ?? "",
+  });
+  const [form, setForm] = useState(() => ({ source: order, draft: toDraft(order) }));
+  let draft = form.draft;
+  if (form.source !== order) {
+    draft = reconcileOrderDraft(toDraft(form.source), toDraft(order), draft);
+    setForm({ source: order, draft });
+  }
+  const { status, courier, trackingNumber, paymentMethod, paymentRef, adminNote } = draft;
+  const setField = <K extends keyof typeof draft>(key: K, value: (typeof draft)[K]) => {
+    setForm((current) => ({ ...current, draft: { ...current.draft, [key]: value } }));
+  };
   const [alsoConfirm, setAlsoConfirm] = useState(true);
   const cancelled = order.status === "cancelled";
   const busy = update.isPending || remove.isPending;
@@ -242,7 +250,19 @@ function OrderManagement({ order }: { order: Order }) {
   });
   const noteChanges = changedOrderFields(order, { adminNote });
   const save = async (input: AdminOrderUpdate) => {
-    try { await update.mutateAsync({ id: order.id, expectedStatus: order.status, ...input }); }
+    try {
+      const saved = await update.mutateAsync({ id: order.id, expectedStatus: order.status, ...input });
+      const savedDraft = toDraft(saved);
+      setForm((current) => {
+        const next = { ...current.draft };
+        for (const key of Object.keys(next) as (keyof typeof next)[]) {
+          if (key in input || (key === "status" && input.markPaidAndConfirm)) {
+            Object.assign(next, { [key]: savedDraft[key] });
+          }
+        }
+        return { ...current, draft: next };
+      });
+    }
     catch { /* The mutation hook displays the server error. */ }
   };
   const changeStatus = () => {
@@ -256,7 +276,7 @@ function OrderManagement({ order }: { order: Order }) {
       <h2 id='status-heading' className='text-base font-semibold'>Order status</h2>
       {cancelled ? <p className='text-sm text-muted-foreground'>Cancelled. You can update the internal note or refund a paid order.</p> : <>
         <label htmlFor='order-status' className='block text-sm font-medium'>Change status</label>
-        <select id='order-status' className={inputClass} value={status} disabled={busy} onChange={(event) => setStatus(event.target.value as Order["status"])}>
+        <select id='order-status' className={inputClass} value={status} disabled={busy} onChange={(event) => setField("status", event.target.value as Order["status"])}>
           <option value={order.status}>{statusLabel[order.status]} (current)</option>
           {nextStatuses(order.status).filter((target) => target !== "cancelled").map((target) => <option key={target} value={target}>{statusLabel[target]}</option>)}
         </select>
@@ -284,14 +304,14 @@ function OrderManagement({ order }: { order: Order }) {
       <div className='grid gap-4 sm:grid-cols-2'>
         <div className='space-y-2'>
           <label htmlFor='payment-method' className='block text-sm font-medium'>Method</label>
-          <select id='payment-method' className={inputClass} value={paymentMethod} disabled={cancelled || busy} onChange={(event) => setPaymentMethod(event.target.value)}>
+          <select id='payment-method' className={inputClass} value={paymentMethod} disabled={cancelled || busy} onChange={(event) => setField("paymentMethod", event.target.value)}>
             <option value='' disabled>Choose a method</option>
             {PAYMENT_METHODS.map((method) => <option key={method} value={method}>{({ gcash: "GCash", bank_transfer: "Bank transfer", cash_on_meetup: "Cash on meetup", other: "Other" })[method]}</option>)}
           </select>
         </div>
         <div className='space-y-2'>
           <label htmlFor='payment-ref' className='block text-sm font-medium'>Reference</label>
-          <Input id='payment-ref' maxLength={100} value={paymentRef} disabled={cancelled || busy} onChange={(event) => setPaymentRef(event.target.value)} />
+          <Input id='payment-ref' maxLength={100} value={paymentRef} disabled={cancelled || busy} onChange={(event) => setField("paymentRef", event.target.value)} />
         </div>
       </div>
       {!cancelled && <Button variant='outline' disabled={busy || !Object.keys(paymentChanges).length} onClick={() => void save({ ...paymentChanges, paymentMethod: paymentChanges.paymentMethod as PaymentMethod | undefined })}>Save payment details</Button>}
@@ -315,11 +335,11 @@ function OrderManagement({ order }: { order: Order }) {
       <div className='grid gap-4 sm:grid-cols-2'>
         <div className='space-y-2'>
           <label htmlFor='courier' className='block text-sm font-medium'>Courier{status === "shipped" ? " (required)" : ""}</label>
-          <Input id='courier' maxLength={100} required={status === "shipped"} value={courier} disabled={cancelled || busy} onChange={(event) => setCourier(event.target.value)} />
+          <Input id='courier' maxLength={100} required={status === "shipped"} value={courier} disabled={cancelled || busy} onChange={(event) => setField("courier", event.target.value)} />
         </div>
         <div className='space-y-2'>
           <label htmlFor='tracking-number' className='block text-sm font-medium'>Tracking number{status === "shipped" ? " (required)" : ""}</label>
-          <Input id='tracking-number' maxLength={100} required={status === "shipped"} value={trackingNumber} disabled={cancelled || busy} onChange={(event) => setTrackingNumber(event.target.value)} />
+          <Input id='tracking-number' maxLength={100} required={status === "shipped"} value={trackingNumber} disabled={cancelled || busy} onChange={(event) => setField("trackingNumber", event.target.value)} />
         </div>
       </div>
       {order.shippedAt && <p className='text-sm text-muted-foreground'>Shipped at {new Date(order.shippedAt).toLocaleString()}</p>}
@@ -330,7 +350,7 @@ function OrderManagement({ order }: { order: Order }) {
       <h2 id='note-heading' className='text-base font-semibold'>Internal note</h2>
       <p id='note-help' className='text-sm text-muted-foreground'>Visible only to admins. Up to 2,000 characters.</p>
       <label htmlFor='admin-note' className='sr-only'>Internal note</label>
-      <textarea id='admin-note' aria-describedby='note-help' className={`${inputClass} min-h-28 resize-y`} rows={4} maxLength={2000} value={adminNote} disabled={busy} onChange={(event) => setAdminNote(event.target.value)} />
+      <textarea id='admin-note' aria-describedby='note-help' className={`${inputClass} min-h-28 resize-y`} rows={4} maxLength={2000} value={adminNote} disabled={busy} onChange={(event) => setField("adminNote", event.target.value)} />
       <Button disabled={busy || !Object.keys(noteChanges).length} onClick={() => void save(noteChanges)}>Save note</Button>
     </section>
   </div>;

@@ -3,7 +3,7 @@
 import { useProducts } from "@/lib/products/hooks";
 import { useOrders, useOrderStats } from "@/lib/orders/hooks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, ShoppingBag, DollarSign, Clock } from "lucide-react";
+import { Package, ShoppingBag, DollarSign, Clock, CreditCard, CircleX } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
@@ -104,11 +104,11 @@ const DashboardPage = () => {
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle className='text-sm font-medium'>Unpaid orders</CardTitle></CardHeader>
+          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'><CardTitle className='text-sm font-medium'>Unpaid orders</CardTitle><CreditCard className='h-4 w-4 text-muted-foreground' /></CardHeader>
           <CardContent><div className='text-2xl font-bold'>{orderStats?.unpaidOrders ?? 0}</div><p className='text-xs text-muted-foreground'>Active orders awaiting payment</p></CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle className='text-sm font-medium'>Cancelled orders</CardTitle></CardHeader>
+          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'><CardTitle className='text-sm font-medium'>Cancelled orders</CardTitle><CircleX className='h-4 w-4 text-muted-foreground' /></CardHeader>
           <CardContent><div className='text-2xl font-bold'>{orderStats?.byStatus.cancelled ?? 0}</div><p className='text-xs text-muted-foreground'>Excluded from paid revenue</p></CardContent>
         </Card>
       </div>
@@ -165,8 +165,10 @@ const DashboardPage = () => {
                         {formatCurrency(order.total)}
                       </td>
                       <td className='px-4 py-2'>
-                      <OrderStatusBadge status={order.status} />
-                      <PaymentStatusBadge status={order.paymentStatus} />
+                        <div className='flex flex-wrap items-center gap-2'>
+                          <OrderStatusBadge status={order.status} />
+                          <PaymentStatusBadge status={order.paymentStatus} />
+                        </div>
                       </td>
                       <td className='px-4 py-2'>
                         {formatDate(order.createdAt)}

@@ -398,6 +398,7 @@ function scheduleConfirmationEmail(order: Order): void {
   }
 }
 
+const PAYMENT_CONFLICT = "Payment details changed since you loaded this order. Refresh and try again.";
 const STATUS_CONFLICT = "Order status changed since you loaded it. Refresh and try again.";
 
 export async function updateOrderAdmin(
@@ -476,7 +477,13 @@ export async function updateOrderAdmin(
     if (Object.keys(data).length === 0) return mapOrder(current);
 
     const result = await tx.order.updateMany({ where: { id, status: expected, ...(paymentStatus !== undefined ? { paymentStatus: current.paymentStatus } : {}) }, data });
-    if (result.count === 0) throw new OrderTransitionError(STATUS_CONFLICT);
+    if (result.count === 0) {
+      const latest = await tx.order.findUnique({ where: { id } });
+      throw new OrderTransitionError(
+        paymentStatus !== undefined && latest?.status === expected && latest.paymentStatus !== current.paymentStatus
+          ? PAYMENT_CONFLICT : STATUS_CONFLICT,
+      );
+    }
     const updated = await tx.order.findUnique({ where: { id }, include: orderInclude });
     if (!updated) throw new DomainError("Order not found", 404);
     return mapOrder(updated);

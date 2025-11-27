@@ -73,12 +73,6 @@ export type CreateOrderPayload =
       meetupLocation: string;
     });
 
-export interface UpdateOrderStatusPayload {
-  status: OrderStatus;
-  /** Server rejects (409) if the order is no longer in this status. */
-  expectedStatus?: OrderStatus;
-}
-
 export interface PublicOrder {
   id: string;
   status: Order["status"];

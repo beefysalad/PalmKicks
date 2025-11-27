@@ -21,9 +21,9 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCart } from "../../shared/CartProvider";
 import ProgressIndicator from "./ProgressIndicator";
-import { useForm } from "react-hook-form";
+import { useForm, type Resolver } from "react-hook-form";
 import {
-  checkoutSchema,
+  checkoutSchemaFor,
   TCheckoutSchema,
 } from "../../../shared/zod/checkout-zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -31,6 +31,20 @@ import { useMutation } from "@tanstack/react-query";
 import { checkoutFn } from "../../../../lib/checkout/checkout";
 
 export { DeliveryMethod };
+
+type CheckoutFormContext = { deliveryMethod: DeliveryMethod };
+
+// Requires the fulfillment fields of the currently selected delivery method.
+const checkoutResolver: Resolver<TCheckoutSchema, CheckoutFormContext> = (
+  values,
+  context,
+  options
+) =>
+  (
+    zodResolver(
+      checkoutSchemaFor(context?.deliveryMethod ?? DeliveryMethod.Shipping)
+    ) as Resolver<TCheckoutSchema, CheckoutFormContext>
+  )(values, context, options);
 
 function newIdempotencyKey(): string {
   if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
@@ -51,8 +65,10 @@ const CheckoutForm = () => {
   // reuse it so the server returns the same order instead of a duplicate.
   const idempotencyKeyRef = useRef<string | null>(null);
 
-  const form = useForm<TCheckoutSchema>({
-    resolver: zodResolver(checkoutSchema),
+  const form = useForm<TCheckoutSchema, CheckoutFormContext>({
+    resolver: checkoutResolver,
+    // RHF passes the latest context to the resolver on every validation.
+    context: { deliveryMethod },
     defaultValues: {
       name: "",
       email: "",

@@ -7,6 +7,7 @@ import {
   useEffect,
   type ReactNode,
 } from "react";
+import { clampQuantity } from "@/lib/cart-limits";
 
 export interface CartItem {
   id: string;
@@ -58,11 +59,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
       if (existing) {
         return prev.map((i) =>
           i.id === item.id && i.size === item.size && i.color === item.color
-            ? { ...i, quantity: i.quantity + item.quantity }
+            ? { ...i, quantity: clampQuantity(i.quantity + item.quantity) }
             : i
         );
       }
-      return [...prev, item];
+      return [...prev, { ...item, quantity: clampQuantity(item.quantity) }];
     });
   };
 
@@ -85,7 +86,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems((prev) =>
       prev.map((i) =>
         i.id === id && i.size === size && i.color === color
-          ? { ...i, quantity }
+          ? { ...i, quantity: clampQuantity(quantity) }
           : i
       )
     );

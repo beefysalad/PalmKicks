@@ -12,6 +12,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { useCart } from "../../shared/CartProvider";
 import { Product } from "@/app/shared/types/product";
+import { effectivePrice, isOnSale } from "@/lib/pricing";
 
 interface ProductDetailProps {
   product: Product;
@@ -60,11 +61,8 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
       });
       return;
     }
-    // Display only: the server charges discountPrice only when sale is on.
-    const price =
-      product.sale && product.discountPrice != null
-        ? Number(product.discountPrice)
-        : Number(product.price);
+    // Display only: the server applies the same rule when pricing the order.
+    const price = effectivePrice(product);
     addItem({
       id: product.id,
       name: product.name,
@@ -92,7 +90,7 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
   };
 
   const getDiscountPercentage = () => {
-    if (!product.discountPrice) return;
+    if (!isOnSale(product) || product.discountPrice == null) return;
     return ((product.price - product.discountPrice) / product.price) * 100;
   };
   return (
@@ -110,7 +108,7 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
           className='space-y-3'
         >
           <div className='relative flex items-center justify-center overflow-hidden rounded-lg border-2 border-border bg-secondary/20 p-4'>
-            {product.discountPrice && (
+            {isOnSale(product) && (
               <Badge className='absolute left-4 top-4 z-10 bg-destructive text-destructive-foreground shadow-lg'>
                 <Tag className='mr-1 h-3 w-3' />
                 {getDiscountPercentage()?.toFixed(1)}% OFF
@@ -175,7 +173,7 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
           </div>
 
           <div className='flex items-baseline gap-3'>
-            {product.discountPrice ? (
+            {isOnSale(product) ? (
               <>
                 <p className='text-3xl font-bold text-primary sm:text-4xl'>
                   ₱{Number(product.discountPrice)}

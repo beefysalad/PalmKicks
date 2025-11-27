@@ -32,7 +32,9 @@ export const ordersApi = {
   },
 
   fetchPublicOrderById: async (id: string): Promise<PublicOrder> => {
-    const response = await api.get<ApiResponse<PublicOrder>>(`/orders/${id}`);
+    const response = await api.get<ApiResponse<PublicOrder>>(
+      `/orders/${id}?view=public`
+    );
     if (response.data.success && response.data.data) {
       return response.data.data;
     }

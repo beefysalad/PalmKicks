@@ -79,4 +79,20 @@ describe("GET /api/orders/[id] privacy", () => {
     vi.mocked(auth).mockResolvedValue({ user: { id: "admin" } } as never);
     expect((await call("nope")).status).toBe(404);
   });
+
+  it("?view=public returns public shape even with admin session", async () => {
+    vi.mocked(auth).mockResolvedValue({ user: { id: "admin" } } as never);
+    vi.mocked(ordersSvc.getPublicOrderById).mockResolvedValue({
+      id: "PK-2026-X", status: "pending", total: 100, createdAt: full.createdAt,
+      meetupLocation: null, shippingCity: "Manila", customerFirstName: "Juan",
+      items: [],
+    });
+    const res = await GET(
+      new NextRequest("http://localhost/api/orders/PK-2026-X?view=public"),
+      { params: Promise.resolve({ id: "PK-2026-X" }) }
+    );
+    const body = await res.json();
+    expect(body.data.customerFirstName).toBe("Juan");
+    expect(ordersSvc.getOrderById).not.toHaveBeenCalled();
+  });
 });

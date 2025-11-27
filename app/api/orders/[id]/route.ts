@@ -18,7 +18,9 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
-    const session = await auth();
+    const publicView =
+      request.nextUrl.searchParams.get("view") === "public";
+    const session = publicView ? null : await auth();
     const order = session?.user?.id
       ? await getOrderById(id)
       : await getPublicOrderById(id);

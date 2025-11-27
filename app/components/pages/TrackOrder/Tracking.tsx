@@ -62,7 +62,11 @@ const Tracking = () => {
   const [searchedOrderId, setSearchedOrderId] = useState<string | null>(null);
 
   // Use the hook with the searched order ID
-  const { data: order, isLoading, error } = usePublicOrder(searchedOrderId || "");
+  const {
+    data: order,
+    isLoading,
+    error,
+  } = usePublicOrder(searchedOrderId || "");
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -216,8 +220,11 @@ const Tracking = () => {
                 </CardHeader>
                 <CardContent className='space-y-4'>
                   <div className='space-y-3'>
-                    {order.items.map((item) => (
-                      <div key={`${item.name}-${item.size}-${item.color}`} className='flex gap-3'>
+                    {order.items.map((item, index) => (
+                      <div
+                        key={`${item.name}-${item.size}-${item.color}-${index}`}
+                        className='flex gap-3'
+                      >
                         <div className='relative h-16 w-16 flex-shrink-0 overflow-hidden rounded border border-border'>
                           <Image
                             src={item.image || "/placeholder.svg"}
@@ -255,7 +262,7 @@ const Tracking = () => {
                   <CardTitle>
                     {order.meetupLocation
                       ? "Meetup Location"
-                      : "Shipping Address"}
+                      : "Shipping"}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>

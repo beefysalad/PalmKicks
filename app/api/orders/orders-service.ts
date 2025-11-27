@@ -160,7 +160,7 @@ export async function getPublicOrderById(
     createdAt: new Date(order.createdAt).toISOString(),
     meetupLocation: order.meetupLocation,
     shippingCity: order.shippingCity,
-    customerFirstName: order.customerName.trim().split(/\s+/)[0] ?? "",
+    customerFirstName: order.customerName.trim().split(/\s+/)[0] || "Customer",
     items: order.items.map((item) => ({
       name: item.name,
       price: item.price,

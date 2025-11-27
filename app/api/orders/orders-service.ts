@@ -1,6 +1,11 @@
+import { randomBytes } from "node:crypto";
 import prisma from "../../../lib/prisma";
 import { sendOrderConfirmation } from "@/lib/send-mail";
+import { runAfterResponse } from "@/lib/after";
+import { fromCentavos, toCentavos } from "@/lib/money";
 import type { PublicOrder } from "@/app/shared/types/order";
+import type { Prisma } from "@/app/generated/prisma/client";
+import type { CreateOrderInput } from "@/app/shared/zod/order-zod";
 
 type OrderStatus =
   | "pending"
@@ -40,35 +45,107 @@ export interface Order {
   }[];
 }
 
-export interface CreateOrderData {
-  customerName: string;
-  customerEmail: string;
-  customerPhone: string;
-  shippingAddress?: string;
-  shippingCity?: string;
-  shippingZipCode?: string;
-  meetupLocation?: string;
-  items: Array<{
-    productId?: string;
-    name: string;
-    price: number;
-    image: string;
-    size: string;
-    color: string;
-    quantity: number;
-  }>;
-  total: number;
-}
+export type { CreateOrderInput };
 
 export interface UpdateOrderStatusData {
   status: OrderStatus;
 }
 
-// Generate order ID: PK-YYYY-XXXXX
+/** Thrown when an order request is well-formed but cannot be fulfilled. */
+export class OrderValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "OrderValidationError";
+  }
+}
+
+const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+const ORDER_ID_RANDOM_CHARS = 10;
+const MAX_ID_ATTEMPTS = 3;
+
+// Generate order ID: PK-YYYY-<10 Crockford base32 chars> (50 bits of entropy)
 export function generateOrderId(): string {
   const year = new Date().getFullYear();
-  const random = Math.random().toString(36).substring(2, 7).toUpperCase();
-  return `PK-${year}-${random}`;
+  const bytes = randomBytes(ORDER_ID_RANDOM_CHARS);
+  let suffix = "";
+  // 256 is a multiple of 32, so masking the low 5 bits is unbiased.
+  for (const b of bytes) suffix += CROCKFORD[b & 31];
+  return `PK-${year}-${suffix}`;
+}
+
+const orderInclude = {
+  items: {
+    include: {
+      product: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: "asc" as const,
+    },
+  },
+};
+
+type DbNumeric = { toString(): string } | number | string;
+type DbOrder = Prisma.OrderGetPayload<{ include: typeof orderInclude }>;
+
+function mapOrder(order: DbOrder): Order {
+  return {
+    ...order,
+    total: Number(order.total),
+    items: order.items.map((item) => ({
+      ...item,
+      price: Number(item.price),
+    })),
+  };
+}
+
+export function toPublicOrder(order: Order): PublicOrder {
+  return {
+    id: order.id,
+    status: order.status,
+    total: order.total,
+    createdAt: new Date(order.createdAt).toISOString(),
+    meetupLocation: order.meetupLocation,
+    shippingCity: order.shippingCity,
+    customerFirstName: order.customerName.trim().split(/\s+/)[0] || "Customer",
+    items: order.items.map((item) => ({
+      name: item.name,
+      price: item.price,
+      image: item.image,
+      size: item.size,
+      color: item.color,
+      quantity: item.quantity,
+    })),
+  };
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { code?: unknown }).code === "P2002"
+  );
+}
+
+function asStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((v): v is string => typeof v === "string")
+    : [];
+}
+
+/** Authoritative unit price: discountPrice when on sale, otherwise price. */
+function unitPriceCentavos(product: {
+  price: DbNumeric;
+  discountPrice: DbNumeric | null;
+  sale: boolean;
+}): number {
+  return product.sale && product.discountPrice !== null
+    ? toCentavos(product.discountPrice)
+    : toCentavos(product.price);
 }
 
 export async function getOrders(filters?: {
@@ -153,84 +230,133 @@ export async function getPublicOrderById(
 ): Promise<PublicOrder | null> {
   const order = await getOrderById(id);
   if (!order) return null;
-
-  return {
-    id: order.id,
-    status: order.status,
-    total: order.total,
-    createdAt: new Date(order.createdAt).toISOString(),
-    meetupLocation: order.meetupLocation,
-    shippingCity: order.shippingCity,
-    customerFirstName: order.customerName.trim().split(/\s+/)[0] || "Customer",
-    items: order.items.map((item) => ({
-      name: item.name,
-      price: item.price,
-      image: item.image,
-      size: item.size,
-      color: item.color,
-      quantity: item.quantity,
-    })),
-  };
+  return toPublicOrder(order);
 }
 
-export async function addOrder(data: CreateOrderData): Promise<Order> {
-  const orderId = generateOrderId();
+export interface AddOrderResult {
+  order: Order;
+  /** true when an existing order was returned for a repeated Idempotency-Key */
+  replayed: boolean;
+}
 
-  // Create order with items
-  const order = await prisma.order.create({
-    data: {
-      id: orderId,
-      customerName: data.customerName,
-      customerEmail: data.customerEmail,
-      customerPhone: data.customerPhone,
-      shippingAddress: data.shippingAddress || null,
-      shippingCity: data.shippingCity || null,
-      shippingZipCode: data.shippingZipCode || null,
-      meetupLocation: data.meetupLocation || null,
-      total: data.total,
-      status: "pending",
-      items: {
-        create: data.items.map((item) => ({
-          productId: item.productId || null,
-          name: item.name,
-          price: item.price,
-          image: item.image,
-          size: item.size,
-          color: item.color,
-          quantity: item.quantity,
-        })),
-      },
-    },
-    include: {
-      items: {
-        include: {
-          product: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-        },
-        orderBy: {
-          createdAt: "asc",
-        },
-      },
-    },
+async function findByIdempotencyKey(
+  client: Pick<typeof prisma, "order">,
+  idempotencyKey: string
+): Promise<Order | null> {
+  const existing = await client.order.findUnique({
+    where: { idempotencyKey },
+    include: orderInclude,
   });
+  return existing ? mapOrder(existing) : null;
+}
 
-  const created: Order = {
-    ...order,
-    total: Number(order.total),
-    items: order.items.map((item) => ({
-      ...item,
-      price: Number(item.price),
-    })),
-  };
+/**
+ * Create an order with server-authoritative pricing. Prices, names and images
+ * come from the product rows; client-supplied values are never trusted.
+ * With an idempotencyKey, repeated calls return the first order instead of
+ * creating a duplicate. The confirmation email is scheduled after the
+ * response, exactly once, and only for a newly created order.
+ */
+export async function addOrderWithResult(
+  data: CreateOrderInput,
+  idempotencyKey?: string
+): Promise<AddOrderResult> {
+  for (let attempt = 1; attempt <= MAX_ID_ATTEMPTS; attempt++) {
+    try {
+      const result = await prisma.$transaction(
+        async (tx): Promise<AddOrderResult> => {
+          if (idempotencyKey) {
+            const existing = await findByIdempotencyKey(tx, idempotencyKey);
+            if (existing) return { order: existing, replayed: true };
+          }
 
-  // Never throws; a failed email must not fail the order.
-  await sendOrderConfirmation(created);
+          const productIds = [...new Set(data.items.map((i) => i.productId))];
+          const products = await tx.product.findMany({
+            where: { id: { in: productIds } },
+          });
+          const byId = new Map(products.map((p) => [p.id, p]));
 
-  return created;
+          let totalCentavos = 0;
+          const itemRows = data.items.map((item) => {
+            const product = byId.get(item.productId);
+            if (!product) {
+              throw new OrderValidationError("A product in your cart no longer exists");
+            }
+            if (!product.inStock) {
+              throw new OrderValidationError(`${product.name} is out of stock`);
+            }
+            if (!asStringArray(product.sizes).includes(item.size)) {
+              throw new OrderValidationError(
+                `Size ${item.size} is not available for ${product.name}`
+              );
+            }
+            if (!asStringArray(product.colors).includes(item.color)) {
+              throw new OrderValidationError(
+                `Color ${item.color} is not available for ${product.name}`
+              );
+            }
+            const unit = unitPriceCentavos(product);
+            totalCentavos += unit * item.quantity;
+            return {
+              productId: product.id,
+              name: product.name,
+              price: fromCentavos(unit),
+              image: product.image,
+              size: item.size,
+              color: item.color,
+              quantity: item.quantity,
+            };
+          });
+
+          const isShipping = data.deliveryMethod === "shipping";
+          const created = await tx.order.create({
+            data: {
+              id: generateOrderId(),
+              idempotencyKey: idempotencyKey ?? null,
+              customerName: data.customerName,
+              customerEmail: data.customerEmail,
+              customerPhone: data.customerPhone,
+              shippingAddress: isShipping ? data.shippingAddress : null,
+              shippingCity: isShipping ? data.shippingCity : null,
+              shippingZipCode: isShipping ? data.shippingZipCode : null,
+              meetupLocation: isShipping ? null : data.meetupLocation,
+              total: fromCentavos(totalCentavos),
+              status: "pending",
+              items: { create: itemRows },
+            },
+            include: orderInclude,
+          });
+          return { order: mapOrder(created), replayed: false };
+        }
+      );
+
+      if (!result.replayed) {
+        const order = result.order;
+        // Off the request path; sendOrderConfirmation never throws, and
+        // runAfterResponse swallows anything unexpected.
+        runAfterResponse("order-confirmation-email", () =>
+          sendOrderConfirmation(order)
+        );
+      }
+      return result;
+    } catch (error) {
+      if (!isUniqueViolation(error)) throw error;
+      // A concurrent request with the same key won the race: return its order.
+      if (idempotencyKey) {
+        const existing = await findByIdempotencyKey(prisma, idempotencyKey);
+        if (existing) return { order: existing, replayed: true };
+      }
+      // Otherwise the generated id collided; retry with a fresh id.
+    }
+  }
+  throw new Error("Could not allocate a unique order id");
+}
+
+export async function addOrder(
+  data: CreateOrderInput,
+  idempotencyKey?: string
+): Promise<Order> {
+  return (await addOrderWithResult(data, idempotencyKey)).order;
 }
 
 export async function updateOrderStatus(

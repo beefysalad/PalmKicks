@@ -146,7 +146,7 @@ The `/admin/*` pages are guarded by `middleware.ts`, but the middleware does not
 - **Admin guard:** `requireAdmin()` checks the Auth.js session and, at most once per minute per session, re-verifies the admin row in the database. Deleted admins and sessions issued before the last password change are rejected. Middleware verifies the JWT and fails closed.
 - **First-login password change:** accounts with `firstTimeLogin` are blocked from privileged APIs until they change the password (10 to 72 characters).
 - **Login throttle:** 5 failed attempts per username per 15 minutes, with a constant-time-style dummy hash comparison for unknown users.
-- **Order rate limiting:** 5 order requests per IP per 10 minutes and 3 created orders per email per hour. Replays of an already-created order are answered before limits are applied. The client IP is taken from trusted proxy headers only.
+- **Order rate limiting:** 5 order requests per IP per 10 minutes and 3 created orders per email per hour. Replays of an already-created order are answered before limits are applied. The client IP is taken from trusted proxy headers only. If no valid IP can be resolved, the per-IP limit is skipped (rather than putting every such client in one shared bucket) and only the per-email limit applies.
 - **Idempotency keys:** checkout sends an `Idempotency-Key` header; a retry with the same key returns the original order instead of creating a duplicate.
 - **Server-side pricing:** totals, item names and prices come from the database, stock and variants are validated, and order totals are capped.
 - **Public order view:** guests see only a minimal projection of an order, never customer contact details.

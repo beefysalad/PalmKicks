@@ -395,6 +395,25 @@ describe("POST /api/orders", () => {
     expect(h.after).toHaveBeenCalledTimes(3);
   });
 
+  it("skips the per-IP limit when the client IP is unknown (per-email still applies)", async () => {
+    const noIp = (body: unknown) =>
+      POST(
+        new NextRequest("http://localhost/api/orders", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        })
+      );
+    // Unknown-IP clients must not share one global bucket of 5.
+    for (let i = 0; i < 8; i++) {
+      expect((await noIp(baseBody({ customerEmail: `n${i}@example.test` }))).status).toBe(201);
+    }
+    for (let i = 0; i < 3; i++) {
+      expect((await noIp(baseBody({ customerEmail: "anon@example.test" }))).status).toBe(201);
+    }
+    expect((await noIp(baseBody({ customerEmail: "anon@example.test" }))).status).toBe(429);
+  });
+
   it("replay is served even when the IP limit is exhausted", async () => {
     const ip = { "x-real-ip": "198.51.100.77" };
     const first = await post(baseBody({ customerEmail: "a0@example.test" }), { ...ip, "idempotency-key": "ipkey" });

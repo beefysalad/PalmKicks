@@ -10,7 +10,14 @@ import { isIP } from "node:net";
  * otherwise the RIGHT-most valid x-forwarded-for entry (the one appended by
  * the proxy closest to us). If the app is exposed directly without such a
  * proxy, these headers are fully client-controlled.
+ *
+ * Returns UNKNOWN_IP when no valid IP is found. Callers must not rate-limit on
+ * UNKNOWN_IP: every such client would share one global bucket, so a handful
+ * of requests could lock out everyone without a resolvable IP. Skip the
+ * per-IP limit in that case and rely on the other limits (e.g. per email).
  */
+export const UNKNOWN_IP = "unknown";
+
 export function getClientIp(headers: Headers): string {
   const realIp = headers.get("x-real-ip")?.trim();
   if (realIp && isIP(realIp)) return realIp;
@@ -22,5 +29,5 @@ export function getClientIp(headers: Headers): string {
       if (isIP(parts[i])) return parts[i];
     }
   }
-  return "unknown";
+  return UNKNOWN_IP;
 }

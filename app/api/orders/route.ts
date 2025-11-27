@@ -5,7 +5,7 @@ import {
   releaseRateLimit,
   reserveRateLimit,
 } from "@/lib/rate-limit";
-import { getClientIp } from "@/lib/client-ip";
+import { getClientIp, UNKNOWN_IP } from "@/lib/client-ip";
 import {
   addOrderWithResult,
   findOrderByIdempotencyKey,
@@ -88,13 +88,19 @@ export async function POST(request: NextRequest) {
 
     // The IP limit counts every attempt that reaches this point (abuse
     // control on raw request volume), so it is never released. rateLimit()
-    // is already an atomic synchronous check-and-increment.
-    const ipCheck = rateLimit(
-      `orders:ip:${getClientIp(request.headers)}`,
-      IP_LIMIT.limit,
-      IP_LIMIT.windowMs
-    );
-    if (!ipCheck.ok) return tooManyRequests(ipCheck.retryAfterSec);
+    // is already an atomic synchronous check-and-increment. When the IP
+    // cannot be resolved the per-IP limit is skipped (one shared "unknown"
+    // bucket would let a few requests block every such client); the
+    // per-email limit below still applies.
+    const clientIp = getClientIp(request.headers);
+    if (clientIp !== UNKNOWN_IP) {
+      const ipCheck = rateLimit(
+        `orders:ip:${clientIp}`,
+        IP_LIMIT.limit,
+        IP_LIMIT.windowMs
+      );
+      if (!ipCheck.ok) return tooManyRequests(ipCheck.retryAfterSec);
+    }
 
     let body: unknown;
     try {

@@ -4,4 +4,5 @@ export const productKeys = {
   detail: (id: string) => ["products", id] as const,
   featured: ["products", "featured"] as const,
   latest: ["products", "latest"] as const,
+  current: (id: string) => ["products", id, "current"] as const,
 };

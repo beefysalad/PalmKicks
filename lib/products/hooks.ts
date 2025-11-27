@@ -1,6 +1,11 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQueries,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
@@ -30,6 +35,34 @@ export const useProduct = (id: string) => {
     initialData: () => {
       const products = queryClient.getQueryData<Product[]>(productKeys.all);
       return products?.find((p) => p.id === id);
+    },
+  });
+};
+
+/**
+ * Fresh product data for checkout re-pricing. Returns a map of product id to
+ * its current data (null when it no longer exists); ids whose lookup is still
+ * loading or failed are absent.
+ */
+export const useCurrentProducts = (ids: string[]) => {
+  const unique = [...new Set(ids)];
+  return useQueries({
+    queries: unique.map((id) => ({
+      queryKey: productKeys.current(id),
+      queryFn: () => productsApi.fetchCurrentProduct(id),
+      staleTime: 0,
+      refetchOnWindowFocus: true,
+    })),
+    combine: (results) => {
+      const products: Record<string, Product | null> = {};
+      results.forEach((r, i) => {
+        if (r.isSuccess) products[unique[i]] = r.data;
+      });
+      return {
+        products,
+        isLoading: results.some((r) => r.isPending),
+        isError: results.some((r) => r.isError),
+      };
     },
   });
 };

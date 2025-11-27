@@ -30,6 +30,10 @@ interface CartContextType {
     quantity: number
   ) => void;
   clearCart: () => void;
+  /** Replace saved prices with current ones (matched by id, size and color). */
+  updatePrices: (
+    prices: { id: string; size: string; color: string; price: number }[]
+  ) => void;
   total: number;
 }
 
@@ -96,6 +100,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
     setItems([]);
   };
 
+  const updatePrices: CartContextType["updatePrices"] = (prices) => {
+    if (prices.length === 0) return;
+    setItems((prev) =>
+      prev.map((i) => {
+        const match = prices.find(
+          (p) => p.id === i.id && p.size === i.size && p.color === i.color
+        );
+        return match ? { ...i, price: match.price } : i;
+      })
+    );
+  };
+
   const total = items.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0
@@ -103,7 +119,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
 
   return (
     <CartContext.Provider
-      value={{ items, addItem, removeItem, updateQuantity, clearCart, total }}
+      value={{
+        items,
+        addItem,
+        removeItem,
+        updateQuantity,
+        clearCart,
+        updatePrices,
+        total,
+      }}
     >
       {children}
     </CartContext.Provider>

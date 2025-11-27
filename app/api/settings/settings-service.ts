@@ -9,7 +9,13 @@ import { Configurations } from "@/app/generated/prisma/client";
 import { DomainError } from "@/lib/api-errors";
 import { configKeyFormat } from "@/helpers";
 
-export class PasswordChangeError extends Error {}
+/** A password change the user can fix (e.g. wrong current password): 400. */
+export class PasswordChangeError extends DomainError {
+  constructor(message: string) {
+    super(message, 400);
+    this.name = "PasswordChangeError";
+  }
+}
 
 export async function changePassword(
   values: ChangePasswordData

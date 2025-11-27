@@ -15,7 +15,10 @@ export const settingsApi = {
       "/settings/change-password",
       values
     );
-    return response.data;
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data.error || "Failed to change password");
   },
   //CONFIGs
   addConfig: async (values: AddConfigDataPayload): Promise<Configurations> => {

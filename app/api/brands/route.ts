@@ -1,5 +1,5 @@
 import { requireAdmin } from "@/lib/require-admin";
-import { handleRouteError } from "@/lib/api-errors";
+import { handleRouteError, parseJsonBody } from "@/lib/api-errors";
 import { NextRequest, NextResponse } from "next/server";
 import { getBrands, addBrand } from "@/app/api/brands/brands-service";
 
@@ -21,8 +21,8 @@ export async function POST(request: NextRequest) {
   if (denied) return denied;
 
   try {
-    const body = await request.json();
-    const { name } = body;
+    const body = await parseJsonBody(request);
+    const { name } = (body ?? {}) as { name?: unknown };
 
     if (!name || typeof name !== "string" || name.trim().length === 0) {
       return NextResponse.json(

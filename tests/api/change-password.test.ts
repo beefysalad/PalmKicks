@@ -111,4 +111,54 @@ describe("POST /api/settings/change-password", () => {
     expect(data.firstTimeLogin).toBe(false);
     expect(data.passwordChangedAt).toBeInstanceOf(Date);
   });
+
+  it("answers { success, error } shapes (field message on validation)", async () => {
+    mockAuth.mockResolvedValue(null);
+    expect(await (await call(valid)).json()).toEqual({ success: false, error: "Unauthorized" });
+
+    mockAuth.mockResolvedValue({ user: { id: "a1", username: "admin" } });
+    const short = await call({ ...valid, newPassword: "short", confirmPassword: "short" });
+    const shortBody = await short.json();
+    expect(shortBody.success).toBe(false);
+    expect(typeof shortBody.error).toBe("string");
+    expect(shortBody.error.length).toBeGreaterThan(0);
+
+    compare.mockResolvedValue(false);
+    expect(await (await call(valid)).json()).toEqual({
+      success: false,
+      error: "Current password is incorrect",
+    });
+
+    compare.mockResolvedValue(true);
+    expect(await (await call(valid)).json()).toEqual({
+      success: true,
+      data: { message: "Password changed successfully" },
+    });
+  });
+
+  it("500 without logging the full error object", async () => {
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    compare.mockResolvedValue(true);
+    const secretError = new Error("connection string postgres://u:secret@db");
+    update.mockRejectedValue(secretError);
+    const res = await call(valid);
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ success: false, error: "Failed to change password" });
+    for (const args of err.mock.calls) {
+      expect(args).not.toContain(secretError);
+      expect(JSON.stringify(args)).not.toContain("secret");
+    }
+    err.mockRestore();
+  });
+
+  it("400 for malformed JSON", async () => {
+    const res = await POST(
+      new NextRequest("http://localhost/api/settings/change-password", {
+        method: "POST",
+        body: "{oops",
+      })
+    );
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ success: false, error: "Invalid JSON body" });
+  });
 });

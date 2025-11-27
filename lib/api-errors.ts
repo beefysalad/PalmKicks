@@ -15,6 +15,26 @@ export class DomainError extends Error {
   }
 }
 
+/** Thrown by parseJsonBody when the request body is not valid JSON. */
+export class InvalidJsonError extends DomainError {
+  constructor() {
+    super("Invalid JSON body", 400);
+    this.name = "InvalidJsonError";
+  }
+}
+
+/**
+ * Reads the request body as JSON. A malformed body throws InvalidJsonError,
+ * which handleRouteError answers with 400 "Invalid JSON body" instead of 500.
+ */
+export async function parseJsonBody(request: Request): Promise<unknown> {
+  try {
+    return await request.json();
+  } catch {
+    throw new InvalidJsonError();
+  }
+}
+
 function isZodError(error: unknown): error is z.ZodError {
   return (
     error instanceof z.ZodError ||
@@ -37,6 +57,14 @@ function prismaCode(error: unknown): string | null {
   return null;
 }
 
+export interface HandleRouteErrorOptions {
+  /**
+   * false logs only the error's name for unexpected errors, for routes whose
+   * errors may carry sensitive context (e.g. password changes).
+   */
+  logDetails?: boolean;
+}
+
 /**
  * Maps a thrown error to a safe response. Only fixed strings, validation
  * messages and DomainError messages ever reach the client; anything else is
@@ -45,6 +73,7 @@ function prismaCode(error: unknown): string | null {
 export function handleRouteError(
   error: unknown,
   fallback: string,
+  options: HandleRouteErrorOptions = {},
 ): NextResponse {
   if (isZodError(error)) {
     return apiError(400, error.issues[0]?.message || "Invalid request");
@@ -60,6 +89,10 @@ export function handleRouteError(
     case "P2003":
       return apiError(409, "Resource is in use");
   }
-  console.error(fallback, error);
+  if (options.logDetails === false) {
+    console.error(fallback, error instanceof Error ? error.name : typeof error);
+  } else {
+    console.error(fallback, error);
+  }
   return apiError(500, fallback);
 }

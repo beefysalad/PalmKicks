@@ -16,13 +16,18 @@ export const useChangePassword = () => {
       settingsApi.changePassword(payload),
     onSuccess: async (data) => {
       // Changing the password revokes every session, including this one.
-      toast.success(`${data.message ?? "Password changed"}. Please sign in again.`);
+      toast.success(`${data.message}. Please sign in again.`);
       await signOut({ callbackUrl: "/admin/login" });
     },
     onError: (error: unknown) => {
-      const axiosError = error as AxiosError<{ message: string }>;
+      // The route answers { success: false, error }; for validation failures
+      // `error` is the field message (e.g. the password policy).
+      const axiosError = error as AxiosError<{ error?: string }>;
       const message =
-        axiosError.response?.data?.message ?? "Failed to change password";
+        axiosError.response?.data?.error ??
+        (error instanceof Error && !axiosError.isAxiosError
+          ? error.message
+          : "Failed to change password");
       toast.error(message);
     },
   });

@@ -7,7 +7,7 @@ import {
   updateOrderStatus,
 } from "@/app/api/orders/orders-service";
 import { updateOrderStatusSchema } from "@/app/shared/zod/order-zod";
-import { handleRouteError } from "@/lib/api-errors";
+import { handleRouteError, parseJsonBody } from "@/lib/api-errors";
 import { NextRequest, NextResponse } from "next/server";
 
 interface RouteParams {
@@ -73,7 +73,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
   try {
     const { id } = await params;
-    const body = await request.json();
+    const body = await parseJsonBody(request);
 
     const validatedData = updateOrderStatusSchema.parse(body);
 

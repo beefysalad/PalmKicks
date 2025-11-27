@@ -11,7 +11,7 @@ import {
   productUpdateSchema,
 } from "@/app/shared/zod/product-zod";
 import { apiError, apiOk } from "@/lib/api-response";
-import { handleRouteError } from "@/lib/api-errors";
+import { handleRouteError, parseJsonBody } from "@/lib/api-errors";
 import prisma from "@/lib/prisma";
 
 interface RouteParams {
@@ -48,8 +48,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
   try {
     const { id } = await params;
-    const body = await request.json();
-    const { brand: brandName, ...rest } = body ?? {};
+    const body = await parseJsonBody(request);
+    const { brand: brandName, ...rest } = (body ?? {}) as {
+      brand?: unknown;
+      brandId?: unknown;
+      [key: string]: unknown;
+    };
 
     let brandId = rest.brandId;
     if (!brandId && typeof brandName === "string") {
@@ -78,7 +82,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
   try {
     const { id } = await params;
-    const body = await request.json();
+    const body = await parseJsonBody(request);
     const { featured, latest } = productToggleSchema.parse(body);
 
     const updateData: UpdateProductData = {};

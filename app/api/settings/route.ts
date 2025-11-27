@@ -1,6 +1,6 @@
 import { requireAdmin } from "@/lib/require-admin";
 import { addConfigSchema } from "@/app/shared/zod/settings-zod";
-import { handleRouteError } from "@/lib/api-errors";
+import { handleRouteError, parseJsonBody } from "@/lib/api-errors";
 import { NextRequest, NextResponse } from "next/server";
 import { addConfig, getAllConfigs } from "./settings-service";
 
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
   if (denied) return denied;
 
   try {
-    const body = await request.json();
+    const body = await parseJsonBody(request);
     const validatedData = addConfigSchema.parse(body);
 
     const config = await addConfig(validatedData);

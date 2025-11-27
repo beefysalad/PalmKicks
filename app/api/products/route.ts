@@ -1,7 +1,7 @@
 import { requireAdmin } from "@/lib/require-admin";
 import { NextRequest, NextResponse } from "next/server";
 import { apiError, apiOk } from "@/lib/api-response";
-import { handleRouteError } from "@/lib/api-errors";
+import { handleRouteError, parseJsonBody } from "@/lib/api-errors";
 import { getProducts, addProduct } from "@/app/api/products/products-service";
 import { productSchema } from "@/app/shared/zod/product-zod";
 import prisma from "@/lib/prisma";
@@ -36,8 +36,12 @@ export async function POST(request: NextRequest) {
   if (denied) return denied;
 
   try {
-    const body = await request.json();
-    const { brand: brandName, ...rest } = body ?? {};
+    const body = await parseJsonBody(request);
+    const { brand: brandName, ...rest } = (body ?? {}) as {
+      brand?: unknown;
+      brandId?: unknown;
+      [key: string]: unknown;
+    };
     let brandId = rest.brandId;
     if (!brandId && typeof brandName === "string") {
       const brand = await prisma.brand.findFirst({

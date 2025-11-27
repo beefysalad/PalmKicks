@@ -74,7 +74,8 @@ model ProductImage {
 }
 
 model Order {
-  id              String      @id // Custom format: PK-YYYY-XXXXX
+  id              String      @id // Custom format: PK-YYYY-XXXXXXXXXX (Crockford base32)
+  idempotencyKey  String?     @unique // Client-supplied Idempotency-Key for checkout retries
   customerName    String
   customerEmail   String
   customerPhone   String

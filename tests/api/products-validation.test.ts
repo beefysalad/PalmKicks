@@ -62,6 +62,7 @@ describe("product validation", () => {
 
   it.each([
     ["price too many decimals", { price: 10.123 }],
+    ["tiny fractional price", { price: 0.000000001 }],
     ["price too large", { price: 100000000 }],
     ["discount above price", { sale: true, price: 100, discountPrice: 150 }],
     ["non-http image", { image: "javascript:alert(1)" }],
@@ -102,6 +103,17 @@ describe("product validation", () => {
     const text = JSON.stringify(await res.json());
     expect(text).toContain("Failed to update product");
     expect(text).not.toContain("leaked");
+  });
+});
+
+describe("P2003 on create", () => {
+  it("returns 400 Brand not found", async () => {
+    vi.mocked(productsSvc.addProduct).mockRejectedValue(
+      Object.assign(new Error("fk"), { code: "P2003" }),
+    );
+    const res = await POST(req("POST", valid));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe("Brand not found");
   });
 });
 

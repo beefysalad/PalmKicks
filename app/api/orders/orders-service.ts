@@ -4,6 +4,7 @@ import { sendOrderConfirmation } from "@/lib/send-mail";
 import { runAfterResponse } from "@/lib/after";
 import { fromCentavos, toCentavos } from "@/lib/money";
 import { isOnSale } from "@/lib/pricing";
+import { ORDER_STATUS_FLOW } from "@/app/shared/order-status";
 import { DomainError } from "@/lib/api-errors";
 import type { PublicOrder } from "@/app/shared/types/order";
 import type { Prisma } from "@/app/generated/prisma/client";
@@ -71,13 +72,7 @@ export class OrderTransitionError extends DomainError {
   }
 }
 
-const STATUS_FLOW: OrderStatus[] = [
-  "pending",
-  "confirmed",
-  "processing",
-  "shipped",
-  "delivered",
-];
+const STATUS_FLOW: readonly OrderStatus[] = ORDER_STATUS_FLOW;
 
 const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const ORDER_ID_RANDOM_CHARS = 10;

@@ -1,4 +1,5 @@
 import prisma from "../../../lib/prisma";
+import { DomainError } from "@/lib/api-errors";
 import type { Prisma } from "@/app/generated/prisma/client";
 
 export interface Product {
@@ -219,6 +220,43 @@ export async function updateProduct(
 
   // Field update and image replacement commit together or not at all.
   const updatedProduct = await prisma.$transaction(async (tx) => {
+    // Validate the MERGED product so partial updates cannot break the
+    // price/discount/sale invariant against the stored row.
+    if (
+      rest.price !== undefined ||
+      rest.discountPrice !== undefined ||
+      rest.sale !== undefined
+    ) {
+      const current = await tx.product.findUnique({
+        where: { id },
+        select: { price: true, discountPrice: true, sale: true },
+      });
+      if (!current) throw new DomainError("Product not found", 404);
+      const price = rest.price ?? Number(current.price);
+      const sale = rest.sale ?? current.sale;
+      const discount =
+        rest.discountPrice !== undefined
+          ? rest.discountPrice
+          : current.discountPrice === null ||
+              current.discountPrice === undefined
+            ? null
+            : Number(current.discountPrice);
+      if (sale) {
+        if (discount === null) {
+          throw new DomainError(
+            "Discount price is required when the product is on sale",
+            400
+          );
+        }
+        if (discount > price) {
+          throw new DomainError("Discount price cannot exceed price", 400);
+        }
+        updateData.discountPrice = discount;
+      } else {
+        updateData.discountPrice = null;
+      }
+    }
+
     await tx.product.update({ where: { id }, data: updateData });
 
     if (additionalImages !== undefined) {

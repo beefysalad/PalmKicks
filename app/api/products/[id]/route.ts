@@ -62,15 +62,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (brandId !== undefined) rest.brandId = brandId;
 
     const validated = productUpdateSchema.parse(rest);
-    const updateData: UpdateProductData = { ...validated };
-    // A discount only applies to products that are on sale.
-    if (validated.sale === false) {
-      updateData.discountPrice = null;
-    }
-
-    const product = await updateProduct(id, updateData);
+    const product = await updateProduct(id, validated);
     return apiOk(product);
   } catch (error) {
+    if ((error as { code?: unknown })?.code === "P2003") {
+      return apiError(400, "Brand not found");
+    }
     return handleRouteError(error, "Failed to update product");
   }
 }

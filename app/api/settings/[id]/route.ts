@@ -30,7 +30,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
     const body = await request.json();
     const { value } = updateConfigSchema.parse(body);
-    const config = await updateConfig(id, { key: "", value });
+    const config = await updateConfig(id, { value });
     return NextResponse.json({ success: true, data: config }, { status: 200 });
   } catch (error) {
     return handleRouteError(error, "Failed to update configuration");

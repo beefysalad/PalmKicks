@@ -1,15 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { tx, prismaMock } = vi.hoisted(() => {
-  const tx = {
+const { tx, outer, prismaMock } = vi.hoisted(() => {
+  const mk = () => ({
     product: { update: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
     productImage: { deleteMany: vi.fn(), createMany: vi.fn() },
-  };
+  });
+  const tx = mk();
+  const outer = mk();
   const prismaMock = {
-    ...tx,
+    ...outer,
     $transaction: vi.fn(async (fn: (t: typeof tx) => unknown) => fn(tx)),
   };
-  return { tx, prismaMock };
+  return { tx, outer, prismaMock };
 });
 vi.mock("@/lib/prisma", () => ({ default: prismaMock, prisma: prismaMock }));
 
@@ -17,39 +19,53 @@ import { updateProduct, addProduct } from "@/app/api/products/products-service";
 
 const full = {
   id: "p1",
-  price: 1,
+  price: 100,
   discountPrice: null,
+  sale: false,
   sizes: [],
   colors: [],
   brand: { id: "b", name: "B" },
   images: [],
 };
 
+const outerSpies = () => [
+  outer.product.update,
+  outer.product.findUnique,
+  outer.product.create,
+  outer.productImage.deleteMany,
+  outer.productImage.createMany,
+];
+
 beforeEach(() => {
   vi.clearAllMocks();
-  tx.productImage.createMany.mockReset();
-  tx.product.findUnique.mockResolvedValue(full);
+  for (const f of [tx.product.update, tx.product.create, tx.productImage.deleteMany, tx.productImage.createMany])
+    f.mockReset();
+  tx.product.findUnique.mockReset().mockResolvedValue(full);
   tx.product.create.mockResolvedValue(full);
 });
 
 describe("product image writes are transactional", () => {
-  it("updateProduct runs update + deleteMany + createMany inside one $transaction", async () => {
+  it("updateProduct writes only via tx, deleteMany before createMany", async () => {
+    const order: string[] = [];
+    tx.productImage.deleteMany.mockImplementation(async () => void order.push("delete"));
+    tx.productImage.createMany.mockImplementation(async () => void order.push("create"));
     await updateProduct("p1", { name: "x", additionalImages: ["https://a/1.png"] });
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
     expect(tx.product.update).toHaveBeenCalled();
-    expect(tx.productImage.deleteMany).toHaveBeenCalled();
-    expect(tx.productImage.createMany).toHaveBeenCalled();
+    expect(order).toEqual(["delete", "create"]);
+    for (const spy of outerSpies()) expect(spy).not.toHaveBeenCalled();
   });
 
-  it("propagates a createMany failure out of the transaction", async () => {
+  it("propagates a createMany failure and performs no outer write", async () => {
     tx.productImage.createMany.mockRejectedValue(new Error("boom"));
     await expect(
       updateProduct("p1", { additionalImages: ["https://a/1.png"] }),
     ).rejects.toThrow("boom");
-    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    expect(tx.productImage.deleteMany).toHaveBeenCalled();
+    for (const spy of outerSpies()) expect(spy).not.toHaveBeenCalled();
   });
 
-  it("addProduct creates product and images in one transaction", async () => {
+  it("addProduct creates product and images only inside the transaction", async () => {
     await addProduct({
       name: "n", brandId: "b", category: "c", gender: "men", price: 1,
       description: "d", image: "https://a/i.png", sale: false,
@@ -58,5 +74,50 @@ describe("product image writes are transactional", () => {
     expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
     expect(tx.product.create).toHaveBeenCalled();
     expect(tx.productImage.createMany).toHaveBeenCalled();
+    for (const spy of outerSpies()) expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+describe("updateProduct merged discount invariant", () => {
+  const current = (o: object) =>
+    tx.product.findUnique.mockResolvedValue({ ...full, ...o });
+  const updateArg = () => tx.product.update.mock.calls[0][0].data;
+
+  it("rejects discountPrice above stored price (sale true)", async () => {
+    current({ price: 100, sale: true, discountPrice: 50 });
+    await expect(updateProduct("p1", { discountPrice: 200 })).rejects.toMatchObject({ status: 400 });
+    expect(tx.product.update).not.toHaveBeenCalled();
+  });
+
+  it("rejects lowering price below stored discount", async () => {
+    current({ price: 100, sale: true, discountPrice: 80 });
+    await expect(updateProduct("p1", { price: 50 })).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("rejects sale true without a discount", async () => {
+    current({ price: 100, sale: false, discountPrice: null });
+    await expect(updateProduct("p1", { sale: true })).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("stores discount null when resulting sale is false", async () => {
+    current({ price: 100, sale: true, discountPrice: 50 });
+    await updateProduct("p1", { sale: false });
+    expect(updateArg().discountPrice).toBeNull();
+    tx.product.update.mockClear();
+    current({ price: 100, sale: false, discountPrice: null });
+    await updateProduct("p1", { discountPrice: 10 });
+    expect(updateArg().discountPrice).toBeNull();
+  });
+
+  it("accepts a valid merged discount", async () => {
+    current({ price: 100, sale: true, discountPrice: 50 });
+    await updateProduct("p1", { discountPrice: 60 });
+    expect(updateArg().discountPrice).toBe(60);
+  });
+
+  it("does not touch the invariant for unrelated updates", async () => {
+    current({ price: 100, sale: true, discountPrice: null });
+    await updateProduct("p1", { featured: true });
+    expect(updateArg()).toEqual({ featured: true });
   });
 });

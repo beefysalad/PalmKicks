@@ -20,6 +20,7 @@ import {
   Mail,
   Phone,
 } from "lucide-react";
+import { ORDER_STATUS_FLOW } from "@/app/shared/order-status";
 import { Order } from "@/app/shared/types/order";
 
 const OrderDetailsPage = () => {
@@ -48,17 +49,10 @@ const OrderDetailsPage = () => {
   }
 
   // The API only moves an order forward one step at a time.
-  const STATUS_FLOW: Order["status"][] = [
-    "pending",
-    "confirmed",
-    "processing",
-    "shipped",
-    "delivered",
-  ];
   const isAllowed = (s: Order["status"]) => {
     if (!order) return false;
-    const cur = STATUS_FLOW.indexOf(order.status);
-    const idx = STATUS_FLOW.indexOf(s);
+    const cur = (ORDER_STATUS_FLOW as readonly string[]).indexOf(order.status);
+    const idx = (ORDER_STATUS_FLOW as readonly string[]).indexOf(s);
     return idx === cur || idx === cur + 1;
   };
 

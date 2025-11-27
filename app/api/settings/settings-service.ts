@@ -6,6 +6,7 @@ import {
   ChangePasswordData,
 } from "@/app/shared/types/settings";
 import { Configurations } from "@/app/generated/prisma/client";
+import { DomainError } from "@/lib/api-errors";
 import { configKeyFormat } from "@/helpers";
 
 export class PasswordChangeError extends Error {}
@@ -63,7 +64,7 @@ export async function addConfig(
      //eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     if (error.code === "P2002") {
-      throw new Error("Configuration with this key already exists!");
+      throw new DomainError("Configuration with this key already exists", 409);
     }
     throw error;
   }
@@ -85,7 +86,7 @@ export async function getAllConfigs(
 
 export async function updateConfig(
   id: string,
-  values: AddConfigDataPayload
+  values: { value: string }
 ): Promise<Configurations> {
   const config = await prisma.configurations.update({
     where: {

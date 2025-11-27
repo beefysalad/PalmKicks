@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ordersApi } from "./api";
 import { useRouter } from "next/navigation";
+import type { AxiosError } from "axios";
 import { orderKeys } from "./order-keys";
 import { CreateOrderPayload, Order } from "@/app/shared/types/order";
 
@@ -135,7 +136,15 @@ export const useUpdateOrderStatus = () => {
         queryClient.setQueryData(orderKeys.list(), context.previousOrders);
       }
 
-      toast.error(error.message);
+      const axiosError = error as AxiosError<{ error?: string }>;
+      if (axiosError.response?.status === 409) {
+        // Stale status: refetch so the next attempt sends a fresh expectedStatus.
+        queryClient.invalidateQueries({
+          queryKey: orderKeys.detail(variables.id),
+        });
+        queryClient.invalidateQueries({ queryKey: orderKeys.all });
+      }
+      toast.error(axiosError.response?.data?.error ?? error.message);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: orderKeys.all });

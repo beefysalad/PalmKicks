@@ -33,7 +33,7 @@ const moneyField = (label: string) =>
         .finite(`${label} must be a number`)
         .min(0, `${label} cannot be negative`)
         .max(MAX_PRICE, `${label} is too large`)
-        .refine((n) => Math.abs(Math.round(n * 100) - n * 100) < 1e-6, {
+        .refine((n) => Math.round(n * 100) / 100 === n, {
           message: `${label} can have at most 2 decimal places`,
         })
     );

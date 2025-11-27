@@ -49,15 +49,26 @@ export async function POST(request: NextRequest) {
 
     const validated = productSchema.parse({ ...rest, brandId });
     // A discount only applies to products that are on sale.
-    const { featured: _featured, latest: _latest, ...create } = validated;
-    void _featured;
-    void _latest;
     const product = await addProduct({
-      ...create,
-      discountPrice: create.sale ? create.discountPrice : undefined,
+      name: validated.name,
+      brandId: validated.brandId,
+      category: validated.category,
+      gender: validated.gender,
+      price: validated.price,
+      description: validated.description,
+      image: validated.image,
+      additionalImages: validated.additionalImages,
+      sizes: validated.sizes,
+      colors: validated.colors,
+      inStock: validated.inStock,
+      sale: validated.sale,
+      discountPrice: validated.sale ? validated.discountPrice : undefined,
     });
     return apiOk(product, 201);
   } catch (error) {
+    if ((error as { code?: unknown })?.code === "P2003") {
+      return apiError(400, "Brand not found");
+    }
     return handleRouteError(error, "Failed to create product");
   }
 }

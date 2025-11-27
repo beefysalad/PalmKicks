@@ -90,6 +90,12 @@ describe("PATCH /api/orders/[id]", () => {
       { params: Promise.resolve({ id: "o1" }) },
     );
 
+  it("same status with stale expectedStatus returns 409", async () => {
+    prismaMock.order.findUnique.mockResolvedValue(row("shipped"));
+    const res = await call({ status: "shipped", expectedStatus: "pending" });
+    expect(res.status).toBe(409);
+  });
+
   it("shipped -> pending returns 409", async () => {
     prismaMock.order.findUnique.mockResolvedValue(row("shipped"));
     const res = await call({ status: "pending" });

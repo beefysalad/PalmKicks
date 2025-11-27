@@ -436,6 +436,17 @@ export async function updateOrderAdmin(
       throw new OrderTransitionError("Only paid orders can be refunded");
     }
 
+    if (current.paymentStatus === "refunded" && paymentStatus !== undefined && paymentStatus !== "refunded") {
+      throw new OrderTransitionError("Refunded payments cannot be changed");
+    }
+    if (current.status === "shipped" || current.status === "delivered") {
+      for (const key of ["courier", "trackingNumber"] as const) {
+        if (input[key] !== undefined && !input[key]?.trim()) {
+          throw new OrderValidationError("Courier and tracking number cannot be cleared after shipping");
+        }
+      }
+    }
+
     const data: Prisma.OrderUpdateManyMutationInput = {};
     for (const key of ["paymentMethod", "paymentRef", "adminNote", "courier", "trackingNumber"] as const) {
       if (input[key] !== undefined) data[key] = input[key];
@@ -460,10 +471,11 @@ export async function updateOrderAdmin(
     if (paymentStatus !== undefined) {
       data.paymentStatus = paymentStatus;
       if (paymentStatus === "paid" && !current.paidAt) data.paidAt = now;
+      if (paymentStatus === "unpaid") data.paidAt = null;
     }
     if (Object.keys(data).length === 0) return mapOrder(current);
 
-    const result = await tx.order.updateMany({ where: { id, status: expected }, data });
+    const result = await tx.order.updateMany({ where: { id, status: expected, ...(paymentStatus !== undefined ? { paymentStatus: current.paymentStatus } : {}) }, data });
     if (result.count === 0) throw new OrderTransitionError(STATUS_CONFLICT);
     const updated = await tx.order.findUnique({ where: { id }, include: orderInclude });
     if (!updated) throw new DomainError("Order not found", 404);

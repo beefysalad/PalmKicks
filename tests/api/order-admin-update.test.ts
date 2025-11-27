@@ -4,11 +4,12 @@ import { NextRequest } from "next/server";
 const h = vi.hoisted(() => {
   const state = { rows: [] as Record<string, unknown>[] };
   const findUnique = vi.fn(async ({ where }: { where: { id: string } }) =>
-    state.rows.find((row) => row.id === where.id) ?? null);
+    structuredClone(state.rows.find((row) => row.id === where.id) ?? null));
   const updateMany = vi.fn(async ({ where, data }: {
-    where: { id: string; status: string }; data: Record<string, unknown>;
+    where: { id: string; status: string; paymentStatus?: string }; data: Record<string, unknown>;
   }) => {
-    const row = state.rows.find((row) => row.id === where.id && row.status === where.status);
+    const row = state.rows.find((row) => row.id === where.id && row.status === where.status &&
+      (where.paymentStatus === undefined || row.paymentStatus === where.paymentStatus));
     if (!row) return { count: 0 };
     Object.assign(row, data);
     return { count: 1 };
@@ -32,9 +33,8 @@ const h = vi.hoisted(() => {
   });
   const order = { findUnique, updateMany, deleteMany, groupBy };
   const $transaction = vi.fn(async (fn: (tx: { order: typeof order }) => unknown) => {
-    const snapshot = structuredClone(state.rows);
-    try { return await fn({ order }); }
-    catch (error) { state.rows = snapshot; throw error; }
+    // The only mutation is an atomic conditional write; a failed guard writes nothing.
+    return fn({ order });
   });
   return { state, order, prisma: { order, $transaction } };
 });
@@ -122,6 +122,31 @@ describe("admin order lifecycle", () => {
   it.each(["unpaid", "refunded"])("cannot refund %s", async (paymentStatus) => {
     h.state.rows = [row({ paymentStatus })];
     expect((await patch({ paymentStatus: "refunded" })).status).toBe(409);
+  });
+  it("allows exactly one concurrent refund or unpaid edit", async () => {
+    h.state.rows = [row({ status: "confirmed", paymentStatus: "paid", paidAt: new Date() })];
+    const results = await Promise.allSettled([
+      updateOrderAdmin("o1", { paymentStatus: "refunded" }),
+      updateOrderAdmin("o1", { paymentStatus: "unpaid" }),
+    ]);
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.find((result) => result.status === "rejected")).toMatchObject({ reason: { status: 409 } });
+    expect(h.state.rows[0].paymentStatus).toBe("refunded");
+  });
+  it.each([{ paymentStatus: "paid" }, { paymentStatus: "unpaid" }, { markPaidAndConfirm: true }])("refunded is final: %j", async (input) => {
+    h.state.rows = [row({ paymentStatus: "refunded" })];
+    expect((await patch(input)).status).toBe(409);
+  });
+  it("clears paidAt when correcting paid to unpaid", async () => {
+    h.state.rows = [row({ paymentStatus: "paid", paidAt: new Date() })];
+    expect(await updateOrderAdmin("o1", { paymentStatus: "unpaid" })).toMatchObject({ paymentStatus: "unpaid", paidAt: null });
+  });
+  it.each(["shipped", "delivered"])("rejects clearing shipping details on %s", async (status) => {
+    h.state.rows = [row({ status, courier: "DHL", trackingNumber: "123" })];
+    for (const input of [{ courier: null }, { courier: "" }, { trackingNumber: null }, { trackingNumber: " " }]) {
+      expect((await patch(input)).status).toBe(400);
+    }
+    expect((await patch({ courier: "LBC", trackingNumber: "456" })).status).toBe(200);
   });
   it("rejects stale expectedStatus even on a note edit", async () => {
     expect((await patch({ adminNote: "note", expectedStatus: "confirmed" })).status).toBe(409);

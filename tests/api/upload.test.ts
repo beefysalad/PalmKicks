@@ -17,7 +17,11 @@ const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0
 function req(value: FormDataEntryValue) {
   const fd = new FormData();
   fd.set("file", value);
-  return new NextRequest("http://localhost/api/upload", { method: "POST", body: fd });
+  return new NextRequest("http://localhost/api/upload", {
+    method: "POST",
+    body: fd,
+    headers: { "content-length": "1024" },
+  });
 }
 const admin = () =>
   (auth as unknown as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -67,5 +71,47 @@ describe("POST /api/upload", () => {
     const res = await POST(req(new File([PNG], "a.png", { type: "image/png" })));
     expect(res.status).toBe(500);
     expect(JSON.stringify(await res.json())).not.toContain("secret internal");
+  });
+  it("413 on oversized Content-Length without parsing the body", async () => {
+    admin();
+    const r = new NextRequest("http://localhost/api/upload", {
+      method: "POST",
+      headers: { "content-length": String(10 * 1024 * 1024) },
+      body: "x",
+    });
+    const spy = vi.spyOn(r, "formData");
+    const res = await POST(r);
+    expect(res.status).toBe(413);
+    expect(spy).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
+  });
+  it("411 when Content-Length is missing", async () => {
+    admin();
+    const r = new NextRequest("http://localhost/api/upload", { method: "POST" });
+    const spy = vi.spyOn(r, "formData");
+    const res = await POST(r);
+    expect(res.status).toBe(411);
+    expect(spy).not.toHaveBeenCalled();
+  });
+  it("411 when Content-Length is not a number", async () => {
+    admin();
+    const r = new NextRequest("http://localhost/api/upload", {
+      method: "POST",
+      headers: { "content-length": "abc" },
+      body: "x",
+    });
+    expect((await POST(r)).status).toBe(411);
+  });
+  it("400 on malformed multipart body", async () => {
+    admin();
+    const r = new NextRequest("http://localhost/api/upload", {
+      method: "POST",
+      headers: { "content-type": "multipart/form-data; boundary=zzz", "content-length": "5" },
+      body: "junk!",
+    });
+    const res = await POST(r);
+    expect(res.status).toBe(400);
+    expect(await res.json()).toMatchObject({ error: "Invalid form data" });
+    expect(upload).not.toHaveBeenCalled();
   });
 });

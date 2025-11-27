@@ -18,8 +18,8 @@ function sniff(b: Buffer): ImageMime | null {
   }
   if (
     b.length >= 12 &&
-    b.toString("ascii", 0, 4) === "RIFF" &&
-    b.toString("ascii", 8, 12) === "WEBP"
+    b.subarray(0, 4).equals(Buffer.from("RIFF")) &&
+    b.subarray(8, 12).equals(Buffer.from("WEBP"))
   ) {
     return "image/webp";
   }

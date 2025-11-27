@@ -37,4 +37,8 @@ describe("validateImageFile", () => {
     const wav = [0x52, 0x49, 0x46, 0x46, 1, 2, 3, 4, 0x57, 0x41, 0x56, 0x45];
     expect(await validateImageFile(mk(wav))).toMatchObject({ ok: false, status: 415 });
   });
+  it("rejects high-bit bytes that ascii decoding would fold into RIFF/WEBP", async () => {
+    const fake = [0xd2, 0xc9, 0xc6, 0xc6, 1, 2, 3, 4, 0xd7, 0xc5, 0xc2, 0xd0];
+    expect(await validateImageFile(mk(fake))).toMatchObject({ ok: false, status: 415 });
+  });
 });

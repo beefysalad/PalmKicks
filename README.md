@@ -131,11 +131,11 @@ tests/                   Vitest suites (api/, lib/, middleware)
 | `/api/brands` | GET; POST | public; admin |
 | `/api/brands/[id]` | GET; PUT, DELETE | public; admin |
 | `/api/orders` | POST; GET | public (rate limited, idempotent); admin (paged) |
-| `/api/orders/[id]` | GET; PATCH, DELETE | public minimal view (`?view=public`) or full view for admin; admin |
+| `/api/orders/[id]` | GET; PATCH, DELETE | public minimal view for non-admins (or with `?view=public`), full view for admin; admin |
 | `/api/orders/stats` | GET | admin |
 | `/api/orders/confirm` | POST | admin (resends the confirmation email) |
 | `/api/upload` | POST | admin |
-| `/api/settings` | GET; POST | admin; admin |
+| `/api/settings` | GET; POST | public; admin |
 | `/api/settings/[id]` | PUT, DELETE | admin |
 | `/api/settings/change-password` | POST | admin, allowed during first login |
 
@@ -152,6 +152,7 @@ The `/admin/*` pages are guarded by `middleware.ts`, but the middleware does not
 - **Public order view:** guests see only a minimal projection of an order, never customer contact details.
 - **Uploads:** admin only, 5 MB cap checked before parsing, the file type is determined by content (JPEG, PNG or WebP), not by the declared MIME type.
 - **Email:** all user-supplied values are HTML-escaped in the email body, SMTP uses TLS with certificate verification, and sends are time-bounded.
+- **Public settings:** `GET /api/settings` is deliberately public (the storefront reads site links and contact info from it), so `Configurations` must hold only non-sensitive storefront settings.
 - **Errors:** API errors use a consistent shape and do not leak internals.
 
 ## Orders and status

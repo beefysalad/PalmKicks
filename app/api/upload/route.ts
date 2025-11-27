@@ -1,4 +1,6 @@
 import { requireAdmin } from "@/lib/require-admin";
+import { apiError } from "@/lib/api-response";
+import { validateImageFile } from "@/lib/upload-validation";
 import { NextRequest, NextResponse } from "next/server";
 import { v2 as cloudinary } from "cloudinary";
 
@@ -13,30 +15,22 @@ export async function POST(request: NextRequest) {
   if (denied) return denied;
 
   try {
-    const formData = await request.formData();
-    const file = formData.get("file") as File;
-
-    if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
-    }
-
     if (
       !process.env.CLOUDINARY_CLOUD_NAME ||
       !process.env.CLOUDINARY_API_KEY ||
       !process.env.CLOUDINARY_API_SECRET
     ) {
       console.error("Cloudinary environment variables are not set");
-      return NextResponse.json(
-        { error: "Cloudinary configuration missing" },
-        { status: 500 }
-      );
+      return apiError(500, "Cloudinary configuration missing");
     }
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    const formData = await request.formData();
+    const result = await validateImageFile(formData.get("file"));
+    if (!result.ok) {
+      return apiError(result.status, result.error);
+    }
 
-    const base64 = buffer.toString("base64");
-    const dataURI = `data:${file.type};base64,${base64}`;
+    const dataURI = `data:${result.mime};base64,${result.buffer.toString("base64")}`;
 
     const uploadResult = await cloudinary.uploader.upload(dataURI, {
       folder: "products",
@@ -49,9 +43,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Upload error:", error);
-    return NextResponse.json(
-      { error: "Failed to upload file" },
-      { status: 500 }
-    );
+    return apiError(500, "Failed to upload file");
   }
 }

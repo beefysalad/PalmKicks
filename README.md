@@ -70,7 +70,7 @@ Open http://localhost:3000 and the admin panel at http://localhost:3000/admin/lo
 | `EMAIL_USER`, `EMAIL_PASS` | optional | Gmail address and app password. Without them orders are still created but no email is sent |
 | `NEXT_PUBLIC_INSTAGRAM_URL` | yes | Shown to customers; used for manual payment coordination |
 | `NEXT_PUBLIC_LOGO_URL` | optional | Logo used in emails (omitted when empty) |
-| `NEXT_PUBLIC_ENVIRONMENT` | optional | Environment label |
+| `NEXT_PUBLIC_ENVIRONMENT` | optional | `DEV` shows a "Development" badge in the admin UI; any other value or empty shows nothing |
 | `NEXT_PUBLIC_FACEBOOK_URL`, `NEXT_PUBLIC_CONTACT_EMAIL`, `NEXT_PUBLIC_TIKTOK_URL` | for seeding | Initial site configuration entries written by `db:seed` (editable later in admin settings) |
 
 `NEXT_PUBLIC_*` values are embedded in the client bundle; never put secrets in them.

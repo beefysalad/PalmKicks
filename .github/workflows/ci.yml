@@ -19,3 +19,14 @@ jobs:
       - run: npm run lint
       - run: npx tsc --noEmit
       - run: npm test
+      # Build with clearly fake values: the build must not need real secrets
+      # or a reachable database.
+      - run: npm run build
+        env:
+          DATABASE_URL: postgresql://user:pass@localhost:5432/db
+          AUTH_SECRET: ci-secret-not-real
+          AUTH_URL: http://localhost:3000
+          CLOUDINARY_CLOUD_NAME: ci-not-real
+          CLOUDINARY_API_KEY: ci-not-real
+          CLOUDINARY_API_SECRET: ci-not-real
+          NEXT_TELEMETRY_DISABLED: "1"

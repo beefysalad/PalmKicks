@@ -106,6 +106,21 @@ describe("product validation", () => {
   });
 });
 
+describe("create discount rule", () => {
+  it("sale true without discount -> 400", async () => {
+    const res = await POST(req("POST", { ...valid, sale: true }));
+    expect(res.status).toBe(400);
+  });
+  it("discount > price -> 400", async () => {
+    const res = await POST(req("POST", { ...valid, sale: true, discountPrice: 500 }));
+    expect(res.status).toBe(400);
+  });
+  it("sale false drops the discount", async () => {
+    await POST(req("POST", { ...valid, sale: false, discountPrice: 5 }));
+    expect(vi.mocked(productsSvc.addProduct).mock.calls[0][0].discountPrice).toBeUndefined();
+  });
+});
+
 describe("P2003 on create", () => {
   it("returns 400 Brand not found", async () => {
     vi.mocked(productsSvc.addProduct).mockRejectedValue(

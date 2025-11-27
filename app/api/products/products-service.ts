@@ -153,6 +153,21 @@ function toProduct(row: ProductRow): Product {
 export async function addProduct(data: CreateProductData): Promise<Product> {
   const { additionalImages = [], ...productData } = data;
 
+  if (productData.sale) {
+    if (productData.discountPrice === undefined) {
+      throw new DomainError(
+        "Discount price is required when the product is on sale",
+        400
+      );
+    }
+    if (productData.discountPrice > productData.price) {
+      throw new DomainError("Discount price cannot exceed price", 400);
+    }
+  }
+  const discountPrice = productData.sale
+    ? productData.discountPrice
+    : undefined;
+
   // Product and gallery images are written atomically.
   const completeProduct = await prisma.$transaction(async (tx) => {
     const product = await tx.product.create({
@@ -162,7 +177,7 @@ export async function addProduct(data: CreateProductData): Promise<Product> {
         category: productData.category,
         gender: productData.gender,
         price: productData.price,
-        discountPrice: productData.discountPrice,
+        discountPrice,
         description: productData.description,
         image: productData.image,
         sizes: productData.sizes || [],

@@ -15,6 +15,32 @@ export const productFormSchema = z.object({
   colors: z.array(z.string()).default([]),
   inStock: z.boolean().default(true),
   sale: z.boolean().default(false),
+}).superRefine((v, ctx) => {
+  if (!v.sale) return;
+  const price = Number(v.price);
+  const raw = (v.discountPrice ?? "").trim();
+  if (raw === "") {
+    ctx.addIssue({
+      code: "custom",
+      path: ["discountPrice"],
+      message: "Discount price is required when the product is on sale",
+    });
+    return;
+  }
+  const discount = Number(raw);
+  if (!Number.isFinite(discount) || discount < 0) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["discountPrice"],
+      message: "Discount price must be a valid amount",
+    });
+  } else if (Number.isFinite(price) && discount > price) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["discountPrice"],
+      message: "Discount price cannot exceed price",
+    });
+  }
 });
 
 // ---- API payload schemas (strict) ----
@@ -114,7 +140,13 @@ export const productSchema = z
     latest: productFields.latest.optional(),
   })
   .strict()
-  .refine(discountNotAbovePrice, discountIssue);
+  .refine(discountNotAbovePrice, discountIssue)
+  .refine((v) => !v.sale || v.discountPrice !== undefined, {
+    message: "Discount price is required when the product is on sale",
+    path: ["discountPrice"],
+  })
+  // A discount is only meaningful while on sale.
+  .transform((v) => (v.sale ? v : { ...v, discountPrice: undefined }));
 
 // PUT/PATCH payload: every field optional, still strict.
 export const productUpdateSchema = z

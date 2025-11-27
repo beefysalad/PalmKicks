@@ -78,6 +78,22 @@ describe("product image writes are transactional", () => {
   });
 });
 
+describe("addProduct discount rule", () => {
+  const base = {
+    name: "n", brandId: "b", category: "c", gender: "men" as const, price: 100,
+    description: "d", image: "https://a/i.png",
+  };
+  it("rejects sale without discount and discount above price", async () => {
+    await expect(addProduct({ ...base, sale: true })).rejects.toMatchObject({ status: 400 });
+    await expect(addProduct({ ...base, sale: true, discountPrice: 200 })).rejects.toMatchObject({ status: 400 });
+    expect(prismaMock.$transaction).not.toHaveBeenCalled();
+  });
+  it("drops discount when not on sale", async () => {
+    await addProduct({ ...base, sale: false, discountPrice: 10 });
+    expect(tx.product.create.mock.calls[0][0].data.discountPrice).toBeUndefined();
+  });
+});
+
 describe("updateProduct merged discount invariant", () => {
   const current = (o: object) =>
     tx.product.findUnique.mockResolvedValue({ ...full, ...o });

@@ -95,21 +95,13 @@ export function generateOrderId(): string {
   return `PK-${year}-${suffix}`;
 }
 
+/** The one include used for every order read, so all paths map identically. */
 const orderInclude = {
   items: {
-    include: {
-      product: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-    },
-    orderBy: {
-      createdAt: "asc" as const,
-    },
+    include: { product: { select: { id: true, name: true } } },
+    orderBy: { createdAt: "asc" },
   },
-};
+} satisfies Prisma.OrderInclude;
 
 type DbNumeric = { toString(): string } | number | string;
 type DbOrder = Prisma.OrderGetPayload<{ include: typeof orderInclude }>;
@@ -235,33 +227,9 @@ export async function deleteOrderById(id: string): Promise<void> {
 export async function getOrderById(id: string): Promise<Order | null> {
   const order = await prisma.order.findUnique({
     where: { id },
-    include: {
-      items: {
-        include: {
-          product: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-        },
-        orderBy: {
-          createdAt: "asc",
-        },
-      },
-    },
+    include: orderInclude,
   });
-
-  if (!order) return null;
-
-  return {
-    ...order,
-    total: Number(order.total),
-    items: order.items.map((item) => ({
-      ...item,
-      price: Number(item.price),
-    })),
-  };
+  return order ? mapOrder(order) : null;
 }
 
 export async function getPublicOrderById(
@@ -409,38 +377,13 @@ function scheduleConfirmationEmail(order: Order): void {
   }
 }
 
-export async function addOrder(
-  data: CreateOrderInput,
-  idempotencyKey?: string
-): Promise<Order> {
-  return (await addOrderWithResult(data, idempotencyKey)).order;
-}
-
-const ORDER_INCLUDE = {
-  items: {
-    include: { product: { select: { id: true, name: true } } },
-    orderBy: { createdAt: "asc" },
-  },
-} as const;
-
-function toOrder(order: {
-  total: unknown;
-  items: { price: unknown }[];
-}): Order {
-  return {
-    ...order,
-    total: Number(order.total),
-    items: order.items.map((item) => ({ ...item, price: Number(item.price) })),
-  } as unknown as Order;
-}
-
 export async function updateOrderStatus(
   id: string,
   data: UpdateOrderStatusData
 ): Promise<Order> {
   const current = await prisma.order.findUnique({
     where: { id },
-    include: ORDER_INCLUDE,
+    include: orderInclude,
   });
   if (!current) {
     throw new DomainError("Order not found", 404);
@@ -454,7 +397,7 @@ export async function updateOrderStatus(
   }
 
   if (data.status === current.status) {
-    return toOrder(current);
+    return mapOrder(current);
   }
 
   const from = STATUS_FLOW.indexOf(current.status as OrderStatus);
@@ -477,10 +420,10 @@ export async function updateOrderStatus(
 
   const updated = await prisma.order.findUnique({
     where: { id },
-    include: ORDER_INCLUDE,
+    include: orderInclude,
   });
   if (!updated) {
     throw new DomainError("Order not found", 404);
   }
-  return toOrder(updated);
+  return mapOrder(updated);
 }

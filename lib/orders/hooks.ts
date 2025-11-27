@@ -6,11 +6,7 @@ import { ordersApi } from "./api";
 import { useRouter } from "next/navigation";
 import type { AxiosError } from "axios";
 import { orderKeys } from "./order-keys";
-import {
-  CreateOrderPayload,
-  Order,
-  OrderFilters,
-} from "@/app/shared/types/order";
+import { Order, OrderFilters } from "@/app/shared/types/order";
 
 export type OrderStatus =
   | "pending"
@@ -48,25 +44,6 @@ export const usePublicOrder = (id: string) => {
     queryKey: [...orderKeys.detail(id), "public"],
     queryFn: () => ordersApi.fetchPublicOrderById(id),
     enabled: !!id,
-  });
-};
-
-export const useCreateOrder = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (payload: CreateOrderPayload) => ordersApi.createOrder(payload),
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: orderKeys.all });
-      toast.success("Order placed successfully!", {
-        description: `Order #${data.id} has been created`,
-      });
-    },
-    onError: (error: Error) => {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to create order"
-      );
-    },
   });
 };
 

@@ -75,10 +75,14 @@ vi.mock("next/server", async (importOriginal) => {
 
 import { NextRequest } from "next/server";
 import {
-  addOrder,
+  addOrderWithResult,
   generateOrderId,
   OrderValidationError,
 } from "@/app/api/orders/orders-service";
+
+// The route's real creation path, unwrapped to the order for brevity.
+const addOrder = async (...args: Parameters<typeof addOrderWithResult>) =>
+  (await addOrderWithResult(...args)).order;
 import { POST } from "@/app/api/orders/route";
 import { resetRateLimits } from "@/lib/rate-limit";
 

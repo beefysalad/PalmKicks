@@ -164,6 +164,37 @@ describe("verification cache", () => {
   });
 });
 
+describe("verification cache races", () => {
+  beforeEach(() => {
+    find.mockReset();
+    resetAdminVerificationCache();
+  });
+  const tok = () => ({ id: "a1", username: "admin", passwordChangedAt: 1000 });
+
+  it("a stale in-flight lookup cannot overwrite a fresh post-change entry", async () => {
+    let resolveStale!: (v: unknown) => void;
+    find.mockImplementationOnce(() => new Promise((r) => (resolveStale = r)));
+    const pending = jwtCallback({ token: tok() } as never);
+    // password changes while the lookup is in flight
+    refreshAdminVerification({ id: "a1", passwordChangedAt: new Date(9000), firstTimeLogin: false });
+    resolveStale(row({ passwordChangedAt: new Date(1000) })); // pre-change data
+    expect((await pending).id).toBeUndefined();
+    expect((await jwtCallback({ token: tok() } as never)).id).toBeUndefined();
+    expect(find).toHaveBeenCalledTimes(1);
+  });
+
+  it("5 concurrent callbacks for one admin issue one prisma query", async () => {
+    find.mockImplementation(
+      () => new Promise((r) => setTimeout(() => r(row()), 10))
+    );
+    const out = await Promise.all(
+      Array.from({ length: 5 }, () => jwtCallback({ token: tok() } as never))
+    );
+    expect(out.every((t) => t.id === "a1")).toBe(true);
+    expect(find).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("authorize input validation and concurrency", () => {
   beforeEach(() => {
     find.mockReset();

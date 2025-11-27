@@ -125,8 +125,48 @@ function cacheVerification(id: string, entry: AdminVerification): void {
   verificationCache.set(id, entry);
 }
 
+// Per-admin generation, bumped whenever the entry is refreshed from a password
+// change. A DB lookup only writes the cache if the generation is unchanged, so
+// a lookup that started before a change can never overwrite fresher data.
+const generations = new Map<string, number>();
+const inflight = new Map<string, Promise<AdminVerification | null>>();
+
 export function resetAdminVerificationCache(): void {
   verificationCache.clear();
+  generations.clear();
+  inflight.clear();
+}
+
+async function verifyAdmin(id: string): Promise<AdminVerification | null> {
+  const cached = verificationCache.get(id);
+  if (cached && Date.now() - cached.checkedAt < RECHECK_INTERVAL_MS) {
+    return cached;
+  }
+  let pending = inflight.get(id);
+  if (!pending) {
+    pending = (async () => {
+      const gen = generations.get(id) ?? 0;
+      const admin = await prisma.admin.findUnique({
+        where: { id },
+        select: { firstTimeLogin: true, passwordChangedAt: true },
+      });
+      if ((generations.get(id) ?? 0) !== gen) {
+        // A password change landed while we were querying: our result may be
+        // stale. Use the fresh entry it wrote, or fail closed if there is none.
+        return verificationCache.get(id) ?? null;
+      }
+      const v: AdminVerification = {
+        exists: !!admin,
+        passwordChangedAt: admin ? admin.passwordChangedAt.getTime() : 0,
+        firstTimeLogin: admin ? admin.firstTimeLogin : false,
+        checkedAt: Date.now(),
+      };
+      cacheVerification(id, v);
+      return v;
+    })().finally(() => inflight.delete(id));
+    inflight.set(id, pending);
+  }
+  return pending;
 }
 
 // Called after a password change so it takes effect immediately on this
@@ -136,6 +176,7 @@ export function refreshAdminVerification(admin: {
   passwordChangedAt: Date;
   firstTimeLogin: boolean;
 }): void {
+  generations.set(admin.id, (generations.get(admin.id) ?? 0) + 1);
   cacheVerification(admin.id, {
     exists: true,
     passwordChangedAt: admin.passwordChangedAt.getTime(),
@@ -168,26 +209,14 @@ export async function jwtCallback({
 
   if (!token.id) return token;
 
-  const now = Date.now();
-  let v = verificationCache.get(token.id);
-  if (!v || now - v.checkedAt >= RECHECK_INTERVAL_MS) {
-    try {
-      const admin = await prisma.admin.findUnique({
-        where: { id: token.id },
-        select: { firstTimeLogin: true, passwordChangedAt: true },
-      });
-      v = {
-        exists: !!admin,
-        passwordChangedAt: admin ? admin.passwordChangedAt.getTime() : 0,
-        firstTimeLogin: admin ? admin.firstTimeLogin : false,
-        checkedAt: now,
-      };
-      cacheVerification(token.id, v);
-    } catch {
-      // Fail closed (and do not cache the failure).
-      return invalidate(token);
-    }
+  let v: AdminVerification | null;
+  try {
+    v = await verifyAdmin(token.id);
+  } catch {
+    // Fail closed (and failures are not cached).
+    return invalidate(token);
   }
+  if (!v) return invalidate(token);
 
   if (!v.exists || v.passwordChangedAt > (token.passwordChangedAt ?? 0)) {
     return invalidate(token);

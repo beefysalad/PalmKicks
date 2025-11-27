@@ -6,7 +6,12 @@ import { fromCentavos, toCentavos } from "@/lib/money";
 import { isOnSale } from "@/lib/pricing";
 import { ORDER_STATUS_FLOW } from "@/app/shared/order-status";
 import { DomainError } from "@/lib/api-errors";
-import type { PublicOrder } from "@/app/shared/types/order";
+import type {
+  OrderFilters,
+  OrderStats,
+  PagedOrders,
+  PublicOrder,
+} from "@/app/shared/types/order";
 import type { Prisma } from "@/app/generated/prisma/client";
 import type { CreateOrderInput } from "@/app/shared/zod/order-zod";
 
@@ -48,7 +53,7 @@ export interface Order {
   }[];
 }
 
-export type { CreateOrderInput };
+export type { CreateOrderInput, OrderFilters, OrderStats, PagedOrders };
 
 export interface UpdateOrderStatusData {
   status: OrderStatus;
@@ -168,26 +173,13 @@ function unitPriceCentavos(product: {
 export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_PAGE_SIZE = 100;
 
-export interface OrderFilters {
-  status?: OrderStatus;
-  page?: number;
-  pageSize?: number;
-}
-
-export interface PagedOrders {
-  items: Order[];
-  total: number;
-  page: number;
-  pageSize: number;
-}
-
 function clampInt(value: unknown, fallback: number, max: number): number {
   const n = typeof value === "number" ? value : Number.NaN;
   if (!Number.isFinite(n) || n < 1) return fallback;
   return Math.min(Math.floor(n), max);
 }
 
-export async function getOrders(filters?: OrderFilters): Promise<PagedOrders> {
+export async function getOrders(filters?: OrderFilters): Promise<PagedOrders<Order>> {
   const page = clampInt(filters?.page, 1, Number.MAX_SAFE_INTEGER);
   const pageSize = clampInt(filters?.pageSize, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
   const where: Prisma.OrderWhereInput = {};
@@ -207,13 +199,6 @@ export async function getOrders(filters?: OrderFilters): Promise<PagedOrders> {
   ]);
 
   return { items: orders.map(mapOrder), total, page, pageSize };
-}
-
-export interface OrderStats {
-  total: number;
-  /** Sum of totals of all non-pending orders. */
-  revenue: number;
-  byStatus: Record<OrderStatus, number>;
 }
 
 export async function getOrderStats(): Promise<OrderStats> {

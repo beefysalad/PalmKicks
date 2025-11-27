@@ -83,8 +83,16 @@ export interface PublicOrder {
   }[];
 }
 
-export interface PagedOrders {
-  items: Order[];
+export type OrderStatusValue = Order["status"];
+
+export interface OrderFilters {
+  status?: OrderStatusValue;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface PagedOrders<T = Order> {
+  items: T[];
   total: number;
   page: number;
   pageSize: number;

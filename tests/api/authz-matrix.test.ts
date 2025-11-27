@@ -29,6 +29,7 @@ const table: [string, string][] = [
   ["@/app/api/orders/[id]/route", "DELETE"],
   ["@/app/api/orders/[id]/route", "PATCH"],
   ["@/app/api/orders/route", "GET"],
+  ["@/app/api/orders/stats/route", "GET"],
   ["@/app/api/settings/route", "POST"],
   ["@/app/api/settings/[id]/route", "PUT"],
   ["@/app/api/settings/[id]/route", "DELETE"],
@@ -61,6 +62,20 @@ describe("authz matrix: unauthenticated requests", () => {
     }
     expect(cloudinary.uploader.upload_stream).not.toHaveBeenCalled();
     expect(cloudinary.uploader.upload).not.toHaveBeenCalled();
+  });
+});
+
+describe("first-login guard", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("orders stats returns 403 until the password is changed", async () => {
+    vi.mocked(auth as unknown as () => Promise<unknown>).mockResolvedValueOnce({
+      user: { id: "a1", firstTimeLogin: true },
+    });
+    const { GET } = await import("@/app/api/orders/stats/route");
+    const res = await GET();
+    expect(res.status).toBe(403);
+    expect(ordersSvc.getOrderStats).not.toHaveBeenCalled();
   });
 });
 

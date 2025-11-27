@@ -6,7 +6,11 @@ import { ordersApi } from "./api";
 import { useRouter } from "next/navigation";
 import type { AxiosError } from "axios";
 import { orderKeys } from "./order-keys";
-import { CreateOrderPayload, Order } from "@/app/shared/types/order";
+import {
+  CreateOrderPayload,
+  Order,
+  OrderFilters,
+} from "@/app/shared/types/order";
 
 export type OrderStatus =
   | "pending"
@@ -14,11 +18,7 @@ export type OrderStatus =
   | "processing"
   | "shipped"
   | "delivered";
-export interface OrderFilters {
-  status?: OrderStatus;
-  page?: number;
-  pageSize?: number;
-}
+export type { OrderFilters };
 
 export const useOrders = (filters?: OrderFilters) => {
   return useQuery({

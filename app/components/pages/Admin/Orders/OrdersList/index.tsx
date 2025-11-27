@@ -31,6 +31,10 @@ const OrdersListPage = () => {
   const handlePageChange = (page: number) =>
     setCurrentPage(Math.min(Math.max(1, page), totalPages));
 
+  // Total can shrink (e.g. after a delete): never sit past the last page.
+  // Adjusting state during render is the supported way to derive it.
+  if (data && currentPage > totalPages) setCurrentPage(totalPages);
+
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -74,8 +78,6 @@ const OrdersListPage = () => {
       return matchesSearch;
     });
   }, [orders, searchQuery]);
-
-  const paginatedOrders = filteredOrders;
 
   if (isLoading) {
     return (
@@ -154,13 +156,13 @@ const OrdersListPage = () => {
 
       {/* Orders List */}
       <div className='space-y-3 p-4'>
-        {paginatedOrders.length === 0 ? (
+        {filteredOrders.length === 0 ? (
           <div className='py-12 text-center'>
             <Package className='mx-auto h-12 w-12 text-muted-foreground/50 mb-4' />
             <p className='text-muted-foreground'>No orders found</p>
           </div>
         ) : (
-          paginatedOrders.map((order) => (
+          filteredOrders.map((order) => (
             <Link
               key={order.id}
               href={`/admin/orders/${order.id}`}

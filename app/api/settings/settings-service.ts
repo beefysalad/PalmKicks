@@ -7,6 +7,8 @@ import {
 import { Configurations } from "@/app/generated/prisma/client";
 import { configKeyFormat } from "@/helpers";
 
+export class PasswordChangeError extends Error {}
+
 export async function changePassword(
   values: ChangePasswordData
 ): Promise<void> {
@@ -23,7 +25,7 @@ export async function changePassword(
     user.password
   );
   if (!passwordMatch) {
-    throw new Error("Invalid username or password!");
+    throw new PasswordChangeError("Current password is incorrect");
   }
   const hashedPassword = await bcrypt.hash(values.newPassword, 10);
 
@@ -34,6 +36,8 @@ export async function changePassword(
     data: {
       password: hashedPassword,
       firstTimeLogin: false,
+      // Revokes every session issued before now (see lib/auth.ts).
+      passwordChangedAt: new Date(),
     },
   });
 }

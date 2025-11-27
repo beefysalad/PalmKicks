@@ -35,7 +35,7 @@ describe("middleware", () => {
   });
 
   it("redirects a signed-in admin from login to dashboard", async () => {
-    mockedGetToken.mockResolvedValueOnce({ sub: "a1" });
+    mockedGetToken.mockResolvedValueOnce({ id: "a1" });
     const res = await middleware(req("/admin/login"));
     expect(new URL(res.headers.get("location")!).pathname).toBe("/admin/dashboard");
   });
@@ -56,5 +56,17 @@ describe("middleware", () => {
     await middleware(req("/admin/dashboard", { headers: { authorization: "Bearer x" } }));
     const passed = mockedGetToken.mock.calls[0][0].req as { headers: Headers };
     expect(passed.headers.get("authorization")).toBeNull();
+  });
+});
+
+describe("middleware revoked tokens", () => {
+  beforeEach(() => mockedGetToken.mockReset());
+
+  it("treats a token without id (revoked) as unauthenticated and does not loop from login", async () => {
+    mockedGetToken.mockResolvedValue({ sub: "a1" });
+    const dash = await middleware(req("/admin/dashboard"));
+    expect(new URL(dash.headers.get("location")!).pathname).toBe("/admin/login");
+    const login = await middleware(req("/admin/login"));
+    expect(login.headers.get("location")).toBeNull();
   });
 });

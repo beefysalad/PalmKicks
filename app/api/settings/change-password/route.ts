@@ -1,9 +1,12 @@
 import { changePasswordSchema } from "@/app/shared/zod/settings-zod";
 import { NextRequest, NextResponse } from "next/server";
-import { changePassword } from "../settings-service";
+import { changePassword, PasswordChangeError } from "../settings-service";
+import { requireAdmin } from "@/lib/require-admin";
 import { auth } from "@/lib/auth";
 
 export async function POST(request: NextRequest) {
+  const denied = await requireAdmin({ allowFirstTimeLogin: true });
+  if (denied) return denied;
   const session = await auth();
   if (!session?.user?.username) {
     return NextResponse.json(
@@ -28,6 +31,13 @@ export async function POST(request: NextRequest) {
     if (error?.issues) {
       return NextResponse.json(
         { success: false, errors: error.issues },
+        { status: 400 }
+      );
+    }
+
+    if (error instanceof PasswordChangeError) {
+      return NextResponse.json(
+        { success: false, message: error.message },
         { status: 400 }
       );
     }

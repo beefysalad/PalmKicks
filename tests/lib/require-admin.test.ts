@@ -27,3 +27,24 @@ describe("requireAdmin", () => {
     expect(await requireAdmin()).toBeNull();
   });
 });
+
+describe("requireAdmin firstTimeLogin enforcement", () => {
+  beforeEach(() => mockAuth.mockReset());
+
+  it("returns 403 'Password change required' while firstTimeLogin is true", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "a1", firstTimeLogin: true } });
+    const res = await requireAdmin();
+    expect(res?.status).toBe(403);
+    expect(await res?.json()).toEqual({ success: false, error: "Password change required" });
+  });
+
+  it("allows firstTimeLogin users when allowFirstTimeLogin is set", async () => {
+    mockAuth.mockResolvedValue({ user: { id: "a1", firstTimeLogin: true } });
+    expect(await requireAdmin({ allowFirstTimeLogin: true })).toBeNull();
+  });
+
+  it("still returns 401 without id even with allowFirstTimeLogin", async () => {
+    mockAuth.mockResolvedValue({ user: { firstTimeLogin: true } });
+    expect((await requireAdmin({ allowFirstTimeLogin: true }))?.status).toBe(401);
+  });
+});

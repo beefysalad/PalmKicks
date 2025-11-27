@@ -44,11 +44,15 @@ export async function middleware(request: NextRequest) {
     token = null;
   }
 
-  if (isAdminRoute && !isLoginPage && !token) {
+  // A revoked session keeps a decodable token but has no admin id; treat it
+  // as unauthenticated (otherwise login <-> dashboard would redirect forever).
+  const isAuthenticated = !!(token && (token as { id?: unknown }).id);
+
+  if (isAdminRoute && !isLoginPage && !isAuthenticated) {
     return NextResponse.redirect(new URL("/admin/login", request.url));
   }
 
-  if (isLoginPage && token) {
+  if (isLoginPage && isAuthenticated) {
     return NextResponse.redirect(new URL("/admin/dashboard", request.url));
   }
 

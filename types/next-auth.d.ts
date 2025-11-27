@@ -13,6 +13,7 @@ declare module "next-auth" {
   interface User extends DefaultUser {
     username?: string;
     firstTimeLogin?: boolean;
+    passwordChangedAt?: number;
   }
 }
 
@@ -21,5 +22,7 @@ declare module "next-auth/jwt" {
     id?: string;
     username?: string;
     firstTimeLogin?: boolean;
+    passwordChangedAt?: number;
+    checkedAt?: number;
   }
 }

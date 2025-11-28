@@ -48,7 +48,9 @@ describe("product variants", () => {
     expect(h.tx.productVariant.createMany).toHaveBeenCalled();
     expect(await getProductById("p1")).toMatchObject({ variants: grid });
     expect(await getProducts()).toMatchObject([{ variants: grid }]);
-    expect(h.tx.product.findMany).toHaveBeenCalledWith(expect.objectContaining({ include: expect.objectContaining({ variants: { select: { size: true, color: true, stock: true } } }) }));
+    const variants = { select: { size: true, color: true, stock: true }, orderBy: [{ size: "asc" }, { color: "asc" }] };
+    expect(h.tx.product.findMany).toHaveBeenCalledWith(expect.objectContaining({ include: expect.objectContaining({ variants }) }));
+    expect(h.tx.product.findUnique).toHaveBeenCalledWith(expect.objectContaining({ include: expect.objectContaining({ variants }) }));
   });
   it("keeps surviving stock when sizes are sent without a grid", async () => {
     await create();

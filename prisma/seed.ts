@@ -383,8 +383,16 @@ async function productSeed() {
   ];
 
   for (const product of products) {
+    // Demo stock is explicit per size/colour, just like admin-created stock.
+    const variants = product.sizes.flatMap((size) => product.colors.map((color) => ({
+      size, color, stock: product.inStock ? 5 : 0,
+    })));
     await prisma.product.create({
-      data: product,
+      data: {
+        ...product,
+        inStock: variants.some((variant) => variant.stock > 0),
+        variants: { create: variants },
+      },
     });
   }
 

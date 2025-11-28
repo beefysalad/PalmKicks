@@ -23,8 +23,14 @@ INSERT INTO "product_variants" ("id", "productId", "size", "color", "stock", "up
 SELECT gen_random_uuid()::text, p."id", sizes.size, colors.color,
        CASE WHEN p."inStock" THEN 1 ELSE 0 END, CURRENT_TIMESTAMP
 FROM "products" p
-CROSS JOIN LATERAL (SELECT DISTINCT jsonb_array_elements_text(p."sizes") AS size) sizes
-CROSS JOIN LATERAL (SELECT DISTINCT jsonb_array_elements_text(p."colors") AS color) colors;
+-- CASE also protects the set-returning functions regardless of planner ordering.
+CROSS JOIN LATERAL (SELECT DISTINCT jsonb_array_elements_text(
+    CASE WHEN jsonb_typeof(p."sizes") = 'array' THEN p."sizes" ELSE '[]'::jsonb END
+) AS size) sizes
+CROSS JOIN LATERAL (SELECT DISTINCT jsonb_array_elements_text(
+    CASE WHEN jsonb_typeof(p."colors") = 'array' THEN p."colors" ELSE '[]'::jsonb END
+) AS color) colors
+WHERE jsonb_typeof(p."sizes") = 'array' AND jsonb_typeof(p."colors") = 'array';
 
 -- Products with an empty size or colour list have no purchasable combinations.
 UPDATE "products" p SET "inStock" = EXISTS (

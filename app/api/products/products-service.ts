@@ -103,10 +103,13 @@ export async function getProductById(id: string): Promise<Product | null> {
 }
 
 const PRODUCT_INCLUDE = {
-  variants: { select: { size: true, color: true, stock: true } },
+  variants: {
+    select: { size: true, color: true, stock: true },
+    orderBy: [{ size: "asc" }, { color: "asc" }],
+  },
   brand: { select: { id: true, name: true } },
   images: { orderBy: { order: "asc" } },
-} as const;
+} satisfies Prisma.ProductInclude;
 
 type ProductRow = Prisma.ProductGetPayload<{ include: typeof PRODUCT_INCLUDE }>;
 

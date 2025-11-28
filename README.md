@@ -167,6 +167,10 @@ Models (`prisma/schema.prisma`): `Brand`, `Product`, `ProductImage`, `Order`, `O
 - Deleting a product cascades to its `ProductImage` rows. Deleting an order cascades to its `OrderItem` rows. `Product` to `Brand` is restricting (a brand with products cannot be deleted). `OrderItem.productId` is nullable and keeps a name/price/image snapshot.
 - Money is stored as `Decimal(10,2)` and calculated in centavos in code.
 
+### Product variant stock
+
+The product-variants migration seeds each existing size × colour combination with **1 pair** when the legacy product is in stock, otherwise **0**. This is an assumption, not an inventory count: enter the real counts before accepting orders against the migrated inventory. Products keep all configured sizes and colours; `inStock` is derived from whether any variant has stock. New products and new combinations default to zero unless `variantStock` supplies a count. Removing a stocked size or colour requires setting its stock to zero in a separate update first.
+
 ## Testing and CI
 
 ```bash

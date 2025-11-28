@@ -65,6 +65,7 @@ export async function POST(request: NextRequest) {
       sizes: validated.sizes,
       colors: validated.colors,
       inStock: validated.inStock,
+      variantStock: validated.variantStock,
       sale: validated.sale,
       discountPrice: validated.sale ? validated.discountPrice : undefined,
     });

@@ -159,6 +159,8 @@ The `/admin/*` pages are guarded by `middleware.ts`, but the middleware does not
 
 Admin `GET /api/orders` supports `q` (1–100 characters after trimming), `status`, `paymentStatus`, `from`/`to` (`YYYY-MM-DD`), and pagination. Search matches order id, customer name, email or phone case-insensitively across all matching orders. Dates use fixed Manila (UTC+8) days: `from` includes midnight and `to` includes the entire day using an exclusive next-midnight bound. Invalid dates or reversed ranges return 400.
 
+The admin orders list keeps search, status/payment filters, date range and page in the URL, so filtered views can be bookmarked and restored through browser navigation. Search waits 300 ms after typing; changing a filter resets the page to 1. Filtering happens on the server across the matching orders, rather than only within the displayed page.
+
 Prisma parameterizes search values; PostgreSQL `contains` uses LIKE/ILIKE patterns, where `%` and `_` would normally be wildcards. The application escapes `%`, `_` and backslashes before calling `contains`, so these are literal search characters. Quotes remain parameter values; search does not use raw SQL. Database-level matching still needs staging verification.
 
 Order ids look like `PK-YYYY-XXXXXXXXXX`. Statuses follow `pending`, `confirmed`, `processing`, `shipped`, `delivered`, with one-step reversals allowed. Orders can be cancelled before shipping; concurrent updates are guarded. Payment is arranged manually through Instagram.

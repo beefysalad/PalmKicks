@@ -116,4 +116,5 @@ export interface OrderStats {
   revenue: number;
   byStatus: Record<Order["status"], number>;
   unpaidOrders: number;
+  lowStock: { productId: string; productName: string; size: string; color: string; stock: number }[];
 }

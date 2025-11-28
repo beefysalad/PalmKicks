@@ -12,13 +12,16 @@ import { toast } from "sonner";
 import Image from "next/image";
 import { X } from "lucide-react";
 import Link from "next/link";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   productFormSchema,
   TProductFormSchema,
 } from "../../../../../shared/zod/product-zod";
 import axios from "axios";
+import StockGrid from "../StockGrid";
+import type { ProductVariantStock } from "@/app/shared/types/product";
+import { dirtyStockCells, updateStockChanges } from "@/lib/stock";
 const NewProductPage = () => {
   const router = useRouter();
   const { data: brands = [] } = useBrands();
@@ -27,6 +30,7 @@ const NewProductPage = () => {
   const [uploading, setUploading] = useState<boolean>(false);
   const [mainImagePreview, setMainImagePreview] = useState<string>("");
   const [additionalImages, setAdditionalImages] = useState<string[]>([]);
+  const [stockChanges, setStockChanges] = useState<ProductVariantStock[]>([]);
 
   const form = useForm<TProductFormSchema>({
     // @ts-expect-error - React Hook Form type inference issue with default values
@@ -47,7 +51,7 @@ const NewProductPage = () => {
       sale: false,
     },
   });
-  const sale = form.watch("sale");
+  const [sale, sizes = [], colors = []] = useWatch({ control: form.control, name: ["sale", "sizes", "colors"] });
   const handleFileUpload = async (file: File, isMain: boolean = false) => {
     if (!file.type.startsWith("image/")) {
       toast.error("Please upload an image file");
@@ -153,6 +157,8 @@ const NewProductPage = () => {
     // Transform price and discountPrice from string to number
     const payload = {
       ...values,
+      inStock: undefined,
+      variantStock: dirtyStockCells(values.sizes, values.colors, stockChanges),
       price:
         typeof values.price === "string"
           ? parseFloat(values.price)
@@ -489,15 +495,9 @@ const NewProductPage = () => {
                 />
               </div>
 
-              <div className='flex items-center space-x-2'>
-                <input
-                  type='checkbox'
-                  id='inStock'
-                  {...form.register("inStock")}
-                  className='h-4 w-4 rounded border-gray-300'
-                />
-                <Label htmlFor='inStock'>In Stock</Label>
-              </div>
+              <StockGrid sizes={sizes} colors={colors} changes={stockChanges}
+                disabled={createProductMutation.isPending}
+                onChange={(cell) => setStockChanges((current) => updateStockChanges(current, cell))} />
             </CardContent>
           </Card>
         </div>

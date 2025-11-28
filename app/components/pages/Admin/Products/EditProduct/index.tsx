@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useProduct, useUpdateProduct } from "@/lib/products/hooks";
 import { useBrands } from "@/lib/brands/hooks";
@@ -11,25 +11,30 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import Image from "next/image";
 import { X } from "lucide-react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   productFormSchema,
   TProductFormSchema,
 } from "../../../../../shared/zod/product-zod";
 import axios from "axios";
+import StockGrid from "../StockGrid";
+import type { ProductVariantStock } from "@/app/shared/types/product";
+import { dirtyStockCells, updateStockChanges } from "@/lib/stock";
 
-const EditProductPage = () => {
+const EditProductForm = ({ productId }: { productId: string }) => {
   const router = useRouter();
-  const params = useParams();
-  const productId = params.id as string;
 
   const { data: brands = [] } = useBrands();
   const { data: product, isLoading } = useProduct(productId);
   const updateProductMutation = useUpdateProduct();
   const [uploading, setUploading] = useState(false);
-  const [mainImagePreview, setMainImagePreview] = useState<string>("");
-  const [additionalImages, setAdditionalImages] = useState<string[]>([]);
+  const [mainImageOverride, setMainImagePreview] = useState<string | null>(null);
+  const [additionalImageOverrides, setAdditionalImages] = useState<string[] | null>(null);
+  const mainImagePreview = mainImageOverride ?? product?.image ?? "";
+  const additionalImages = additionalImageOverrides ?? product?.images.map((img) => img.url) ?? [];
+  const [stockChanges, setStockChanges] = useState<ProductVariantStock[]>([]);
+  const initializedProduct = useRef<string | null>(null);
 
   const form = useForm<TProductFormSchema>({
     // @ts-expect-error - React Hook Form type inference issue with default values
@@ -49,10 +54,12 @@ const EditProductPage = () => {
       inStock: true,
     },
   });
-  const sale = form.watch("sale");
-  // Populate form when product loads
+  const [sale, sizes = [], colors = []] = useWatch({ control: form.control, name: ["sale", "sizes", "colors"] });
+  const isDirty = form.formState.isDirty;
+  // Refresh pristine defaults, but never reset a form with pending edits.
   useEffect(() => {
-    if (product) {
+    if (product && (initializedProduct.current !== product.id || (!isDirty && stockChanges.length === 0))) {
+      initializedProduct.current = product.id;
       form.reset({
         name: product.name,
         brandId: product.brandId,
@@ -70,10 +77,8 @@ const EditProductPage = () => {
         inStock: product.inStock,
         sale: product.sale,
       });
-      setMainImagePreview(product.image);
-      setAdditionalImages(product.images.map((img) => img.url));
     }
-  }, [product, form]);
+  }, [product, form, isDirty, stockChanges.length]);
 
   if (isLoading) {
     return (
@@ -122,12 +127,12 @@ const EditProductPage = () => {
       const imageUrl = response.data.url;
 
       if (isMain) {
-        form.setValue("image", imageUrl);
+        form.setValue("image", imageUrl, { shouldDirty: true });
         setMainImagePreview(imageUrl);
       } else {
         const newImages = [...additionalImages, imageUrl];
         setAdditionalImages(newImages);
-        form.setValue("additionalImages", newImages);
+        form.setValue("additionalImages", newImages, { shouldDirty: true });
       }
 
       toast.success("Image uploaded successfully");
@@ -183,7 +188,7 @@ const EditProductPage = () => {
       if (uploadedUrls.length > 0) {
         const newImages = [...additionalImages, ...uploadedUrls];
         setAdditionalImages(newImages);
-        form.setValue("additionalImages", newImages);
+        form.setValue("additionalImages", newImages, { shouldDirty: true });
       }
 
       // Show appropriate toast message
@@ -202,12 +207,14 @@ const EditProductPage = () => {
   const removeAdditionalImage = (index: number) => {
     const newImages = additionalImages.filter((_, i) => i !== index);
     setAdditionalImages(newImages);
-    form.setValue("additionalImages", newImages);
+    form.setValue("additionalImages", newImages, { shouldDirty: true });
   };
 
   const onSubmit = async (values: TProductFormSchema) => {
     const payload = {
       ...values,
+      inStock: undefined,
+      variantStock: dirtyStockCells(values.sizes, values.colors, stockChanges),
       price:
         typeof values.price === "string"
           ? parseFloat(values.price)
@@ -428,7 +435,7 @@ const EditProductPage = () => {
                         type='button'
                         onClick={() => {
                           setMainImagePreview("");
-                          form.setValue("image", "");
+                          form.setValue("image", "", { shouldDirty: true });
                         }}
                         className='absolute right-1 top-1 rounded-full bg-destructive p-1 text-white hover:bg-destructive/80'
                       >
@@ -514,7 +521,7 @@ const EditProductPage = () => {
                           .map((s) => s.trim())
                           .filter(Boolean)
                       : [];
-                    form.setValue("sizes", sizesArray);
+                    form.setValue("sizes", sizesArray, { shouldDirty: true });
                   }}
                 />
               </div>
@@ -533,20 +540,14 @@ const EditProductPage = () => {
                           .map((c) => c.trim())
                           .filter(Boolean)
                       : [];
-                    form.setValue("colors", colorsArray);
+                    form.setValue("colors", colorsArray, { shouldDirty: true });
                   }}
                 />
               </div>
 
-              <div className='flex items-center space-x-2'>
-                <input
-                  type='checkbox'
-                  id='inStock'
-                  {...form.register("inStock")}
-                  className='h-4 w-4 rounded border-gray-300'
-                />
-                <Label htmlFor='inStock'>In Stock</Label>
-              </div>
+              <StockGrid sizes={sizes} colors={colors} variants={product.variants} changes={stockChanges}
+                disabled={updateProductMutation.isPending}
+                onChange={(cell) => setStockChanges((current) => updateStockChanges(current, cell, product.variants))} />
             </CardContent>
           </Card>
         </div>
@@ -569,4 +570,9 @@ const EditProductPage = () => {
   );
 };
 
-export default EditProductPage;
+// Changing the route must discard edits belonging to the previous product.
+export default function EditProductPage() {
+  const params = useParams();
+  const productId = params.id as string;
+  return <EditProductForm key={productId} productId={productId} />;
+}

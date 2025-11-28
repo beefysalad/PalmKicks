@@ -43,6 +43,12 @@ const create = (extra: object = {}) => addProduct({ ...base, variantStock: grid,
 beforeEach(() => { vi.clearAllMocks(); h.state.row = null; });
 
 describe("product variants", () => {
+  it("partial stock saves preserve untouched live counts after a checkout", async () => {
+    await create({ variantStock: [{ ...grid[0], stock: 5 }, { ...grid[1], stock: 8 }] });
+    h.state.row!.variants[0].stock = 4; // A sale after the form opened at 5.
+    expect(await updateProduct("p1", { name: "Edited", variantStock: [{ ...grid[1], stock: 6 }] }))
+      .toMatchObject({ variants: [{ ...grid[0], stock: 4 }, { ...grid[1], stock: 6 }] });
+  });
   it("creates stock and derives inStock, including the public payload", async () => {
     expect(await create({ inStock: false })).toMatchObject({ inStock: true, variants: grid });
     expect(h.tx.productVariant.createMany).toHaveBeenCalled();

@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 
 const { prismaMock } = vi.hoisted(() => {
   const m = {
+    productVariant: { findMany: vi.fn(async () => []) },
     order: {
       findMany: vi.fn(),
       count: vi.fn(),
@@ -118,6 +119,7 @@ describe("GET /api/orders/stats", () => {
       total: 5,
       revenue: 300.5,
       unpaidOrders: 2,
+      lowStock: [],
       byStatus: {
         pending: 2,
         confirmed: 0,

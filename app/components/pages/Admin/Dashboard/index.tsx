@@ -8,6 +8,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
 import { OrderStatusBadge, PaymentStatusBadge } from "@/components/ui/order-status-badge";
+import { LOW_STOCK_THRESHOLD } from "@/lib/stock";
 
 const DashboardPage = () => {
   const { data: products = [] } = useProducts();
@@ -15,7 +16,7 @@ const DashboardPage = () => {
     page: 1,
     pageSize: 10,
   });
-  const { data: orderStats } = useOrderStats();
+  const { data: orderStats, isLoading: isLoadingStats, isError: statsError } = useOrderStats();
   const recentOrders = recentPage?.items ?? [];
 
   const stats = {
@@ -183,6 +184,31 @@ const DashboardPage = () => {
               No orders yet
             </p>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Low stock</CardTitle>
+          <p className="text-sm text-muted-foreground">Up to 20 size/color combinations with {LOW_STOCK_THRESHOLD} pairs or fewer, lowest first.</p>
+        </CardHeader>
+        <CardContent>
+          {isLoadingStats ? <p className="text-sm text-muted-foreground">Loading stock…</p>
+            : statsError ? <p className="text-sm text-destructive">Stock could not be loaded. Please refresh.</p>
+            : orderStats?.lowStock.length ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <caption className="sr-only">Low stock by product, size and color</caption>
+                  <thead><tr className="border-b text-left"><th scope="col" className="py-2 pr-4">Product</th><th scope="col" className="p-2">Size</th><th scope="col" className="p-2">Color</th><th scope="col" className="p-2 text-right">Pairs left</th></tr></thead>
+                  <tbody>{orderStats.lowStock.map((v) => (
+                    <tr key={JSON.stringify([v.productId, v.size, v.color])} className="border-b">
+                      <td className="py-3 pr-4"><Link href={`/admin/products/${v.productId}`} className="font-medium text-primary hover:underline">{v.productName}</Link></td>
+                      <td className="p-2">{v.size}</td><td className="p-2">{v.color}</td>
+                      <td className="p-2 text-right font-medium tabular-nums">{v.stock === 0 ? "Sold out" : v.stock}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            ) : <p className="text-sm text-muted-foreground">No low-stock combinations.</p>}
         </CardContent>
       </Card>
 

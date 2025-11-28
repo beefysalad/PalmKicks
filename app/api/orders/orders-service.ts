@@ -4,6 +4,7 @@ import { sendOrderConfirmation } from "@/lib/send-mail";
 import { runAfterResponse } from "@/lib/after";
 import { fromCentavos, toCentavos } from "@/lib/money";
 import { isOnSale } from "@/lib/pricing";
+import { LOW_STOCK_THRESHOLD } from "@/lib/stock";
 import { canTransition, canRefund } from "@/app/shared/order-lifecycle";
 import { DomainError } from "@/lib/api-errors";
 import type {
@@ -236,11 +237,16 @@ export async function getOrders(filters?: OrderFilters): Promise<PagedOrders<Ord
 }
 
 export async function getOrderStats(): Promise<OrderStats> {
-  const groups = await prisma.order.groupBy({
+  const [groups, variants] = await Promise.all([prisma.order.groupBy({
     by: ["status", "paymentStatus"],
     _count: { _all: true },
     _sum: { total: true },
-  });
+  }), prisma.productVariant.findMany({
+    where: { stock: { lte: LOW_STOCK_THRESHOLD } },
+    orderBy: [{ stock: "asc" }, { productId: "asc" }, { size: "asc" }, { color: "asc" }],
+    take: 20,
+    select: { productId: true, size: true, color: true, stock: true, product: { select: { name: true } } },
+  })]);
   const byStatus: Record<OrderStatus, number> = {
     pending: 0,
     confirmed: 0,
@@ -262,7 +268,8 @@ export async function getOrderStats(): Promise<OrderStats> {
       revenueCentavos += toCentavos(g._sum.total);
     }
   }
-  return { total, revenue: revenueCentavos / 100, byStatus, unpaidOrders };
+  const lowStock = variants.map(({ product, ...variant }) => ({ ...variant, productName: product.name }));
+  return { total, revenue: revenueCentavos / 100, byStatus, unpaidOrders, lowStock };
 }
 
 export async function deleteOrderById(id: string): Promise<void> {

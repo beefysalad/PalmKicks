@@ -2,7 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const h = vi.hoisted(() => {
-  const state = { rows: [] as Record<string, unknown>[] };
+  const state = { rows: [] as Record<string, unknown>[], variants: [] as {
+    productId: string; size: string; color: string; stock: number; product: { name: string };
+  }[] };
   const findUnique = vi.fn(async ({ where }: { where: { id: string } }) =>
     structuredClone(state.rows.find((row) => row.id === where.id) ?? null));
   const updateMany = vi.fn(async ({ where, data }: {
@@ -36,7 +38,9 @@ const h = vi.hoisted(() => {
     // The only mutation is an atomic conditional write; a failed guard writes nothing.
     return fn({ order });
   });
-  return { state, order, prisma: { order, $transaction } };
+  const productVariant = { findMany: vi.fn(async ({ where, take }: { where: { stock: { lte: number } }; take: number }) =>
+    state.variants.filter((v) => v.stock <= where.stock.lte).sort((a, b) => a.stock - b.stock).slice(0, take)) };
+  return { state, order, productVariant, prisma: { order, productVariant, $transaction } };
 });
 vi.mock("@/lib/prisma", () => ({ default: h.prisma }));
 vi.mock("@/lib/auth", () => ({ auth: vi.fn() }));
@@ -57,6 +61,7 @@ const patch = (body: unknown) => PATCH(new NextRequest("http://localhost/api/ord
 beforeEach(() => {
   vi.clearAllMocks();
   h.state.rows = [row()];
+  h.state.variants = [];
   requireAdmin.mockResolvedValue(null);
 });
 
@@ -195,6 +200,33 @@ describe("admin update validation", () => {
 });
 
 describe("paid revenue stats", () => {
+  it("returns the 20 lowest-stock combinations with joined product names, including zero", async () => {
+    h.state.variants = Array.from({ length: 40 }, (_, i) => ({
+      productId: `p${i}`, size: "9", color: "Black", stock: i % 4, product: { name: `Shoe ${i}` },
+    })).reverse();
+    h.state.variants.push({ productId: "empty", size: "8", color: "White", stock: 0, product: { name: "Sold out" } });
+    const result = await getOrderStats();
+    expect(result.lowStock).toEqual(h.state.variants.filter((v) => v.stock <= 2)
+      .sort((a, b) => a.stock - b.stock).slice(0, 20)
+      .map(({ product, ...variant }) => ({ ...variant, productName: product.name })));
+    expect(result.lowStock).toHaveLength(20);
+    expect(result.lowStock[0].stock).toBe(0);
+    expect(h.productVariant.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { stock: { lte: 2 } }, take: 20,
+      orderBy: expect.arrayContaining([{ stock: "asc" }]),
+      select: { productId: true, size: true, color: true, stock: true, product: { select: { name: true } } },
+    }));
+  });
+  it("includes the threshold of 2, excludes 3, and returns an empty list when nothing is low", async () => {
+    h.state.variants = [2, 3].map((stock) => ({
+      productId: `p${stock}`, size: "9", color: "Black", stock, product: { name: "Shoe" },
+    }));
+    expect((await getOrderStats()).lowStock).toEqual([
+      { productId: "p2", size: "9", color: "Black", stock: 2, productName: "Shoe" },
+    ]);
+    h.state.variants = [];
+    expect((await getOrderStats()).lowStock).toEqual([]);
+  });
   it("sums only paid, active orders and counts statuses and unpaid orders", async () => {
     h.state.rows = [
       row({ status: "pending", paymentStatus: "paid", total: "10.10" }),
@@ -204,7 +236,7 @@ describe("paid revenue stats", () => {
       row({ status: "cancelled", paymentStatus: "unpaid", total: "999" }),
       row({ status: "confirmed", paymentStatus: "refunded", total: "999" }),
     ];
-    expect(await getOrderStats()).toEqual({ total: 6, revenue: 30.3, unpaidOrders: 1, byStatus: { pending: 1, confirmed: 1, processing: 0, shipped: 2, delivered: 0, cancelled: 2 } });
+    expect(await getOrderStats()).toEqual({ total: 6, revenue: 30.3, unpaidOrders: 1, lowStock: [], byStatus: { pending: 1, confirmed: 1, processing: 0, shipped: 2, delivered: 0, cancelled: 2 } });
     expect(h.order.groupBy).toHaveBeenCalledWith(expect.objectContaining({ by: ["status", "paymentStatus"] }));
   });
 });

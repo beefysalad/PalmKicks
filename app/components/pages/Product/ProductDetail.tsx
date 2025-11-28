@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { useCart } from "../../shared/CartProvider";
 import { Product } from "@/app/shared/types/product";
 import { effectivePrice, isOnSale } from "@/lib/pricing";
+import { buildGrid, hasVariantStock } from "@/lib/stock";
 
 interface ProductDetailProps {
   product: Product;
@@ -24,6 +25,9 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
   const [selectedImage, setSelectedImage] = useState<number>(0);
   const { items, addItem, removeItem } = useCart();
   const router = useRouter();
+  const variants = buildGrid(product.sizes, product.colors, product.variants);
+  const inStock = hasVariantStock(variants);
+  const selectionAvailable = !!selectedSize && !!selectedColor && hasVariantStock(variants, selectedSize, selectedColor);
 
   const allImages = [product.image, ...product.images.map((img) => img.url)];
 
@@ -54,7 +58,7 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
       return;
     }
 
-    if (!product.inStock) {
+    if (!selectionAvailable) {
       toast.info("Out of Stock", {
         description: "This item is currently unavailable",
         duration: 4000,
@@ -213,8 +217,10 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
               {product.sizes.map((size) => (
                 <button
                   key={size}
-                  onClick={() => setSelectedSize(size)}
-                  className={`relative flex h-11 items-center justify-center rounded-md border-2 font-semibold transition-all ${
+                  disabled={!hasVariantStock(variants, size, selectedColor)}
+                  aria-pressed={selectedSize === size}
+                  onClick={() => setSelectedSize(selectedSize === size ? "" : size)}
+                  className={`relative flex h-11 items-center justify-center rounded-md border-2 font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-40 disabled:line-through ${
                     selectedSize === size
                       ? "border-primary bg-primary text-primary-foreground shadow-md"
                       : "border-border bg-secondary/30 hover:border-primary/50 hover:bg-secondary/50"
@@ -248,8 +254,10 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
               {product.colors.map((color) => (
                 <button
                   key={color}
-                  onClick={() => setSelectedColor(color)}
-                  className={`relative flex items-center justify-center rounded-md border-2 px-3 py-1.5 text-sm font-semibold transition-all ${
+                  disabled={!hasVariantStock(variants, selectedSize, color)}
+                  aria-pressed={selectedColor === color}
+                  onClick={() => setSelectedColor(selectedColor === color ? "" : color)}
+                  className={`relative flex items-center justify-center rounded-md border-2 px-3 py-1.5 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-40 disabled:line-through ${
                     selectedColor === color
                       ? "border-primary bg-primary text-primary-foreground shadow-md"
                       : "border-border bg-secondary/30 hover:border-primary/50 hover:bg-secondary/50"
@@ -270,6 +278,12 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
             </div>
           </div>
 
+          {(selectedSize || selectedColor) && (
+            <Button type="button" variant="ghost" size="sm" onClick={() => { setSelectedSize(""); setSelectedColor(""); }}>
+              Clear selections
+            </Button>
+          )}
+
           <Separator />
 
           <div className='hidden space-y-3 lg:block'>
@@ -277,14 +291,14 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
               size='lg'
               className='w-full text-base font-semibold shadow-md transition-all hover:shadow-lg'
               onClick={handleAddToCart}
-              disabled={!product.inStock || !selectedSize || !selectedColor}
+              disabled={!selectionAvailable}
             >
               <ShoppingCart className='mr-2 h-5 w-5' />
-              {!selectedSize
+              {!inStock ? "Sold out" : !selectedSize
                 ? "Select a Size"
                 : !selectedColor
                 ? "Select a Color"
-                : product.inStock
+                : selectionAvailable
                 ? "Add to Cart"
                 : "Out of Stock"}
             </Button>
@@ -309,7 +323,7 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
                 </Button>
               </div>
             )}
-            {!product.inStock && (
+            {!inStock && (
               <p className='text-center text-sm text-muted-foreground'>
                 This item is currently unavailable
               </p>
@@ -324,14 +338,14 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
             size='lg'
             className='w-full'
             onClick={handleAddToCart}
-            disabled={!product.inStock || !selectedSize || !selectedColor}
+            disabled={!selectionAvailable}
           >
             <ShoppingCart className='mr-2 h-5 w-5' />
-            {!selectedSize
+            {!inStock ? "Sold out" : !selectedSize
               ? "Select a Size"
               : !selectedColor
               ? "Select a Color"
-              : product.inStock
+              : selectionAvailable
               ? "Add to Cart"
               : "Out of Stock"}
           </Button>

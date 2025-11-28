@@ -13,7 +13,6 @@ export const productFormSchema = z.object({
   additionalImages: z.array(z.string()).default([]),
   sizes: z.array(z.string()).default([]),
   colors: z.array(z.string()).default([]),
-  inStock: z.boolean().default(true),
   sale: z.boolean().default(false),
 }).superRefine((v, ctx) => {
   if (!v.sale) return;

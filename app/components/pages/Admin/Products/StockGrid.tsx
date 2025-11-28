@@ -26,6 +26,7 @@ export default function StockGrid({ sizes, colors, variants = [], changes, onCha
         </Badge>
       </div>
       <p className="text-xs text-muted-foreground">Enter whole counts from 0 to 9999. Only counts you edit will be saved. Availability is derived from these counts.</p>
+      <p className="text-xs text-muted-foreground">To remove a size or colour, set its stock to 0 and save first.</p>
       {grid.length === 0 ? (
         <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground">Add at least one size and color to enter stock.</p>
       ) : (

@@ -47,7 +47,6 @@ const NewProductPage = () => {
       additionalImages: [],
       sizes: [],
       colors: [],
-      inStock: true,
       sale: false,
     },
   });
@@ -153,11 +152,10 @@ const NewProductPage = () => {
     form.setValue("additionalImages", newImages);
   };
 
-  const onSubmit = async (values: TProductFormSchema) => {
+  const onSubmit = (values: TProductFormSchema) => {
     // Transform price and discountPrice from string to number
     const payload = {
       ...values,
-      inStock: undefined,
       variantStock: dirtyStockCells(values.sizes, values.colors, stockChanges),
       price:
         typeof values.price === "string"
@@ -171,7 +169,7 @@ const NewProductPage = () => {
           : undefined,
     };
 
-    await createProductMutation.mutateAsync(payload);
+    createProductMutation.mutate(payload);
   };
 
   return (

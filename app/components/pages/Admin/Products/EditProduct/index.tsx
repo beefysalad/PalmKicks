@@ -22,6 +22,8 @@ import StockGrid from "../StockGrid";
 import type { ProductVariantStock } from "@/app/shared/types/product";
 import { dirtyStockCells, updateStockChanges } from "@/lib/stock";
 
+type EditFormValues = TProductFormSchema & { sizesInput: string; colorsInput: string };
+
 const EditProductForm = ({ productId }: { productId: string }) => {
   const router = useRouter();
 
@@ -36,7 +38,7 @@ const EditProductForm = ({ productId }: { productId: string }) => {
   const [stockChanges, setStockChanges] = useState<ProductVariantStock[]>([]);
   const initializedProduct = useRef<string | null>(null);
 
-  const form = useForm<TProductFormSchema>({
+  const form = useForm<EditFormValues>({
     // @ts-expect-error - React Hook Form type inference issue with default values
     resolver: zodResolver(productFormSchema),
     defaultValues: {
@@ -51,10 +53,11 @@ const EditProductForm = ({ productId }: { productId: string }) => {
       additionalImages: [],
       sizes: [],
       colors: [],
-      inStock: true,
+      sizesInput: "",
+      colorsInput: "",
     },
   });
-  const [sale, sizes = [], colors = []] = useWatch({ control: form.control, name: ["sale", "sizes", "colors"] });
+  const [sale, sizes = [], colors = [], sizesInput = "", colorsInput = ""] = useWatch({ control: form.control, name: ["sale", "sizes", "colors", "sizesInput", "colorsInput"] });
   const isDirty = form.formState.isDirty;
   // Refresh pristine defaults, but never reset a form with pending edits.
   useEffect(() => {
@@ -74,7 +77,8 @@ const EditProductForm = ({ productId }: { productId: string }) => {
         additionalImages: product.images.map((img) => img.url),
         sizes: product.sizes,
         colors: product.colors,
-        inStock: product.inStock,
+        sizesInput: product.sizes.join(", "),
+        colorsInput: product.colors.join(", "),
         sale: product.sale,
       });
     }
@@ -210,10 +214,9 @@ const EditProductForm = ({ productId }: { productId: string }) => {
     form.setValue("additionalImages", newImages, { shouldDirty: true });
   };
 
-  const onSubmit = async (values: TProductFormSchema) => {
+  const onSubmit = (values: TProductFormSchema) => {
     const payload = {
       ...values,
-      inStock: undefined,
       variantStock: dirtyStockCells(values.sizes, values.colors, stockChanges),
       price:
         typeof values.price === "string"
@@ -226,7 +229,7 @@ const EditProductForm = ({ productId }: { productId: string }) => {
             : values.discountPrice
           : undefined,
     };
-    await updateProductMutation.mutateAsync({
+    updateProductMutation.mutate({
       id: productId,
       payload,
     });
@@ -512,9 +515,10 @@ const EditProductForm = ({ productId }: { productId: string }) => {
                 <Input
                   id='sizes'
                   placeholder='7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12'
-                  defaultValue={product.sizes.join(", ")}
+                  value={sizesInput}
                   onChange={(e) => {
                     const value = e.target.value;
+                    form.setValue("sizesInput", value, { shouldDirty: true });
                     const sizesArray = value
                       ? value
                           .split(",")
@@ -531,9 +535,10 @@ const EditProductForm = ({ productId }: { productId: string }) => {
                 <Input
                   id='colors'
                   placeholder='Black/Red, White/Black'
-                  defaultValue={product.colors.join(", ")}
+                  value={colorsInput}
                   onChange={(e) => {
                     const value = e.target.value;
+                    form.setValue("colorsInput", value, { shouldDirty: true });
                     const colorsArray = value
                       ? value
                           .split(",")

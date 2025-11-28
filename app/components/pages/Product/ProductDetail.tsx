@@ -218,6 +218,7 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
                 <button
                   key={size}
                   disabled={!hasVariantStock(variants, size, selectedColor)}
+                  aria-label={`${size}${hasVariantStock(variants, size, selectedColor) ? "" : " (sold out)"}`}
                   aria-pressed={selectedSize === size}
                   onClick={() => setSelectedSize(selectedSize === size ? "" : size)}
                   className={`relative flex h-11 items-center justify-center rounded-md border-2 font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-40 disabled:line-through ${
@@ -255,6 +256,7 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
                 <button
                   key={color}
                   disabled={!hasVariantStock(variants, selectedSize, color)}
+                  aria-label={`${color}${hasVariantStock(variants, selectedSize, color) ? "" : " (sold out)"}`}
                   aria-pressed={selectedColor === color}
                   onClick={() => setSelectedColor(selectedColor === color ? "" : color)}
                   className={`relative flex items-center justify-center rounded-md border-2 px-3 py-1.5 text-sm font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-40 disabled:line-through ${

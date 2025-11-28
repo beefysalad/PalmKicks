@@ -5,6 +5,17 @@ import {
 } from "@/app/shared/types/product";
 import axios from "axios";
 import { api, ApiResponse } from "../axios";
+import { getApiErrorMessage } from "../api-error-message";
+
+async function productMutation<T>(request: Promise<{ data: ApiResponse<T> }>, fallback: string, allowEmpty = false): Promise<T> {
+  try {
+    const { data: body } = await request;
+    if (body.success && (body.data != null || allowEmpty)) return body.data as T;
+    throw new Error(body.error || fallback);
+  } catch (error) {
+    throw new Error(getApiErrorMessage(error, fallback));
+  }
+}
 
 export const productsApi = {
   fetchProducts: async (): Promise<Product[]> => {
@@ -36,52 +47,33 @@ export const productsApi = {
   },
 
   createProduct: async (payload: CreateProductPayload): Promise<Product> => {
-    const response = await api.post<ApiResponse<Product>>("/products", payload);
-    if (response.data.success && response.data.data) {
-      return response.data.data;
-    }
-    throw new Error(response.data.error || "Failed to create product");
+    return productMutation(api.post<ApiResponse<Product>>("/products", payload), "Failed to create product");
   },
 
   updateProduct: async (
     id: string,
     payload: UpdateProductPayload
   ): Promise<Product> => {
-    const response = await api.put<ApiResponse<Product>>(
+    return productMutation(api.put<ApiResponse<Product>>(
       `/products/${id}`,
       payload
-    );
-    if (response.data.success && response.data.data) {
-      return response.data.data;
-    }
-    throw new Error(response.data.error || "Failed to update product");
+    ), "Failed to update product");
   },
 
   deleteProduct: async (id: string): Promise<void> => {
-    const response = await api.delete<ApiResponse<void>>(`/products/${id}`);
-    if (!response.data.success) {
-      throw new Error(response.data.error || "Failed to delete product");
-    }
+    return productMutation(api.delete<ApiResponse<void>>(`/products/${id}`), "Failed to delete product", true);
   },
 
   toggleFeatured: async (id: string, featured: boolean): Promise<Product> => {
-    const response = await api.patch<ApiResponse<Product>>(`/products/${id}`, {
+    return productMutation(api.patch<ApiResponse<Product>>(`/products/${id}`, {
       featured,
-    });
-    if (response.data.success && response.data.data) {
-      return response.data.data;
-    }
-    throw new Error(response.data.error || "Failed to toggle featured");
+    }), "Failed to toggle featured");
   },
 
   toggleLatest: async (id: string, latest: boolean): Promise<Product> => {
-    const response = await api.patch<ApiResponse<Product>>(`/products/${id}`, {
+    return productMutation(api.patch<ApiResponse<Product>>(`/products/${id}`, {
       latest,
-    });
-    if (response.data.success && response.data.data) {
-      return response.data.data;
-    }
-    throw new Error(response.data.error || "Failed to toggle latest");
+    }), "Failed to toggle latest");
   },
 
   fetchFeaturedProducts: async (): Promise<Product[]> => {

@@ -29,6 +29,33 @@ beforeEach(() => {
 });
 
 describe("POST /api/orders/confirm", () => {
+  it.each([
+    ["confirmed", "pending"], ["confirmed", "cancelled"],
+    ["shipped", "pending"], ["shipped", "confirmed"], ["shipped", "processing"], ["shipped", "cancelled"],
+  ])("rejects %s resend on %s without sending or stamping flags", async (type, status) => {
+    h.state.row!.status = status;
+    const response = await POST(req({ orderId: "PK-1", type }));
+    expect(response.status).toBe(409);
+    expect((await response.json()).error).toEqual(expect.any(String));
+    expect(sendOrderStatusEmail).not.toHaveBeenCalled();
+    expect(h.updateMany).not.toHaveBeenCalled();
+    expect(h.state.row).toMatchObject({ confirmedEmailAt: null, shippedEmailAt: null });
+  });
+  it.each(["confirmed", "processing", "shipped", "delivered"])("allows confirmed resend on %s", async (status) => {
+    h.state.row!.status = status;
+    expect((await POST(req({ orderId: "PK-1", type: "confirmed" }))).status).toBe(200);
+    expect(sendOrderStatusEmail).toHaveBeenCalledOnce();
+  });
+  it.each(["shipped", "delivered"])("allows shipped resend on %s", async (status) => {
+    h.state.row!.status = status;
+    expect((await POST(req({ orderId: "PK-1", type: "shipped" }))).status).toBe(200);
+    expect(sendOrderStatusEmail).toHaveBeenCalledOnce();
+  });
+  it.each(["pending", "confirmed", "processing", "shipped", "delivered"])("keeps original confirmation available on %s", async (status) => {
+    h.state.row!.status = status;
+    expect((await POST(req({ orderId: "PK-1" }))).status).toBe(200);
+    expect(sendOrderConfirmation).toHaveBeenCalledOnce(); expect(h.updateMany).not.toHaveBeenCalled();
+  });
   it("401 without session and sends nothing", async () => {
     vi.mocked(auth).mockResolvedValue(null as never);
     const res = await POST(req({ orderId: "PK-1" }));
@@ -53,6 +80,7 @@ describe("POST /api/orders/confirm", () => {
     expect((await POST(req({}))).status).toBe(400);
   });
   it.each(["confirmed", "shipped"] as const)("resends %s and stamps only on success", async (type) => {
+    h.state.row!.status = type;
     const res = await POST(req({ orderId: "PK-1", type }));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ success: true, data: { emailSent: true } });
@@ -71,6 +99,7 @@ describe("POST /api/orders/confirm", () => {
   });
   it("rejects unknown types and shipping emails without saved tracking", async () => {
     expect((await POST(req({ orderId: "PK-1", type: "other" }))).status).toBe(400);
+    h.state.row!.status = "shipped";
     h.state.row!.trackingNumber = " ";
     expect((await POST(req({ orderId: "PK-1", type: "shipped" }))).status).toBe(400);
     expect(sendOrderStatusEmail).not.toHaveBeenCalled(); expect(sendOrderConfirmation).not.toHaveBeenCalled();

@@ -22,3 +22,8 @@ export function canTransition(from: OrderStatus, to: OrderStatus): boolean {
 export function canRefund(payment: PaymentStatus): boolean {
   return payment === "paid";
 }
+
+/** Eligibility follows current status, not a historical shippedAt timestamp. */
+export function canSendOrderStatusEmail(status: OrderStatus, target: "confirmed" | "shipped"): boolean {
+  return status !== "cancelled" && ORDER_STATUS_FLOW.indexOf(status) >= ORDER_STATUS_FLOW.indexOf(target);
+}

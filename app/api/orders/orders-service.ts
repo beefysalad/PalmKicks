@@ -6,7 +6,8 @@ import { runAfterResponse } from "@/lib/after";
 import { fromCentavos, toCentavos } from "@/lib/money";
 import { isOnSale } from "@/lib/pricing";
 import { LOW_STOCK_THRESHOLD } from "@/lib/stock";
-import { canTransition, canRefund } from "@/app/shared/order-lifecycle";
+import { canTransition, canRefund, canSendOrderStatusEmail } from "@/app/shared/order-lifecycle";
+import { ORDER_STATUS_FLOW } from "@/app/shared/order-status";
 import { DomainError } from "@/lib/api-errors";
 import type {
   OrderFilters,
@@ -496,14 +497,14 @@ export function sendAndRecordOrderStatusEmail(order: Order, type: StatusEmailTyp
     try {
       const current = await getOrderById(order.id);
       const field = type === "confirmed" ? "confirmedEmailAt" : "shippedEmailAt";
-      if (!current || current.status === "cancelled" || (!force && current[field])) return { sent: false };
+      if (!current || !canSendOrderStatusEmail(current.status, type) || (!force && current[field])) return { sent: false };
       if (type === "shipped" && (!current.courier?.trim() || !current.trackingNumber?.trim() ||
           current.trackingNumber !== order.trackingNumber)) return { sent: false };
       const { sent } = await sendOrderStatusEmail(current, type);
       if (sent) {
         try {
           await prisma.order.updateMany({
-            where: { id: order.id, status: { not: "cancelled" },
+            where: { id: order.id, status: { in: ORDER_STATUS_FLOW.filter((status) => canSendOrderStatusEmail(status, type)) },
               ...(force ? {} : { [field]: null }),
               ...(type === "shipped" ? { trackingNumber: current.trackingNumber, courier: current.courier } : {}),
             },

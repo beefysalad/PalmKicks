@@ -11,7 +11,9 @@ const h = vi.hoisted(() => {
       if (state.failStamp && (data.confirmedEmailAt || data.shippedEmailAt)) throw new Error("stamp failed");
       if (!state.row || !Object.entries(where).every(([key, value]) =>
         value && typeof value === "object" && "not" in value
-          ? state.row![key] !== value.not : state.row![key] === value)) return { count: 0 };
+          ? state.row![key] !== value.not
+          : value && typeof value === "object" && "in" in value
+            ? (value.in as unknown[]).includes(state.row![key]) : state.row![key] === value)) return { count: 0 };
       Object.assign(state.row, data); return { count: 1 };
     }),
   };
@@ -40,6 +42,7 @@ beforeEach(() => {
 
 describe("status emails after commit", () => {
   it("an explicit resend is not swallowed by a concurrent automatic skip", async () => {
+    h.state.row!.status = "confirmed";
     h.state.row!.confirmedEmailAt = new Date();
     const order = (await getOrderById("o1"))!;
     const [automatic, explicit] = await Promise.all([
@@ -48,6 +51,34 @@ describe("status emails after commit", () => {
     expect(automatic).toEqual({ sent: false });
     expect(explicit).toEqual({ sent: true });
     expect(h.send).toHaveBeenCalledOnce();
+  });
+  it.each(["confirmed", "shipped"] as const)("skips queued %s after rollback and permits the next real transition", async (type) => {
+    const back = type === "confirmed" ? "pending" : "processing";
+    h.state.row!.status = back;
+    await updateOrderAdmin("o1", { status: type });
+    await updateOrderAdmin("o1", { status: back });
+    await runTasks();
+    const flag = type === "confirmed" ? "confirmedEmailAt" : "shippedEmailAt";
+    expect(h.send).not.toHaveBeenCalled(); expect(h.state.row![flag]).toBeNull();
+    await updateOrderAdmin("o1", { status: type, ...(type === "shipped" ? { courier: "Courier", trackingNumber: "TRACK-1" } : {}) });
+    await runTasks();
+    expect(h.send).toHaveBeenCalledOnce(); expect(h.state.row![flag]).toBeInstanceOf(Date);
+  });
+  it.each(["confirmed", "shipped"] as const)("does not stamp %s if rolled back while SMTP is in flight", async (type) => {
+    const back = type === "confirmed" ? "pending" : "processing";
+    h.state.row!.status = back;
+    await updateOrderAdmin("o1", { status: type });
+    h.send.mockImplementationOnce(async () => { h.state.row!.status = back; return { sent: true }; });
+    await runTasks();
+    expect(h.send).toHaveBeenCalledOnce();
+    expect(h.state.row![type === "confirmed" ? "confirmedEmailAt" : "shippedEmailAt"]).toBeNull();
+  });
+  it("rechecks status even for forced sends if the route's earlier read became stale", async () => {
+    h.state.row!.status = "confirmed";
+    const order = (await getOrderById("o1"))!;
+    h.state.row!.status = "pending";
+    expect(await sendAndRecordOrderStatusEmail(order, "confirmed", true)).toEqual({ sent: false });
+    expect(h.send).not.toHaveBeenCalled(); expect(h.order.updateMany).not.toHaveBeenCalled();
   });
   it("queues a confirmation after the successful transition, and stamps only after success", async () => {
     await updateOrderAdmin("o1", { status: "confirmed" });

@@ -19,7 +19,8 @@ Customers browse, add items to a cart and place guest orders. Payment is not int
 ### Admin panel (`/admin`)
 
 - Credentials login (Auth.js v5), forced password change on first login.
-- Dashboard with order statistics, product CRUD (with extra images), brand CRUD, orders list (server-side paging, status filter), order detail with status updates and a resend-confirmation action.
+- Dashboard with paid revenue, order statistics and low-stock alerts; product CRUD with extra images and a per-size/colour stock grid; brand CRUD.
+- Orders with server-side search, status/payment/date filters and pagination. Order details support cancellation before shipping, one-step status back-steps, separate payment updates, internal notes, courier/tracking details and confirmed/shipped emails with explicit resend controls.
 - Featured products and latest collection management.
 - Settings: site links/configuration entries and password change.
 - Image upload to Cloudinary.
@@ -38,7 +39,7 @@ Customers browse, add items to a cart and place guest orders. Payment is not int
 
 - Node.js 20.9 or newer (CI uses Node 22)
 - npm
-- A PostgreSQL database
+- PostgreSQL 13+ (`gen_random_uuid()` is required by the variants migration); an older supported installation needs the `pgcrypto` extension providing that function
 - Optional: a Cloudinary account (image uploads) and a Gmail account with an app password (order emails)
 
 ## Getting started
@@ -133,7 +134,7 @@ tests/                   Vitest suites (api/, lib/, middleware)
 | `/api/orders` | POST; GET | public (rate limited, idempotent); admin (paged) |
 | `/api/orders/[id]` | GET; PATCH, DELETE | public minimal view for non-admins (or with `?view=public`), full view for admin; admin |
 | `/api/orders/stats` | GET | admin |
-| `/api/orders/confirm` | POST | admin (resends the confirmation email) |
+| `/api/orders/confirm` | POST | admin (resends original confirmation or eligible confirmed/shipped emails) |
 | `/api/upload` | POST | admin |
 | `/api/settings` | GET; POST | public; admin |
 | `/api/settings/[id]` | PUT, DELETE | admin |
@@ -165,6 +166,8 @@ Prisma parameterizes search values; PostgreSQL `contains` uses LIKE/ILIKE patter
 
 Order ids look like `PK-YYYY-XXXXXXXXXX`. Statuses follow `pending`, `confirmed`, `processing`, `shipped`, `delivered`, with one-step reversals allowed. Orders can be cancelled before shipping; concurrent updates are guarded. Payment is arranged manually through Instagram.
 
+Revenue is the sum of totals for **paid, non-cancelled** orders, independent of fulfilment status. The lifecycle migration marks every historical non-pending order paid and sets `paidAt = updatedAt`; verify that assumption against actual payment records before deployment.
+
 ### Status emails
 
 After a successful transition into `confirmed` or `shipped`, a status email is scheduled with `runAfterResponse`, outside the database transaction. Shipped emails include the saved courier and tracking number. Marking paid without changing status sends nothing; marking paid and confirming sends the confirmed email. Pending jobs re-check the current status before sending and skip if the order has been cancelled or rolled back below the target status. Delivery flags are also guarded against a rollback while SMTP is in flight.
@@ -177,17 +180,17 @@ Status email jobs are best-effort, with coalescing only within one server instan
 
 ## Database
 
-Models (`prisma/schema.prisma`): `Brand`, `Product`, `ProductImage`, `Order`, `OrderItem`, `Admin`, `Configurations`.
+Models (`prisma/schema.prisma`): `Brand`, `Product`, `ProductVariant`, `ProductImage`, `Order`, `OrderItem`, `Admin`, `Configurations`.
 
-- `Brand`, `Product`, `ProductImage`, `OrderItem` use UUID ids; `Order` uses the custom `PK-...` id; `Configurations` uses cuid ids.
-- Deleting a product cascades to its `ProductImage` rows. Deleting an order cascades to its `OrderItem` rows. `Product` to `Brand` is restricting (a brand with products cannot be deleted). `OrderItem.productId` is nullable and keeps a name/price/image snapshot.
+- `Brand`, `Product`, `ProductVariant`, `ProductImage`, `OrderItem` use UUID ids; `Order` uses the custom `PK-...` id; `Configurations` uses cuid ids.
+- Deleting a product cascades to its `ProductImage` and `ProductVariant` rows. Deleting an order cascades to its `OrderItem` rows. `Product` to `Brand` is restricting (a brand with products cannot be deleted). `OrderItem.productId` is nullable and keeps a name/price/image snapshot.
 - Money is stored as `Decimal(10,2)` and calculated in centavos in code.
 
 ### Product variant stock
 
-The product-variants migration seeds each existing size × colour combination with **1 pair** when the legacy product is in stock, otherwise **0**. This is an assumption, not an inventory count: enter the real counts before accepting orders against the migrated inventory. Products keep all configured sizes and colours; `inStock` is derived from whether any variant has stock. New products and new combinations default to zero unless `variantStock` supplies a count. Removing a stocked size or colour requires setting its stock to zero in a separate update first.
+The product-variants migration seeds each distinct existing size × colour combination with **1 pair** when the legacy product is in stock, otherwise **0**. Non-array JSON and non-string elements (including JSON nulls) are skipped. Products with an empty size or colour list have no combinations and become sold out. Whitespace strings are not normalized by the migration: inspect and clean legacy lists first. This is an assumption, not an inventory count: enter the real counts before accepting orders against the migrated inventory. Products keep all configured sizes and colours; `inStock` is derived from whether any variant has stock. New products and new combinations default to zero unless `variantStock` supplies a count. Removing a stocked size or colour requires setting its stock to zero in a separate update first.
 
-Checkout sums duplicate size/colour lines and decrements stock with a conditional `updateMany` (`stock >= quantity`) inside the order transaction. Checkout, cancellation and admin stock edits lock the same product rows; multiple products are locked in id order. Cancellation restores remaining variants once, guarded by `restockedAt`; legacy orders never restore stock. The stateful mocked tests exercise these rules and rollback, but cannot prove PostgreSQL isolation: verify concurrent checkout/cancellation/admin edits on a staging database before deployment.
+Checkout sums duplicate size/colour lines and decrements stock with a conditional `updateMany` (`stock >= quantity`) inside the order transaction. Checkout, cancellation and admin stock edits lock the same product rows; multiple products are locked in id order. Checkout and cancel/restock transactions allow a 10-second acquisition wait and 20-second execution timeout; transaction timeouts return a safe 503 retry message. Cancellation restores remaining variants once, guarded by `restockedAt`; removed variants are silently skipped instead of recreated. Legacy orders marked by the migration/cutover patch never restore stock. The stateful mocked tests exercise these rules and rollback, but cannot prove PostgreSQL isolation: verify concurrent checkout/cancellation/admin edits on a staging database before deployment.
 
 ## Testing and CI
 
@@ -201,6 +204,8 @@ Tests mock the database, email and Cloudinary; no external services are needed. 
 
 ## Deployment
 
+Follow the [deployment runbook](docs/deployment-runbook.md) for existing shops, including staging verification, a checkout pause and the legacy-order cutover patch. The commands below are an overview, not a rolling-upgrade procedure.
+
 The build and the database lifecycle are deliberately separate:
 
 1. Provision PostgreSQL and set the environment variables above on the host.
@@ -210,7 +215,15 @@ The build and the database lifecycle are deliberately separate:
 
 On Vercel, set the build command to `npm run build` (the default `next build` skips `prisma generate`) and run migrations from CI or a one-off command. Deployments on other platforms have not been tested.
 
-The hand-written migrations `20261127120000_order_idempotency_key`, `20261127130000_admin_password_changed_at` and `20261127140000_add_indexes` have never been applied against a real database in this branch. Run `npx prisma migrate diff` and `npm run db:migrate` against a staging database first.
+These **five hand-written migrations have never been applied against a real database in this branch**:
+
+- `20261127120000_order_idempotency_key`
+- `20261127130000_admin_password_changed_at`
+- `20261127140000_add_indexes`
+- `20261128100000_order_lifecycle`
+- `20261128110000_product_variants`
+
+Run `npm run db:migrate` and `npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code` against staging first. The lifecycle migration backfills historical non-pending orders as paid (`paidAt = updatedAt`) and marks existing orders already restocked so they cannot inflate variant stock on cancellation. Orders written by old code after that migration need the runbook's cutover patch before checkout reopens.
 
 ## Known limitations
 

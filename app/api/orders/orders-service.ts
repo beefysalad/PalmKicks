@@ -159,6 +159,40 @@ function asStringArray(value: unknown): string[] {
     : [];
 }
 
+// Share the admin product writer's lock, and always acquire multiple product
+// locks in the same order so checkouts/cancellations cannot deadlock each other.
+async function lockProducts(tx: Prisma.TransactionClient, ids: string[]): Promise<string[]> {
+  const lockedIds: string[] = [];
+  for (const id of [...new Set(ids)].sort()) {
+    const rows = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM products WHERE id = ${id} FOR UPDATE`;
+    if (rows.length > 0) lockedIds.push(id);
+  }
+  return lockedIds;
+}
+
+function sumVariantQuantities(items: {
+  productId: string | null; size: string; color: string; quantity: number;
+}[]) {
+  const totals = new Map<string, { productId: string; size: string; color: string; quantity: number }>();
+  for (const item of items) {
+    if (item.productId === null) continue; // Deleted product, historical snapshot only.
+    const key = JSON.stringify([item.productId, item.size, item.color]);
+    const existing = totals.get(key);
+    if (existing) existing.quantity += item.quantity;
+    else totals.set(key, {
+      productId: item.productId, size: item.size, color: item.color, quantity: item.quantity,
+    });
+  }
+  return [...totals.values()];
+}
+
+async function refreshProductAvailability(tx: Prisma.TransactionClient, ids: string[]): Promise<void> {
+  for (const id of ids) {
+    const available = await tx.productVariant.count({ where: { productId: id, stock: { gt: 0 } } });
+    await tx.product.update({ where: { id }, data: { inStock: available > 0 } });
+  }
+}
+
 /** Authoritative unit price: discountPrice when on sale, otherwise price. */
 function unitPriceCentavos(product: {
   price: DbNumeric;
@@ -306,6 +340,13 @@ export async function addOrderWithResult(
           }
 
           const productIds = [...new Set(data.items.map((i) => i.productId))];
+          await lockProducts(tx, productIds);
+          // Another checkout with this key may have committed while we waited
+          // for its product lock, including buying the last available pair.
+          if (idempotencyKey) {
+            const existing = await findByIdempotencyKey(tx, idempotencyKey);
+            if (existing) return { order: existing, replayed: true };
+          }
           const products = await tx.product.findMany({
             where: { id: { in: productIds } },
           });
@@ -346,6 +387,22 @@ export async function addOrderWithResult(
           if (totalCentavos > MAX_TOTAL_CENTAVOS) {
             throw new OrderValidationError("Order total is too large");
           }
+
+          for (const { quantity, ...variant } of sumVariantQuantities(data.items)) {
+            const result = await tx.productVariant.updateMany({
+              where: { ...variant, stock: { gte: quantity } },
+              data: { stock: { decrement: quantity } },
+            });
+            if (result.count === 0) {
+              const current = await tx.productVariant.findUnique({
+                where: { productId_size_color: variant }, select: { stock: true },
+              });
+              throw new OrderValidationError(
+                `Only ${current?.stock ?? 0} left in size ${variant.size} / colour ${variant.color}`,
+              );
+            }
+          }
+          await refreshProductAvailability(tx, [...productIds].sort());
 
           const isShipping = data.deliveryMethod === "shipping";
           const created = await tx.order.create({
@@ -476,6 +533,13 @@ export async function updateOrderAdmin(
     }
     if (Object.keys(data).length === 0) return mapOrder(current);
 
+    const restocking = changingStatus && status === "cancelled" && current.restockedAt === null;
+    const restockItems = restocking ? sumVariantQuantities(current.items) : [];
+    const lockedProducts = restocking
+      ? await lockProducts(tx, restockItems.map((item) => item.productId))
+      : [];
+    if (restocking) data.restockedAt = now;
+
     const result = await tx.order.updateMany({ where: { id, status: expected, ...(paymentStatus !== undefined ? { paymentStatus: current.paymentStatus } : {}) }, data });
     if (result.count === 0) {
       const latest = await tx.order.findUnique({ where: { id } });
@@ -483,6 +547,18 @@ export async function updateOrderAdmin(
         paymentStatus !== undefined && latest?.status === expected && latest.paymentStatus !== current.paymentStatus
           ? PAYMENT_CONFLICT : STATUS_CONFLICT,
       );
+    }
+    if (restocking) {
+      const existingProducts = new Set(lockedProducts);
+      for (const { quantity, ...variant } of restockItems) {
+        if (!existingProducts.has(variant.productId)) continue;
+        // updateMany skips removed combinations instead of recreating variants
+        // that an admin intentionally removed while they had no stock.
+        await tx.productVariant.updateMany({
+          where: variant, data: { stock: { increment: quantity } },
+        });
+      }
+      await refreshProductAvailability(tx, lockedProducts);
     }
     const updated = await tx.order.findUnique({ where: { id }, include: orderInclude });
     if (!updated) throw new DomainError("Order not found", 404);

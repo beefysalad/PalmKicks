@@ -49,7 +49,7 @@ import { adminOrderUpdateSchema } from "@/app/shared/zod/order-zod";
 const row = (over: Record<string, unknown> = {}) => ({
   id: "o1", status: "pending", paymentStatus: "unpaid", total: "10.10", items: [],
   paidAt: null, shippedAt: null, cancelledAt: null, courier: null, trackingNumber: null,
-  adminNote: null, ...over,
+  adminNote: null, restockedAt: null, ...over,
 });
 const patch = (body: unknown) => PATCH(new NextRequest("http://localhost/api/orders/o1", {
   method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
@@ -62,7 +62,7 @@ beforeEach(() => {
 
 describe("admin order lifecycle", () => {
   it("cancels pending and records cancelledAt", async () => {
-    expect(await updateOrderAdmin("o1", { status: "cancelled" })).toMatchObject({ status: "cancelled", cancelledAt: expect.any(Date) });
+    expect(await updateOrderAdmin("o1", { status: "cancelled" })).toMatchObject({ status: "cancelled", cancelledAt: expect.any(Date), restockedAt: expect.any(Date) });
     expect(h.prisma.$transaction).toHaveBeenCalledTimes(1);
   });
   it("cancelling paid orders preserves payment for an explicit refund", async () => {

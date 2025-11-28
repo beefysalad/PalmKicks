@@ -171,6 +171,8 @@ Models (`prisma/schema.prisma`): `Brand`, `Product`, `ProductImage`, `Order`, `O
 
 The product-variants migration seeds each existing size × colour combination with **1 pair** when the legacy product is in stock, otherwise **0**. This is an assumption, not an inventory count: enter the real counts before accepting orders against the migrated inventory. Products keep all configured sizes and colours; `inStock` is derived from whether any variant has stock. New products and new combinations default to zero unless `variantStock` supplies a count. Removing a stocked size or colour requires setting its stock to zero in a separate update first.
 
+Checkout sums duplicate size/colour lines and decrements stock with a conditional `updateMany` (`stock >= quantity`) inside the order transaction. Checkout, cancellation and admin stock edits lock the same product rows; multiple products are locked in id order. Cancellation restores remaining variants once, guarded by `restockedAt`; legacy orders never restore stock. The stateful mocked tests exercise these rules and rollback, but cannot prove PostgreSQL isolation: verify concurrent checkout/cancellation/admin edits on a staging database before deployment.
+
 ## Testing and CI
 
 ```bash

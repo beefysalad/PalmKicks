@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // ---- fake prisma (stateful, enough for order creation) -------------------
 const h = vi.hoisted(() => {
   type Row = Record<string, unknown>;
+  type Variant = { size: string; color: string; stock: number };
   const state = {
     products: [] as Row[],
     orders: new Map<string, Row>(),
@@ -55,15 +56,52 @@ const h = vi.hoisted(() => {
     state.orders.set(id, row);
     return row;
   });
-  const tx = { product: { findMany }, order: { create, findUnique } };
-  const $transaction = vi.fn(async (fn: (t: typeof tx) => unknown) => fn(tx));
+  const variantFor = (where: { productId: string; size: string; color: string }) =>
+    (state.products.find((p) => p.id === where.productId)?.variants as Variant[] | undefined)
+      ?.find((v) => v.size === where.size && v.color === where.color);
+  const tx = {
+    $queryRaw: vi.fn(async (_sql: TemplateStringsArray, id: string) => state.products.some((p) => p.id === id) ? [{ id }] : []),
+    product: {
+      findMany,
+      update: vi.fn(async ({ where, data }: { where: { id: string }; data: Row }) =>
+        Object.assign(state.products.find((p) => p.id === where.id)!, data)),
+    },
+    productVariant: {
+      updateMany: vi.fn(async ({ where, data }: {
+        where: { productId: string; size: string; color: string; stock: { gte: number } };
+        data: { stock: { decrement: number } };
+      }) => {
+        const variant = variantFor(where);
+        if (!variant || variant.stock < where.stock.gte) return { count: 0 };
+        variant.stock -= data.stock.decrement;
+        return { count: 1 };
+      }),
+      findUnique: vi.fn(async ({ where }: { where: { productId_size_color: { productId: string; size: string; color: string } } }) =>
+        variantFor(where.productId_size_color) ?? null),
+      count: vi.fn(async ({ where }: { where: { productId: string; stock: { gt: number } } }) =>
+        ((state.products.find((p) => p.id === where.productId)?.variants ?? []) as Variant[])
+          .filter((v) => v.stock > where.stock.gt).length),
+    },
+    order: { create, findUnique },
+  };
+  let queue = Promise.resolve();
+  const $transaction = vi.fn(async (fn: (t: typeof tx) => unknown) => {
+    const previous = queue;
+    let release!: () => void;
+    queue = new Promise<void>((resolve) => { release = resolve; });
+    await previous;
+    const before = structuredClone({ products: state.products, orders: state.orders });
+    try { return await fn(tx); }
+    catch (error) { Object.assign(state, before); throw error; }
+    finally { release(); }
+  });
   const prisma = { $transaction, ...tx };
   const sendOrderConfirmation = vi.fn(async () => ({ sent: true }));
   const afterTasks: Array<() => unknown> = [];
   const after = vi.fn((task: () => unknown) => {
     afterTasks.push(task);
   });
-  return { state, p2002, findMany, findUnique, create, $transaction, prisma,
+  return { state, tx, variantFor, p2002, findMany, findUnique, create, $transaction, prisma,
     sendOrderConfirmation, after, afterTasks };
 });
 
@@ -100,6 +138,7 @@ const product = (over: Record<string, unknown> = {}) => ({
   sizes: ["9", "10"],
   colors: ["Black/Red", "White"],
   inStock: true,
+  variants: ["9", "10"].flatMap((size) => ["Black/Red", "White"].map((color) => ({ size, color, stock: 1000 }))),
   ...over,
 });
 
@@ -231,11 +270,12 @@ describe("addOrder (service)", () => {
   it("(g) concurrent race: P2002 on idempotencyKey returns the winner's order", async () => {
     const winner = await addOrder(baseBody() as never, "race-key");
     // Simulate the in-transaction lookup missing the winner (race window)
-    h.findUnique.mockResolvedValueOnce(null);
+    h.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
     const loser = await addOrder(baseBody() as never, "race-key");
     expect(loser.id).toBe(winner.id);
     expect(h.create).toHaveBeenCalledTimes(2);
     expect(h.state.orders.size).toBe(1);
+    expect(h.variantFor({ productId: "p1", size: "9", color: "Black/Red" })!.stock).toBe(998);
   });
 
   it("(h) P2002 on id retries with a new id, gives up after 3 attempts", async () => {
@@ -261,6 +301,7 @@ describe("addOrder (service)", () => {
     const order = await addOrder(baseBody() as never);
     expect(order.id).toMatch(/^PK-/);
     expect(h.create).toHaveBeenCalledTimes(2);
+    expect(h.variantFor({ productId: "p1", size: "9", color: "Black/Red" })!.stock).toBe(998);
   });
 
   it("persists the idempotency key", async () => {
@@ -499,8 +540,8 @@ describe("POST /api/orders", () => {
   it("a race replay (P2002 on key) releases the reserved email slot", async () => {
     const email = { customerEmail: "racer@example.test" };
     await post(baseBody(email), { "idempotency-key": "rk" });
-    // Route-level lookup misses, in-transaction lookup misses -> P2002 -> replay
-    h.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+    // Route-level and both transaction lookups miss -> P2002 -> replay.
+    h.findUnique.mockResolvedValueOnce(null).mockResolvedValueOnce(null).mockResolvedValueOnce(null);
     const replay = await post(baseBody(email), { "idempotency-key": "rk" });
     expect(replay.status).toBe(200);
     expect((await post(baseBody(email))).status).toBe(201);

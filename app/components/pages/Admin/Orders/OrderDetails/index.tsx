@@ -28,28 +28,20 @@ import { changedOrderFields, reconcileOrderDraft, isBackStep, nextStatuses, stat
 import { OrderStatusBadge, PaymentStatusBadge } from "@/components/ui/order-status-badge";
 import { Input } from "@/components/ui/input";
 import { Order } from "@/app/shared/types/order";
+import { formatOrderDateTime } from "@/lib/orders/date-format";
+import { getApiErrorMessage, isApiClientError } from "@/lib/api-error-message";
 
 const OrderDetailsPage = () => {
   const params = useParams();
   const router = useRouter();
   const orderId = params.id as string;
 
-  const { data: order, isLoading, isError, refetch } = useOrder(orderId);
+  const { data: order, isLoading, isError, error, refetch } = useOrder(orderId);
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "PHP",
     }).format(amount);
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
   };
 
   if (isLoading) {
@@ -70,7 +62,8 @@ const OrderDetailsPage = () => {
   if (isError || !order) {
     return <div className='p-4 space-y-4'>
       <h1 className='text-xl font-semibold'>Could not load this order</h1>
-      <Button variant='outline' onClick={() => void refetch()}>Try again</Button>
+      {isError && <p role='alert'>{getApiErrorMessage(error, "Could not load this order")}</p>}
+      {!isApiClientError(error) && <Button variant='outline' onClick={() => void refetch()}>Try again</Button>}
       <Button variant='ghost' onClick={() => router.push("/admin/orders")}>Back to orders</Button>
     </div>;
   }
@@ -209,7 +202,7 @@ const OrderDetailsPage = () => {
               <div className='min-w-0'>
                 <p className='text-xs text-muted-foreground'>Order Date</p>
                 <p className='font-medium text-sm'>
-                  {formatDate(order.createdAt)}
+                  {formatOrderDateTime(order.createdAt)}
                 </p>
               </div>
             </div>
@@ -307,7 +300,7 @@ function OrderManagement({ order }: { order: Order }) {
         <h2 id='payment-heading' className='text-base font-semibold'>Payment</h2>
         <PaymentStatusBadge status={order.paymentStatus} />
       </div>
-      {order.paidAt && <p className='text-sm text-muted-foreground'>Paid at {new Date(order.paidAt).toLocaleString()}</p>}
+      {order.paidAt && <p className='text-sm text-muted-foreground'>Paid at {formatOrderDateTime(order.paidAt)}</p>}
       <div className='grid gap-4 sm:grid-cols-2'>
         <div className='space-y-2'>
           <label htmlFor='payment-method' className='block text-sm font-medium'>Method</label>
@@ -349,7 +342,7 @@ function OrderManagement({ order }: { order: Order }) {
           <Input id='tracking-number' maxLength={100} required={status === "shipped"} value={trackingNumber} disabled={cancelled || busy} onChange={(event) => setField("trackingNumber", event.target.value)} />
         </div>
       </div>
-      {order.shippedAt && <p className='text-sm text-muted-foreground'>Shipped at {new Date(order.shippedAt).toLocaleString()}</p>}
+      {order.shippedAt && <p className='text-sm text-muted-foreground'>Shipped at {formatOrderDateTime(order.shippedAt)}</p>}
       <p className='text-sm text-muted-foreground'>Changing tracking on a shipped order does not email the customer; use Resend shipped email.</p>
       {!cancelled && <Button variant='outline' disabled={busy || !Object.keys(shippingChanges).length || ((order.status === "shipped" || order.status === "delivered") && (!courier.trim() || !trackingNumber.trim()))} onClick={() => void save(shippingChanges)}>Save shipping details</Button>}
     </section>

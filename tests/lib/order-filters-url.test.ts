@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { parseOrderFilters, serializeOrderFilters, reconcileOrderFilterDraft } from "@/lib/orders/filters-url";
+import { parseOrderFilters, serializeOrderFilters, reconcileOrderFilterDraft, navigateOrderFilterDraft, applyOrderDateFilter, hasActiveOrderFilters } from "@/lib/orders/filters-url";
 
 it("round-trips every filter with encoded literal search characters", () => {
   const filters = { q: "O'Reilly %_", status: "cancelled" as const, paymentStatus: "refunded" as const,
@@ -28,4 +28,27 @@ it("browser navigation restores URL filters and invalidates an old pending debou
   const draft = { url: "q=newer", values: { page: 1, q: "unsent typing" }, pending: [], generation: 0 };
   const next = reconcileOrderFilterDraft(draft, { page: 2, q: "older" });
   expect(next.values).toEqual({ page: 2, q: "older" }); expect(next.generation).toBe(1);
+});
+
+it.each(["john ", " john "])("keeps raw input %j through debounce and navigation while trimming the URL", (q) => {
+  const draft = { url: "", values: { page: 1, q }, pending: [], generation: 0 };
+  const navigating = navigateOrderFilterDraft(draft, { ...draft.values, page: 1 });
+  expect(navigating.values.q).toBe(q);
+  expect(navigating.navigation).toBe("q=john");
+  const arrived = reconcileOrderFilterDraft(navigating, { page: 1, q: "john" });
+  expect(arrived.values.q).toBe(q);
+  expect(navigateOrderFilterDraft(arrived, { ...arrived.values, q: `${q}s` }).navigation).toBe("q=john+s");
+});
+it("clamps edited dates to the opposite boundary without sending a reversed range", () => {
+  expect(applyOrderDateFilter({ from: "2026-11-01", to: "2026-11-05", page: 3 }, "from", "2026-11-06"))
+    .toEqual({ from: "2026-11-05", to: "2026-11-05", page: 1 });
+  expect(applyOrderDateFilter({ from: "2026-11-01", to: "2026-11-05" }, "to", "2026-10-31"))
+    .toEqual({ from: "2026-11-01", to: "2026-11-01", page: 1 });
+  expect(applyOrderDateFilter({ from: "2026-11-01" }, "from", "")).toEqual({ from: undefined, page: 1 });
+});
+it("detects actual filters without treating pagination or blank search as a filter", () => {
+  expect(hasActiveOrderFilters({ q: " ", page: 3, pageSize: 10 })).toBe(false);
+  for (const filters of [{ q: "john" }, { from: "2026-11-01" }, { to: "2026-11-05" }, { status: "pending" as const }, { paymentStatus: "paid" as const }]) {
+    expect(hasActiveOrderFilters(filters)).toBe(true);
+  }
 });

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 
 import { OrderStatusBadge, PaymentStatusBadge } from "@/components/ui/order-status-badge";
 import { LOW_STOCK_THRESHOLD } from "@/lib/stock";
+import { formatOrderDate } from "@/lib/orders/date-format";
 
 const DashboardPage = () => {
   const { data: products = [] } = useProducts();
@@ -32,16 +33,6 @@ const DashboardPage = () => {
       currency: "PHP",
     }).format(amount);
   };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
-
-
 
   return (
     <div className='space-y-8'>
@@ -172,7 +163,7 @@ const DashboardPage = () => {
                         </div>
                       </td>
                       <td className='px-4 py-2'>
-                        {formatDate(order.createdAt)}
+                        {formatOrderDate(order.createdAt)}
                       </td>
                     </tr>
                   ))}

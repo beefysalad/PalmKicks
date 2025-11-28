@@ -10,9 +10,10 @@ import Link from "next/link";
 import { OrderStatusBadge, PaymentStatusBadge } from "@/components/ui/order-status-badge";
 import type { Order, OrderFilters } from "@/app/shared/types/order";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { parseOrderFilters, serializeOrderFilters, reconcileOrderFilterDraft, type OrderFilterDraft } from "@/lib/orders/filters-url";
+import { parseOrderFilters, serializeOrderFilters, reconcileOrderFilterDraft, navigateOrderFilterDraft, applyOrderDateFilter, hasActiveOrderFilters, type OrderFilterDraft } from "@/lib/orders/filters-url";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
-import { getApiErrorMessage } from "@/lib/api-error-message";
+import { getApiErrorMessage, isApiClientError } from "@/lib/api-error-message";
+import { formatOrderDate, formatOrderTime } from "@/lib/orders/date-format";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -29,18 +30,16 @@ const OrdersListPage = () => {
   const searchValue = useMemo(() => ({ q: searchQuery, generation: draft.generation }), [searchQuery, draft.generation]);
   const debounced = useDebouncedValue(searchValue, 300);
   const navigate = useCallback((next: OrderFilters) => {
-    const target = serializeOrderFilters(next);
-    setDraftState((current) => ({ ...current, values: next,
-      pending: target !== url && !current.pending.includes(target) ? [...current.pending, target] : current.pending,
-      navigation: target !== url || current.pending.length > 0 ? target : undefined,
-    }));
-  }, [url]);
+    setDraftState((current) => navigateOrderFilterDraft(current, next));
+  }, []);
   useEffect(() => {
     if (draft.navigation !== undefined) {
       router.replace(`${pathname}${draft.navigation ? `?${draft.navigation}` : ""}`, { scroll: false });
     }
   }, [draft.navigation, pathname, router]);
   const setFilters = (patch: Partial<OrderFilters>) => navigate({ ...draft.values, ...patch, page: 1 });
+  const hasFilters = hasActiveOrderFilters(draft.values);
+  const clearFilters = () => navigate({ page: 1 });
   const currentPage = filters.page ?? 1;
   const pageSize = filters.pageSize ?? ITEMS_PER_PAGE;
   const { data, isLoading, isFetching, isPlaceholderData, isError, error, refetch } = useOrders({
@@ -58,10 +57,10 @@ const OrdersListPage = () => {
   const q = debounced.q.trim() || undefined;
   const searchReady = debounced.generation === draft.generation && debounced.q === searchQuery && q !== filters.q;
   const clampReady = data && !isUpdating && !isPlaceholderData && data.page === currentPage && currentPage > totalPages;
-  const automatic = searchReady ? { ...draft.values, q, page: 1 } : clampReady ? { ...filters, page: totalPages } : undefined;
+  const automatic = searchReady ? { ...draft.values, page: 1 } : clampReady ? { ...draft.values, page: totalPages } : undefined;
   if (automatic) {
     const target = serializeOrderFilters(automatic);
-    if (!draft.pending.includes(target)) setDraftState({ ...draft, values: automatic, pending: [...draft.pending, target], navigation: target });
+    if (!draft.pending.includes(target)) setDraftState(navigateOrderFilterDraft(draft, automatic));
   }
 
   const formatCurrency = (amount: number) => {
@@ -70,23 +69,6 @@ const OrdersListPage = () => {
       currency: "PHP",
     }).format(amount);
   };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
-  };
-
-  const formatTime = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString("en-US", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-
 
   return (
     <div className='min-h-screen bg-background pb-4'>
@@ -150,17 +132,17 @@ const OrdersListPage = () => {
             <div>
               <label htmlFor='from-filter' className='mb-1.5 block text-xs font-medium text-muted-foreground'>From</label>
               <Input id='from-filter' type='date' className='min-w-0' value={draft.values.from ?? ""} aria-describedby='date-filter-help'
-                onChange={(e) => setFilters({ from: e.target.value || undefined })} />
+                max={draft.values.to} onChange={(e) => navigate(applyOrderDateFilter(draft.values, "from", e.target.value))} />
             </div>
             <div>
               <label htmlFor='to-filter' className='mb-1.5 block text-xs font-medium text-muted-foreground'>To</label>
               <Input id='to-filter' type='date' className='min-w-0' value={draft.values.to ?? ""} aria-describedby='date-filter-help'
-                onChange={(e) => setFilters({ to: e.target.value || undefined })} />
+                min={draft.values.from} onChange={(e) => navigate(applyOrderDateFilter(draft.values, "to", e.target.value))} />
             </div>
             </div>
             <div className='flex flex-wrap items-center justify-between gap-2'>
               <p id='date-filter-help' className='text-xs text-muted-foreground'>Dates use Manila time (UTC+8), including both selected days.</p>
-              <Button variant='ghost' size='sm' onClick={() => navigate({ page: 1 })}>Clear filters</Button>
+              <Button variant='ghost' size='sm' disabled={!hasFilters} onClick={clearFilters}>Clear filters</Button>
             </div>
           </div>
       </div>
@@ -170,11 +152,12 @@ const OrdersListPage = () => {
         {isLoading ? <p role='status' className='py-12 text-center text-muted-foreground'>Loading orders…</p>
         : isError ? <div role='alert' className='space-y-3 py-8 text-center'>
           <p className='text-destructive'>{getApiErrorMessage(error, "Could not load orders")}</p>
-          <Button variant='outline' onClick={() => void refetch()}>Try again</Button>
+          {!isApiClientError(error) && <Button variant='outline' onClick={() => void refetch()}>Try again</Button>}
         </div> : orders.length === 0 ? (
           <div className='py-12 text-center'>
             <Package className='mx-auto h-12 w-12 text-muted-foreground/50 mb-4' />
             <p className='text-muted-foreground'>No orders found</p>
+            {hasFilters && <Button className='mt-3' variant='outline' onClick={clearFilters}>Clear filters</Button>}
           </div>
         ) : (
           orders.map((order) => (
@@ -194,8 +177,8 @@ const OrdersListPage = () => {
                       <OrderStatusBadge status={order.status} />
                       <PaymentStatusBadge status={order.paymentStatus} />
                       <span className='text-xs text-muted-foreground'>
-                        {formatDate(order.createdAt)} •{" "}
-                        {formatTime(order.createdAt)}
+                        {formatOrderDate(order.createdAt)} •{" "}
+                        {formatOrderTime(order.createdAt)}
                       </span>
                     </div>
                   </div>

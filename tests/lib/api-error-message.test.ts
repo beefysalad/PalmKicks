@@ -1,5 +1,14 @@
 import { expect, it } from "vitest";
-import { getApiErrorMessage } from "@/lib/api-error-message";
+import { getApiErrorMessage, isApiClientError } from "@/lib/api-error-message";
+
+it("does not offer retries for client errors while keeping network/server errors retryable", () => {
+  for (const status of [400, 401, 403, 404, 409, 422, 429, 499]) {
+    expect(isApiClientError({ isAxiosError: true, response: { status, data: { error: "Invalid date range" } } })).toBe(true);
+  }
+  for (const error of [null, new Error("Offline"), { isAxiosError: true }, { isAxiosError: true, response: { status: 500 } }]) {
+    expect(isApiClientError(error)).toBe(false);
+  }
+});
 
 it("prefers the server error on Axios failures", () => {
   expect(getApiErrorMessage({ isAxiosError: true, message: "Request failed with status code 409",

@@ -46,6 +46,25 @@ export interface OrderFilterDraft {
   navigation?: string;
 }
 
+/** Normalize only the navigation target; input text must survive router updates. */
+export function navigateOrderFilterDraft(draft: OrderFilterDraft, values: OrderFilters): OrderFilterDraft {
+  const target = serializeOrderFilters(values);
+  return { ...draft, values,
+    pending: target !== draft.url && !draft.pending.includes(target) ? [...draft.pending, target] : draft.pending,
+    navigation: target !== draft.url || draft.pending.length > 0 ? target : undefined,
+  };
+}
+
+export function applyOrderDateFilter(filters: OrderFilters, field: "from" | "to", value: string): OrderFilters {
+  const opposite = field === "from" ? filters.to : filters.from;
+  const reversed = value && opposite && (field === "from" ? value > opposite : value < opposite);
+  return { ...filters, [field]: (reversed ? opposite : value) || undefined, page: 1 };
+}
+
+export function hasActiveOrderFilters(filters: OrderFilters): boolean {
+  return !!(filters.q?.trim() || filters.status || filters.paymentStatus || filters.from || filters.to);
+}
+
 /** Keep typing through our own navigations; restore drafts on browser navigation. */
 export function reconcileOrderFilterDraft(draft: OrderFilterDraft, filters: OrderFilters): OrderFilterDraft {
   const url = serializeOrderFilters(filters);

@@ -98,6 +98,10 @@ export interface PublicOrder {
 export type OrderStatusValue = Order["status"];
 
 export interface OrderFilters {
+  q?: string;
+  paymentStatus?: PaymentStatus;
+  from?: string;
+  to?: string;
   status?: OrderStatusValue;
   page?: number;
   pageSize?: number;

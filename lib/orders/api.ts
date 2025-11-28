@@ -22,6 +22,9 @@ export const ordersApi = {
   fetchOrders: async (filters?: OrderFilters): Promise<PagedOrders> => {
     const params = new URLSearchParams();
     if (filters?.status) params.append("status", filters.status);
+    for (const key of ["q", "paymentStatus", "from", "to"] as const) {
+      if (filters?.[key] !== undefined) params.set(key, filters[key]);
+    }
     if (filters?.page) params.append("page", String(filters.page));
     if (filters?.pageSize) params.append("pageSize", String(filters.pageSize));
     const queryString = params.toString();

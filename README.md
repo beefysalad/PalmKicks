@@ -157,6 +157,10 @@ The `/admin/*` pages are guarded by `middleware.ts`, but the middleware does not
 
 ## Orders and status
 
+Admin `GET /api/orders` supports `q` (1–100 characters after trimming), `status`, `paymentStatus`, `from`/`to` (`YYYY-MM-DD`), and pagination. Search matches order id, customer name, email or phone case-insensitively across all matching orders. Dates use fixed Manila (UTC+8) days: `from` includes midnight and `to` includes the entire day using an exclusive next-midnight bound. Invalid dates or reversed ranges return 400.
+
+Prisma parameterizes search values; PostgreSQL `contains` uses LIKE/ILIKE patterns, where `%` and `_` would normally be wildcards. The application escapes `%`, `_` and backslashes before calling `contains`, so these are literal search characters. Quotes remain parameter values; search does not use raw SQL. Database-level matching still needs staging verification.
+
 Order ids look like `PK-YYYY-XXXXXXXXXX`. Statuses follow `pending`, `confirmed`, `processing`, `shipped`, `delivered`, with one-step reversals allowed. Orders can be cancelled before shipping; concurrent updates are guarded. Payment is arranged manually through Instagram.
 
 ### Status emails
@@ -210,7 +214,6 @@ The hand-written migrations `20261127120000_order_idempotency_key`, `20261127130
 
 - The order rate limiter and the login throttle are in memory: limits are per server instance and reset on restart or cold start. A multi-instance or serverless deployment needs a shared store (for example Redis or Upstash).
 - An idempotency key is not bound to the request body: reusing a key with different content returns the original order.
-- Order search in the admin list filters only the currently loaded page.
 - No payment integration: payment and shipping fees are coordinated manually through Instagram.
 - The admin password policy is length-based only (10 to 72 characters).
 - The per-username login lockout (5 failed attempts per 15 minutes) can be triggered by anyone who knows an admin username, locking that admin out for the window. The throttle is best-effort and in memory: flooding it with many usernames can evict existing counters.

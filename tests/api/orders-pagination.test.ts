@@ -94,9 +94,9 @@ describe("GET /api/orders pagination", () => {
     expect(prismaMock.order.count).toHaveBeenCalledWith({ where: { status: "cancelled" } });
   });
 
-  it("ignores unknown statuses", async () => {
-    await get("?status=unknown");
-    expect(prismaMock.order.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: {} }));
+  it("rejects unknown statuses before querying", async () => {
+    expect((await get("?status=unknown")).status).toBe(400);
+    expect(prismaMock.order.findMany).not.toHaveBeenCalled();
   });
 
   it("is admin only", async () => {

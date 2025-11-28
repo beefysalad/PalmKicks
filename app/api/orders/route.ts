@@ -10,11 +10,11 @@ import {
   addOrderWithResult,
   findOrderByIdempotencyKey,
   getOrders,
-  type OrderFilters,
   OrderValidationError,
   toPublicOrder,
 } from "@/app/api/orders/orders-service";
-import { idempotencyKeySchema, orderSchema, orderStatusEnum } from "@/app/shared/zod/order-zod";
+import { idempotencyKeySchema, orderSchema, orderFiltersSchema } from "@/app/shared/zod/order-zod";
+import { handleRouteError } from "@/lib/api-errors";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
@@ -23,23 +23,12 @@ export async function GET(request: NextRequest) {
 
   try {
     const { searchParams } = new URL(request.url);
-    const status = searchParams.get("status");
-
-    const filters: OrderFilters = {
-      page: Number(searchParams.get("page")),
-      pageSize: Number(searchParams.get("pageSize")),
-    };
-    const parsedStatus = orderStatusEnum.safeParse(status);
-    if (parsedStatus.success) filters.status = parsedStatus.data;
+    const filters = orderFiltersSchema.parse(Object.fromEntries(searchParams));
 
     const orders = await getOrders(filters);
     return NextResponse.json({ success: true, data: orders });
   } catch (error) {
-    console.error("Error fetching orders:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to fetch orders" },
-      { status: 500 }
-    );
+    return handleRouteError(error, "Failed to fetch orders");
   }
 }
 

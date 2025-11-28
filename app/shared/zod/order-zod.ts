@@ -106,3 +106,27 @@ export type CreateOrderInput = TOrderSchema;
 export type TOrderItemSchema = z.infer<typeof orderItemSchema>;
 export type TUpdateOrderStatusSchema = z.infer<typeof updateOrderStatusSchema>;
 export type TDeleteOrderSchema = z.infer<typeof deleteOrderSchema>;
+
+// Validate real calendar dates rather than letting Date normalize 30 February.
+export const orderDateFilterSchema = z.string().refine((value) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith("0000-")) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}, "Invalid date; use YYYY-MM-DD");
+
+const paginationInput = (fallback: number, max: number) => z.unknown().transform((value) => {
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 1 ? Math.min(Math.floor(n), max) : fallback;
+}).optional();
+
+export const orderFiltersSchema = z.object({
+  q: z.string().trim().min(1, "Search text is required").max(100, "Search text must be at most 100 characters").optional(),
+  status: orderStatusEnum.optional(),
+  paymentStatus: z.enum(["unpaid", "paid", "refunded"]).optional(),
+  from: orderDateFilterSchema.optional(),
+  to: orderDateFilterSchema.optional(),
+  page: paginationInput(1, Number.MAX_SAFE_INTEGER),
+  pageSize: paginationInput(20, 100),
+}).refine((v) => !v.from || !v.to || v.from <= v.to, {
+  message: "From date must not be after to date", path: ["to"],
+});

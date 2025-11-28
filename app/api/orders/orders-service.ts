@@ -15,7 +15,7 @@ import type {
   PublicOrder,
 } from "@/app/shared/types/order";
 import type { Prisma } from "@/app/generated/prisma/client";
-import type { AdminOrderUpdate, CreateOrderInput } from "@/app/shared/zod/order-zod";
+import { orderFiltersSchema, type AdminOrderUpdate, type CreateOrderInput } from "@/app/shared/zod/order-zod";
 import type { OrderStatus, PaymentStatus } from "@/app/shared/order-lifecycle";
 
 export interface Order {
@@ -216,11 +216,29 @@ function clampInt(value: unknown, fallback: number, max: number): number {
 }
 
 export async function getOrders(filters?: OrderFilters): Promise<PagedOrders<Order>> {
+  const parsed = orderFiltersSchema.safeParse(filters ?? {});
+  if (!parsed.success) throw new OrderValidationError(parsed.error.issues[0]?.message ?? "Invalid order filters");
+  filters = parsed.data;
   const page = clampInt(filters?.page, 1, Number.MAX_SAFE_INTEGER);
   const pageSize = clampInt(filters?.pageSize, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
   const where: Prisma.OrderWhereInput = {};
   if (filters?.status !== undefined) {
     where.status = filters.status;
+  }
+  if (filters.paymentStatus !== undefined) where.paymentStatus = filters.paymentStatus;
+  if (filters.q !== undefined) {
+    // Prisma parameterizes values but PostgreSQL LIKE/ILIKE still interprets
+    // %, _ and backslashes. Escape them so contains searches literal user text.
+    const literal = filters.q.replace(/[\\%_]/g, (character) => `\\${character}`);
+    where.OR = ["id", "customerName", "customerEmail", "customerPhone"].map((field) => ({
+      [field]: { contains: literal, mode: "insensitive" },
+    }));
+  }
+  if (filters.from || filters.to) {
+    where.createdAt = {
+      ...(filters.from ? { gte: new Date(`${filters.from}T00:00:00+08:00`) } : {}),
+      ...(filters.to ? { lt: new Date(new Date(`${filters.to}T00:00:00+08:00`).getTime() + 86_400_000) } : {}),
+    };
   }
 
   const [orders, total] = await prisma.$transaction([

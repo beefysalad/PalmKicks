@@ -30,11 +30,12 @@ const h = vi.hoisted(() => {
       return structuredClone(row);
     }),
     updateMany: vi.fn(async ({ where, data }: {
-      where: { id: string; status: string; paymentStatus?: string }; data: Row;
+      where: { id: string; status: string; paymentStatus?: string; restockedAt?: null }; data: Row;
     }) => {
       const row = state.orders.get(where.id);
       if (!row || row.status !== where.status ||
-        (where.paymentStatus !== undefined && row.paymentStatus !== where.paymentStatus)) return { count: 0 };
+        (where.paymentStatus !== undefined && row.paymentStatus !== where.paymentStatus) ||
+        (where.restockedAt === null && row.restockedAt !== null)) return { count: 0 };
       Object.assign(row, data);
       return { count: 1 };
     }),
@@ -173,6 +174,20 @@ describe("atomic checkout stock", () => {
 });
 
 describe("exactly-once cancellation restock", () => {
+  it("rejects a stale null restockedAt read when the stored marker is already set", async () => {
+    const order = await create();
+    const stale = structuredClone(h.state.orders.get(order.id)!);
+    h.state.orders.get(order.id)!.restockedAt = new Date();
+    h.state.variants.get(h.key(cell()))!.stock = 1;
+    h.tx.order.findUnique.mockResolvedValueOnce(stale);
+    vi.clearAllMocks();
+    await expect(updateOrderAdmin(order.id, { status: "cancelled" })).rejects.toMatchObject({ status: 409 });
+    expect(stock()).toBe(1);
+    expect(h.tx.productVariant.updateMany).not.toHaveBeenCalled();
+    expect(h.tx.order.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: order.id, status: "pending", restockedAt: null },
+    }));
+  });
   it("restocks once, recomputes availability and refuses a second cancel", async () => {
     const order = await create();
     const cancelled = await updateOrderAdmin(order.id, { status: "cancelled" });

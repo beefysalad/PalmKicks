@@ -540,7 +540,14 @@ export async function updateOrderAdmin(
       : [];
     if (restocking) data.restockedAt = now;
 
-    const result = await tx.order.updateMany({ where: { id, status: expected, ...(paymentStatus !== undefined ? { paymentStatus: current.paymentStatus } : {}) }, data });
+    const result = await tx.order.updateMany({
+      where: {
+        id, status: expected,
+        ...(paymentStatus !== undefined ? { paymentStatus: current.paymentStatus } : {}),
+        ...(restocking ? { restockedAt: null } : {}),
+      },
+      data,
+    });
     if (result.count === 0) {
       const latest = await tx.order.findUnique({ where: { id } });
       throw new OrderTransitionError(

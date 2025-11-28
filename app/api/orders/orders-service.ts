@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import prisma from "../../../lib/prisma";
-import { sendOrderConfirmation } from "@/lib/send-mail";
+import { sendOrderConfirmation, sendOrderStatusEmail } from "@/lib/send-mail";
+import type { StatusEmailType } from "@/lib/orders/order-status-templates";
 import { runAfterResponse } from "@/lib/after";
 import { fromCentavos, toCentavos } from "@/lib/money";
 import { isOnSale } from "@/lib/pricing";
@@ -465,11 +466,48 @@ function scheduleConfirmationEmail(order: Order): void {
 const PAYMENT_CONFLICT = "Payment details changed since you loaded this order. Refresh and try again.";
 const STATUS_CONFLICT = "Order status changed since you loaded it. Refresh and try again.";
 
+// Coalesce jobs for the same content on this instance. Database flags suppress
+// later successful deliveries; this is not a durable/distributed email queue.
+const statusEmailInflight = new Map<string, Promise<{ sent: boolean }>>();
+
+export function sendAndRecordOrderStatusEmail(order: Order, type: StatusEmailType, force = false): Promise<{ sent: boolean }> {
+  const key = JSON.stringify([order.id, type, type === "shipped" ? order.trackingNumber : null, force]);
+  const pending = statusEmailInflight.get(key);
+  if (pending) return pending;
+  const task = (async () => {
+    try {
+      const current = await getOrderById(order.id);
+      const field = type === "confirmed" ? "confirmedEmailAt" : "shippedEmailAt";
+      if (!current || current.status === "cancelled" || (!force && current[field])) return { sent: false };
+      if (type === "shipped" && (!current.courier?.trim() || !current.trackingNumber?.trim() ||
+          current.trackingNumber !== order.trackingNumber)) return { sent: false };
+      const { sent } = await sendOrderStatusEmail(current, type);
+      if (sent) {
+        try {
+          await prisma.order.updateMany({
+            where: { id: order.id, status: { not: "cancelled" },
+              ...(force ? {} : { [field]: null }),
+              ...(type === "shipped" ? { trackingNumber: current.trackingNumber, courier: current.courier } : {}),
+            },
+            data: { [field]: new Date() },
+          });
+        } catch (error) { console.error("Could not record successful order email:", error); }
+      }
+      return { sent };
+    } catch (error) {
+      console.error("Order status email failed:", error);
+      return { sent: false };
+    }
+  })().finally(() => statusEmailInflight.delete(key));
+  statusEmailInflight.set(key, task);
+  return task;
+}
+
 export async function updateOrderAdmin(
   id: string,
   input: AdminOrderUpdate
 ): Promise<Order> {
-  return prisma.$transaction(async (tx) => {
+  const result = await prisma.$transaction(async (tx): Promise<{ order: Order; emailType?: StatusEmailType }> => {
     const current = await tx.order.findUnique({ where: { id }, include: orderInclude });
     if (!current) throw new DomainError("Order not found", 404);
     const expected = input.expectedStatus ?? current.status;
@@ -513,6 +551,10 @@ export async function updateOrderAdmin(
     }
 
     const data: Prisma.OrderUpdateManyMutationInput = {};
+    // The shipped-email flag belongs to the current tracking details, including
+    // details saved separately before a later transition back into shipped.
+    const trackingChanged = input.trackingNumber !== undefined && input.trackingNumber !== current.trackingNumber;
+    if (trackingChanged) data.shippedEmailAt = null;
     for (const key of ["paymentMethod", "paymentRef", "adminNote", "courier", "trackingNumber"] as const) {
       if (input[key] !== undefined) data[key] = input[key];
     }
@@ -538,7 +580,7 @@ export async function updateOrderAdmin(
       if (paymentStatus === "paid" && !current.paidAt) data.paidAt = now;
       if (paymentStatus === "unpaid") data.paidAt = null;
     }
-    if (Object.keys(data).length === 0) return mapOrder(current);
+    if (Object.keys(data).length === 0) return { order: mapOrder(current) };
 
     const restocking = changingStatus && status === "cancelled" && current.restockedAt === null;
     const restockItems = restocking ? sumVariantQuantities(current.items) : [];
@@ -576,8 +618,16 @@ export async function updateOrderAdmin(
     }
     const updated = await tx.order.findUnique({ where: { id }, include: orderInclude });
     if (!updated) throw new DomainError("Order not found", 404);
-    return mapOrder(updated);
+    const emailType = changingStatus && status === "confirmed" && !current.confirmedEmailAt ? "confirmed"
+      : changingStatus && status === "shipped" && (!current.shippedEmailAt || trackingChanged) ? "shipped" : undefined;
+    return { order: mapOrder(updated), emailType };
   });
+  if (result.emailType) {
+    const type = result.emailType;
+    try { runAfterResponse(`order-${type}-email`, () => sendAndRecordOrderStatusEmail(result.order, type)); }
+    catch (error) { console.error("Could not schedule order status email:", error); }
+  }
+  return result.order;
 }
 
 /** Compatibility entry point for existing status-only callers. */

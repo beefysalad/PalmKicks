@@ -1,7 +1,8 @@
 import nodemailer from "nodemailer";
 import type { Order as DbOrder } from "@/app/api/orders/orders-service";
 import { DeliveryMethod } from "@/app/shared/types/delivery";
-import { buildOrderConfirmationEmail } from "./orders/order-confirmation-template";
+import { buildOrderConfirmationEmail, type OrderConfirmationEmailContent } from "./orders/order-confirmation-template";
+import { buildOrderConfirmedEmail, buildOrderShippedEmail, type StatusEmailType } from "./orders/order-status-templates";
 
 export {
   buildOrderConfirmationEmail,
@@ -131,27 +132,7 @@ export async function sendOrderConfirmation(
         ? DeliveryMethod.Meetup
         : DeliveryMethod.Shipping,
     });
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    const timeout = new Promise<{ success: false }>((resolve) => {
-      timer = setTimeout(() => {
-        console.error("Order confirmation email timed out");
-        resolve({ success: false });
-      }, ORDER_EMAIL_OVERALL_TIMEOUT_MS);
-    });
-    try {
-      const result = await Promise.race([
-        sendMail({
-          sendTo: order.customerEmail,
-          subject: content.subject,
-          html: content.html,
-          text: content.text,
-        }),
-        timeout,
-      ]);
-      return { sent: result.success };
-    } finally {
-      clearTimeout(timer);
-    }
+    return await sendOrderEmailContent(order, content);
   } catch (error) {
     console.error(
       "Failed to send order confirmation:",
@@ -159,4 +140,32 @@ export async function sendOrderConfirmation(
     );
     return { sent: false };
   }
+}
+
+export async function sendOrderStatusEmail(order: DbOrder, type: StatusEmailType): Promise<{ sent: boolean }> {
+  try {
+    const content = type === "confirmed" ? buildOrderConfirmedEmail(order) : buildOrderShippedEmail(order);
+    return await sendOrderEmailContent(order, content);
+  } catch (error) {
+    console.error("Failed to build order status email:", error);
+    return { sent: false };
+  }
+}
+
+async function sendOrderEmailContent(order: DbOrder, content: OrderConfirmationEmailContent): Promise<{ sent: boolean }> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const timeout = new Promise<{ success: false }>((resolve) => {
+      timer = setTimeout(() => {
+        console.error("Order email timed out"); resolve({ success: false });
+      }, ORDER_EMAIL_OVERALL_TIMEOUT_MS);
+    });
+    const result = await Promise.race([
+      sendMail({ sendTo: order.customerEmail, ...content }), timeout,
+    ]);
+    return { sent: result.success };
+  } catch (error) {
+    console.error("Failed to send order email:", error);
+    return { sent: false };
+  } finally { clearTimeout(timer); }
 }

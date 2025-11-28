@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
+vi.mock("@/lib/after", () => ({ runAfterResponse: vi.fn() }));
 
 const h = vi.hoisted(() => {
   const state = { rows: [] as Record<string, unknown>[], variants: [] as {

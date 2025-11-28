@@ -6,6 +6,7 @@ import {
   useDeleteOrder,
   useOrder,
   useUpdateOrder,
+  useResendOrderEmail,
 } from "@/lib/orders/hooks";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
@@ -227,6 +228,7 @@ export default OrderDetailsPage;
 function OrderManagement({ order }: { order: Order }) {
   const update = useUpdateOrder();
   const remove = useDeleteOrder();
+  const resendEmail = useResendOrderEmail();
   const toDraft = (value: Order) => ({
     status: value.status, courier: value.courier ?? "", trackingNumber: value.trackingNumber ?? "",
     paymentMethod: value.paymentMethod ?? "", paymentRef: value.paymentRef ?? "", adminNote: value.adminNote ?? "",
@@ -243,7 +245,7 @@ function OrderManagement({ order }: { order: Order }) {
   };
   const [alsoConfirm, setAlsoConfirm] = useState(true);
   const cancelled = order.status === "cancelled";
-  const busy = update.isPending || remove.isPending;
+  const busy = update.isPending || remove.isPending || resendEmail.isPending;
   const shippingChanges = changedOrderFields(order, { courier, trackingNumber });
   const paymentChanges = changedOrderFields(order, {
     ...(paymentMethod ? { paymentMethod } : {}), paymentRef,
@@ -344,6 +346,18 @@ function OrderManagement({ order }: { order: Order }) {
       </div>
       {order.shippedAt && <p className='text-sm text-muted-foreground'>Shipped at {new Date(order.shippedAt).toLocaleString()}</p>}
       {!cancelled && <Button variant='outline' disabled={busy || !Object.keys(shippingChanges).length || ((order.status === "shipped" || order.status === "delivered") && (!courier.trim() || !trackingNumber.trim()))} onClick={() => void save(shippingChanges)}>Save shipping details</Button>}
+    </section>
+
+    <section className='rounded-lg border bg-card p-4 space-y-4' aria-labelledby='email-heading' aria-busy={resendEmail.isPending}>
+      <h2 id='email-heading' className='text-base font-semibold'>Order emails</h2>
+      <p className='text-sm text-muted-foreground'>Emails use saved order details. Cancelled orders cannot send emails.</p>
+      <div className='flex flex-wrap gap-3'>
+        <Button variant='outline' disabled={busy || cancelled} onClick={() => resendEmail.mutate({ id: order.id, type: "confirmation" })}>Resend confirmation</Button>
+        <Button variant='outline' disabled={busy || cancelled} onClick={() => resendEmail.mutate({ id: order.id, type: "confirmed" })}>Resend confirmed email</Button>
+        <Button variant='outline' disabled={busy || cancelled || !order.courier?.trim() || !order.trackingNumber?.trim()} onClick={() => resendEmail.mutate({ id: order.id, type: "shipped" })}>Resend shipped email</Button>
+      </div>
+      {(!order.courier?.trim() || !order.trackingNumber?.trim()) && <p className='text-sm text-muted-foreground'>Save a courier and tracking number before sending a shipped email.</p>}
+      {resendEmail.isPending && <p role='status' className='text-sm text-muted-foreground'>Sending email…</p>}
     </section>
 
     <section className='rounded-lg border bg-card p-4 space-y-4' aria-labelledby='note-heading'>

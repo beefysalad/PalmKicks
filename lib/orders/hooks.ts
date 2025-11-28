@@ -1,6 +1,7 @@
 "use client";
 
-import type { AdminOrderUpdate } from "@/app/shared/zod/order-zod";
+import type { AdminOrderUpdate, OrderEmailType } from "@/app/shared/zod/order-zod";
+import { getApiErrorMessage } from "../api-error-message";
 
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -83,5 +84,18 @@ export const useUpdateOrder = () => {
       queryClient.invalidateQueries({ queryKey: orderKeys.all });
       toast.success("Order updated successfully");
     },
+  });
+};
+
+export const useResendOrderEmail = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, type }: { id: string; type: OrderEmailType }) => ordersApi.resendEmail(id, type),
+    onSuccess: ({ emailSent }, { id }) => {
+      queryClient.invalidateQueries({ queryKey: orderKeys.detail(id) });
+      if (emailSent) toast.success("Email sent");
+      else toast.error("Email could not be sent. Please try again.");
+    },
+    onError: (error) => toast.error(getApiErrorMessage(error, "Failed to resend order email")),
   });
 };

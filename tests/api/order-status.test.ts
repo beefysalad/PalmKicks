@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
+vi.mock("@/lib/after", () => ({ runAfterResponse: vi.fn() }));
 
 const { prismaMock } = vi.hoisted(() => ({
   prismaMock: {

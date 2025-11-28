@@ -108,6 +108,7 @@ const h = vi.hoisted(() => {
 vi.mock("@/lib/prisma", () => ({ default: h.prisma, prisma: h.prisma }));
 vi.mock("@/lib/send-mail", () => ({
   sendOrderConfirmation: h.sendOrderConfirmation,
+  sendOrderStatusEmail: vi.fn(),
 }));
 vi.mock("@/lib/auth", () => ({ auth: vi.fn(async () => null) }));
 vi.mock("next/server", async (importOriginal) => {

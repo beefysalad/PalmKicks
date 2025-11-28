@@ -85,7 +85,7 @@ const h = vi.hoisted(() => {
 vi.mock("@/lib/prisma", () => ({ default: h.prisma }));
 vi.mock("@/lib/auth", () => ({ auth: vi.fn(async () => null) }));
 vi.mock("@/lib/after", () => ({ runAfterResponse: h.after }));
-vi.mock("@/lib/send-mail", () => ({ sendOrderConfirmation: vi.fn() }));
+vi.mock("@/lib/send-mail", () => ({ sendOrderConfirmation: vi.fn(), sendOrderStatusEmail: vi.fn() }));
 
 import { addOrderWithResult, updateOrderAdmin } from "@/app/api/orders/orders-service";
 import { POST } from "@/app/api/orders/route";

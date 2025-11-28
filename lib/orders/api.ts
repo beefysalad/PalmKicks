@@ -1,4 +1,4 @@
-import type { AdminOrderUpdate } from "@/app/shared/zod/order-zod";
+import type { AdminOrderUpdate, OrderEmailType } from "@/app/shared/zod/order-zod";
 import {
   CreateOrderPayload,
   Order,
@@ -9,8 +9,16 @@ import {
 } from "@/app/shared/types/order";
 import { isAxiosError } from "axios";
 import { api, ApiResponse } from "../axios";
+import { getApiErrorMessage } from "../api-error-message";
 
 export const ordersApi = {
+  resendEmail: async (orderId: string, type: OrderEmailType = "confirmation"): Promise<{ emailSent: boolean }> => {
+    try {
+      const { data } = await api.post<ApiResponse<{ emailSent: boolean }>>("/orders/confirm", { orderId, type });
+      if (data.success && data.data) return data.data;
+      throw new Error(data.error || "Failed to resend order email");
+    } catch (error) { throw new Error(getApiErrorMessage(error, "Failed to resend order email")); }
+  },
   fetchOrders: async (filters?: OrderFilters): Promise<PagedOrders> => {
     const params = new URLSearchParams();
     if (filters?.status) params.append("status", filters.status);

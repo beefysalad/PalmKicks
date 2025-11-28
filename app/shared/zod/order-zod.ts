@@ -59,6 +59,12 @@ export const idempotencyKeySchema = z
   .max(100)
   .regex(/^[A-Za-z0-9_-]+$/, "Invalid Idempotency-Key");
 
+export const resendOrderEmailSchema = z.object({
+  orderId: z.string().trim().min(1, "Order ID is required").max(100),
+  type: z.enum(["confirmation", "confirmed", "shipped"]).default("confirmation"),
+}).strict();
+export type OrderEmailType = z.infer<typeof resendOrderEmailSchema>["type"];
+
 // Update order status schema
 export const orderStatusEnum = z.enum([
   "pending",

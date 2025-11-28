@@ -14,7 +14,7 @@ Customers browse, add items to a cart and place guest orders. Payment is not int
 - Cart persisted in the browser (local storage), with a per-line quantity cap.
 - Guest checkout with shipping or meet-up delivery. Prices and totals are computed on the server from the database; the browser sends only product ids and choices. The shipping fee is not calculated; it is arranged manually with the seller.
 - Order tracking by order id (`/track`, `/order/[id]`). The public view exposes minimal data only, never customer contact details.
-- A confirmation email is sent when an order is created (only if SMTP credentials are configured). Changing an order's status does not send any email.
+- A confirmation email is sent when an order is created (only if SMTP credentials are configured). Confirmed and shipped transitions also send status emails; see below.
 
 ### Admin panel (`/admin`)
 
@@ -157,7 +157,17 @@ The `/admin/*` pages are guarded by `middleware.ts`, but the middleware does not
 
 ## Orders and status
 
-Order ids look like `PK-YYYY-XXXXXXXXXX`. Statuses move forward one step at a time: `pending`, `confirmed`, `processing`, `shipped`, `delivered`; other transitions are rejected, and concurrent updates are guarded. Status changes do not send notifications. Payment is arranged manually through Instagram.
+Order ids look like `PK-YYYY-XXXXXXXXXX`. Statuses follow `pending`, `confirmed`, `processing`, `shipped`, `delivered`, with one-step reversals allowed. Orders can be cancelled before shipping; concurrent updates are guarded. Payment is arranged manually through Instagram.
+
+### Status emails
+
+After a successful transition into `confirmed` or `shipped`, a status email is scheduled with `runAfterResponse`, outside the database transaction. Shipped emails include the saved courier and tracking number. Marking paid without changing status sends nothing; marking paid and confirming sends the confirmed email. Cancelled orders send no emails, and pending jobs re-check for cancellation before sending.
+
+`confirmedEmailAt` and `shippedEmailAt` are written only after a successful send. Failure leaves the flag unset so a later transition can retry. Back-stepping and returning to the same status does not resend a successful email. Changing the tracking number clears the shipped-email flag; the next transition into `shipped` can send the new tracking details. Sends are non-throwing and bounded to 15 seconds; email failure never rolls back an order update.
+
+The admin order detail has explicit resend buttons for the original confirmation, confirmed email, and shipped email. `POST /api/orders/confirm` remains admin-only and accepts `{orderId, type}` (`confirmation` by default, or `confirmed`/`shipped`). Shipped resends require saved courier/tracking details. Explicit resends can repeat a previously successful email; cancelled orders are refused. The response remains `{success:true,data:{emailSent}}`.
+
+Status email jobs are best-effort, with coalescing only within one server instance. There is no durable outbox: a crash can lose a job, and parallel instances or a failure to record a successful delivery can produce duplicates. Verify SMTP and concurrency on staging; use a durable delivery queue if stronger guarantees are needed.
 
 ## Database
 

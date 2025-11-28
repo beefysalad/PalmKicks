@@ -8,7 +8,7 @@ const { sendMailFn, createTransport } = vi.hoisted(() => {
 vi.mock("nodemailer", () => ({ default: { createTransport }, createTransport }));
 vi.mock("@/helpers", () => ({ getDevelopmentEnvironment: () => "test" }));
 
-import { sendMail, sendOrderConfirmation } from "@/lib/send-mail";
+import { sendMail, sendOrderConfirmation, sendOrderStatusEmail } from "@/lib/send-mail";
 
 const order = {
   id: "PK-1", customerName: "A", customerEmail: "a@b.test", customerPhone: "1",
@@ -19,11 +19,28 @@ const order = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  sendMailFn.mockReset();
   process.env.EMAIL_USER = "u@test";
   process.env.EMAIL_PASS = "p";
 });
 
 describe("send-mail", () => {
+  it.each(["confirmed", "shipped"] as const)("bounds %s email sends and clears the timer", async (type) => {
+    vi.useFakeTimers();
+    try {
+      sendMailFn.mockReturnValueOnce(new Promise(() => {}));
+      const result = sendOrderStatusEmail(order, type);
+      await vi.advanceTimersByTimeAsync(15_001);
+      expect(await result).toEqual({ sent: false });
+      expect(vi.getTimerCount()).toBe(0);
+      sendMailFn.mockResolvedValueOnce({ messageId: "m" });
+      expect(await sendOrderStatusEmail(order, type)).toEqual({ sent: true });
+      expect(vi.getTimerCount()).toBe(0);
+      sendMailFn.mockRejectedValueOnce(new Error("smtp failed"));
+      expect(await sendOrderStatusEmail(order, type)).toEqual({ sent: false });
+      expect(vi.getTimerCount()).toBe(0);
+    } finally { vi.useRealTimers(); }
+  });
   it("does not disable TLS verification", async () => {
     sendMailFn.mockResolvedValue({ messageId: "m" });
     await sendMail({ sendTo: "a@b.test", subject: "s", text: "t" });

@@ -8,7 +8,7 @@ vi.mock("@/lib/auth", () => ({
   refreshAdminVerification: vi.fn(),
   handlers: { GET: vi.fn(), POST: vi.fn() },
 }));
-vi.mock("@/lib/send-mail", () => ({ sendOrderConfirmation: vi.fn() }));
+vi.mock("@/lib/send-mail", () => ({ sendOrderConfirmation: vi.fn(), sendOrderStatusEmail: vi.fn() }));
 vi.mock("@/lib/prisma", () => ({ default: {}, prisma: {} }));
 vi.mock("cloudinary", () => ({
   v2: { config: vi.fn(), uploader: { upload_stream: vi.fn(), upload: vi.fn() } },

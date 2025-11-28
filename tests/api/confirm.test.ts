@@ -2,19 +2,31 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
 vi.mock("@/lib/auth", () => ({ auth: vi.fn(async () => null) }));
-vi.mock("@/lib/prisma", () => ({ default: {}, prisma: {} }));
-vi.mock("@/app/api/orders/orders-service");
-vi.mock("@/lib/send-mail", () => ({ sendOrderConfirmation: vi.fn(async () => ({ sent: true })) }));
+const h = vi.hoisted(() => {
+  const state = { row: null as Record<string, unknown> | null };
+  return { state, findUnique: vi.fn(async () => state.row), updateMany: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
+    if (!state.row) return { count: 0 };
+    Object.assign(state.row, data); return { count: 1 };
+  }) };
+});
+vi.mock("@/lib/prisma", () => ({ default: { order: { findUnique: h.findUnique, updateMany: h.updateMany } } }));
+vi.mock("@/lib/send-mail", () => ({ sendOrderConfirmation: vi.fn(), sendOrderStatusEmail: vi.fn() }));
 
 import { auth } from "@/lib/auth";
-import * as svc from "@/app/api/orders/orders-service";
-import { sendOrderConfirmation } from "@/lib/send-mail";
+import { sendOrderConfirmation, sendOrderStatusEmail } from "@/lib/send-mail";
 import { POST } from "@/app/api/orders/confirm/route";
 
 const req = (body: unknown) =>
   new NextRequest("http://localhost/api/orders/confirm", { method: "POST", body: JSON.stringify(body) });
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  h.state.row = { id: "PK-1", status: "confirmed", total: "10", items: [], confirmedEmailAt: null, shippedEmailAt: null,
+    courier: "Courier", trackingNumber: "TRACK-1" };
+  vi.mocked(auth).mockResolvedValue({ user: { id: "1" } } as never);
+  vi.mocked(sendOrderConfirmation).mockResolvedValue({ sent: true });
+  vi.mocked(sendOrderStatusEmail).mockResolvedValue({ sent: true });
+});
 
 describe("POST /api/orders/confirm", () => {
   it("401 without session and sends nothing", async () => {
@@ -27,19 +39,45 @@ describe("POST /api/orders/confirm", () => {
 
   it("admin resend returns emailSent", async () => {
     vi.mocked(auth).mockResolvedValue({ user: { id: "1" } } as never);
-    const loaded = { id: "PK-1" } as never;
-    vi.mocked(svc.getOrderById).mockResolvedValue(loaded);
     const res = await POST(req({ orderId: "PK-1" }));
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ success: true, data: { emailSent: true } });
     expect(sendOrderConfirmation).toHaveBeenCalledTimes(1);
-    expect(sendOrderConfirmation).toHaveBeenCalledWith(loaded);
+    expect(sendOrderConfirmation).toHaveBeenCalledWith(expect.objectContaining({ id: "PK-1", total: 10 }));
   });
 
   it("404 for unknown order, 400 for bad body", async () => {
     vi.mocked(auth).mockResolvedValue({ user: { id: "1" } } as never);
-    vi.mocked(svc.getOrderById).mockResolvedValue(null);
+    h.state.row = null;
     expect((await POST(req({ orderId: "nope" }))).status).toBe(404);
     expect((await POST(req({}))).status).toBe(400);
+  });
+  it.each(["confirmed", "shipped"] as const)("resends %s and stamps only on success", async (type) => {
+    const res = await POST(req({ orderId: "PK-1", type }));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ success: true, data: { emailSent: true } });
+    expect(sendOrderStatusEmail).toHaveBeenCalledWith(expect.objectContaining({ id: "PK-1" }), type);
+    expect(h.state.row![type === "confirmed" ? "confirmedEmailAt" : "shippedEmailAt"]).toBeInstanceOf(Date);
+    expect(sendOrderConfirmation).not.toHaveBeenCalled();
+  });
+  it("does not stamp failed sends, and permits an explicit resend of an already sent email", async () => {
+    vi.mocked(sendOrderStatusEmail).mockResolvedValueOnce({ sent: false });
+    expect(await (await POST(req({ orderId: "PK-1", type: "confirmed" }))).json())
+      .toEqual({ success: true, data: { emailSent: false } });
+    expect(h.state.row!.confirmedEmailAt).toBeNull();
+    h.state.row!.confirmedEmailAt = new Date();
+    await POST(req({ orderId: "PK-1", type: "confirmed" }));
+    expect(sendOrderStatusEmail).toHaveBeenCalledTimes(2);
+  });
+  it("rejects unknown types and shipping emails without saved tracking", async () => {
+    expect((await POST(req({ orderId: "PK-1", type: "other" }))).status).toBe(400);
+    h.state.row!.trackingNumber = " ";
+    expect((await POST(req({ orderId: "PK-1", type: "shipped" }))).status).toBe(400);
+    expect(sendOrderStatusEmail).not.toHaveBeenCalled(); expect(sendOrderConfirmation).not.toHaveBeenCalled();
+  });
+  it("does not send notifications for cancelled orders", async () => {
+    h.state.row!.status = "cancelled";
+    expect((await POST(req({ orderId: "PK-1", type: "confirmed" }))).status).toBe(409);
+    expect(sendOrderStatusEmail).not.toHaveBeenCalled();
   });
 });

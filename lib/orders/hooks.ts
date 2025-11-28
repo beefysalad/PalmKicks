@@ -60,9 +60,7 @@ export const useDeleteOrder = () => {
       router.push("/admin/orders");
     },
     onError: (error: Error) => {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to delete order"
-      );
+      toast.error(getApiErrorMessage(error, "Failed to delete order"));
     },
   });
 };

@@ -35,6 +35,9 @@ const h = vi.hoisted(() => {
 vi.mock("@/lib/prisma", () => ({ default: h.prisma }));
 import { addProduct, updateProduct, getProductById, getProducts } from "@/app/api/products/products-service";
 import { productSchema, productUpdateSchema } from "@/app/shared/zod/product-zod";
+vi.mock("@/lib/auth", () => ({ auth: vi.fn(async () => ({ user: { id: "admin1", firstTimeLogin: false } })) }));
+import { PUT } from "@/app/api/products/[id]/route";
+import { NextRequest } from "next/server";
 
 const base = { name: "Runner", brandId: "b1", category: "running", gender: "men" as const, price: 100,
   description: "A shoe", image: "https://example.com/shoe.png", sale: false, sizes: ["9", "10"], colors: ["Black"] };
@@ -43,6 +46,22 @@ const create = (extra: object = {}) => addProduct({ ...base, variantStock: grid,
 beforeEach(() => { vi.clearAllMocks(); h.state.row = null; });
 
 describe("product variants", () => {
+  it("PUT refuses removal of a stocked size with 409 and writes nothing", async () => {
+    await create();
+    const before = structuredClone(h.state.row);
+    vi.clearAllMocks();
+    const response = await PUT(new NextRequest("http://localhost/api/products/p1", {
+      method: "PUT", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ sizes: ["10"], name: "Changed" }),
+    }), { params: Promise.resolve({ id: "p1" }) });
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ success: false, error: "Remove stock first" });
+    expect(h.state.row).toEqual(before);
+    for (const write of [h.tx.product.update, h.tx.productVariant.upsert, h.tx.productVariant.deleteMany,
+      h.tx.productVariant.createMany, h.tx.productImage.createMany, h.tx.productImage.deleteMany]) {
+      expect(write).not.toHaveBeenCalled();
+    }
+  });
   it("partial stock saves preserve untouched live counts after a checkout", async () => {
     await create({ variantStock: [{ ...grid[0], stock: 5 }, { ...grid[1], stock: 8 }] });
     h.state.row!.variants[0].stock = 4; // A sale after the form opened at 5.

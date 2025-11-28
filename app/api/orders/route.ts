@@ -117,7 +117,6 @@ export async function POST(request: NextRequest) {
     if (error instanceof OrderValidationError) {
       return apiError(400, error.message);
     }
-    console.error("Error creating order:", error);
-    return apiError(500, "Failed to create order");
+    return handleRouteError(error, "Failed to create order");
   }
 }

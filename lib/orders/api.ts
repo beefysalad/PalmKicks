@@ -98,6 +98,10 @@ export const ordersApi = {
   },
 
   deleteOrderById: async (id: string): Promise<void> => {
-    await api.delete<ApiResponse<Order>>(`/orders/${id}`);
+    try {
+      await api.delete<ApiResponse<Order>>(`/orders/${id}`);
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error, "Failed to delete order"));
+    }
   },
 };

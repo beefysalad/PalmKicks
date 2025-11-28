@@ -197,6 +197,18 @@ describe("generateOrderId", () => {
 });
 
 describe("addOrder (service)", () => {
+  it("sets explicit wait/timeout budgets for checkout product locks", async () => {
+    await addOrder(baseBody() as never);
+    expect(h.$transaction).toHaveBeenCalledWith(expect.any(Function), { maxWait: 10000, timeout: 20000 });
+  });
+  it("returns a safe retryable error on transaction timeout without sending or writing", async () => {
+    h.$transaction.mockRejectedValueOnce(Object.assign(new Error("private transaction details"), { code: "P2028" }));
+    const response = await post(baseBody());
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ success: false, error: "Checkout is busy, please try again" });
+    expect(h.state.orders.size).toBe(0);
+    expect(h.after).not.toHaveBeenCalled();
+  });
   it("(a) ignores client price/total/name/image and uses DB price x qty", async () => {
     const order = await addOrder(
       baseBody({

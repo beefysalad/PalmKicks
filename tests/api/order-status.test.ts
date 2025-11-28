@@ -18,7 +18,7 @@ vi.mock("@/lib/require-admin", async (orig) => ({
   requireAdmin: vi.fn(async () => null),
 }));
 
-import { updateOrderStatus, OrderTransitionError } from "@/app/api/orders/orders-service";
+import { updateOrderAdmin, OrderTransitionError } from "@/app/api/orders/orders-service";
 import { PATCH } from "@/app/api/orders/[id]/route";
 
 const row = (status: string) => ({
@@ -32,12 +32,12 @@ beforeEach(() => {
   prismaMock.order.updateMany.mockResolvedValue({ count: 1 });
 });
 
-describe("updateOrderStatus", () => {
+describe("updateOrderAdmin", () => {
   it("allows exactly one step forward", async () => {
     prismaMock.order.findUnique
       .mockResolvedValueOnce(row("pending"))
       .mockResolvedValueOnce(row("confirmed"));
-    const o = await updateOrderStatus("o1", { status: "confirmed" });
+    const o = await updateOrderAdmin("o1", { status: "confirmed" });
     expect(o.status).toBe("confirmed");
     expect(prismaMock.order.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -49,13 +49,13 @@ describe("updateOrderStatus", () => {
 
   it("allows one step back without changing payment", async () => {
     prismaMock.order.findUnique.mockResolvedValueOnce(row("confirmed")).mockResolvedValueOnce(row("pending"));
-    expect((await updateOrderStatus("o1", { status: "pending" })).status).toBe("pending");
+    expect((await updateOrderAdmin("o1", { status: "pending" })).status).toBe("pending");
     expect(prismaMock.order.updateMany).toHaveBeenCalledWith({ where: { id: "o1", status: "confirmed" }, data: { status: "pending" } });
   });
 
   it("same status is a no-op success", async () => {
     prismaMock.order.findUnique.mockResolvedValue(row("shipped"));
-    const o = await updateOrderStatus("o1", { status: "shipped" });
+    const o = await updateOrderAdmin("o1", { status: "shipped" });
     expect(o.status).toBe("shipped");
     expect(prismaMock.order.updateMany).not.toHaveBeenCalled();
   });
@@ -67,7 +67,7 @@ describe("updateOrderStatus", () => {
   ])("rejects %s -> %s", async (from, to) => {
     prismaMock.order.findUnique.mockResolvedValue(row(from));
     await expect(
-      updateOrderStatus("o1", { status: to as never }),
+      updateOrderAdmin("o1", { status: to as never }),
     ).rejects.toBeInstanceOf(OrderTransitionError);
     expect(prismaMock.order.updateMany).not.toHaveBeenCalled();
   });
@@ -75,7 +75,7 @@ describe("updateOrderStatus", () => {
   it("conflicts when expectedStatus differs from current", async () => {
     prismaMock.order.findUnique.mockResolvedValue(row("confirmed"));
     await expect(
-      updateOrderStatus("o1", { status: "processing", expectedStatus: "pending" }),
+      updateOrderAdmin("o1", { status: "processing", expectedStatus: "pending" }),
     ).rejects.toBeInstanceOf(OrderTransitionError);
   });
 
@@ -83,7 +83,7 @@ describe("updateOrderStatus", () => {
     prismaMock.order.findUnique.mockResolvedValue(row("pending"));
     prismaMock.order.updateMany.mockResolvedValue({ count: 0 });
     await expect(
-      updateOrderStatus("o1", { status: "confirmed" }),
+      updateOrderAdmin("o1", { status: "confirmed" }),
     ).rejects.toBeInstanceOf(OrderTransitionError);
   });
 });

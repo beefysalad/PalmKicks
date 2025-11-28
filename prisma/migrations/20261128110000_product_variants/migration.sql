@@ -19,17 +19,18 @@ ALTER TABLE "product_variants" ADD CONSTRAINT "product_variants_productId_fkey"
 -- Assumption: each existing in-stock size/colour combination starts with one
 -- pair; out-of-stock combinations start at zero. Admins must enter real counts.
 -- DISTINCT handles duplicate values in legacy JSON arrays without duplicate rows.
+-- Ignore JSON nulls and other non-string elements instead of inserting SQL NULL.
 INSERT INTO "product_variants" ("id", "productId", "size", "color", "stock", "updatedAt")
 SELECT gen_random_uuid()::text, p."id", sizes.size, colors.color,
        CASE WHEN p."inStock" THEN 1 ELSE 0 END, CURRENT_TIMESTAMP
 FROM "products" p
 -- CASE also protects the set-returning functions regardless of planner ordering.
-CROSS JOIN LATERAL (SELECT DISTINCT jsonb_array_elements_text(
+CROSS JOIN LATERAL (SELECT DISTINCT elem #>> '{}' AS size FROM jsonb_array_elements(
     CASE WHEN jsonb_typeof(p."sizes") = 'array' THEN p."sizes" ELSE '[]'::jsonb END
-) AS size) sizes
-CROSS JOIN LATERAL (SELECT DISTINCT jsonb_array_elements_text(
+) AS entries(elem) WHERE jsonb_typeof(elem) = 'string') sizes
+CROSS JOIN LATERAL (SELECT DISTINCT elem #>> '{}' AS color FROM jsonb_array_elements(
     CASE WHEN jsonb_typeof(p."colors") = 'array' THEN p."colors" ELSE '[]'::jsonb END
-) AS color) colors
+) AS entries(elem) WHERE jsonb_typeof(elem) = 'string') colors
 WHERE jsonb_typeof(p."sizes") = 'array' AND jsonb_typeof(p."colors") = 'array';
 
 -- Products with an empty size or colour list have no purchasable combinations.

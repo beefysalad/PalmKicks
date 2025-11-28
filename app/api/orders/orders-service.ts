@@ -64,12 +64,6 @@ export interface Order {
 
 export type { AdminOrderUpdate, CreateOrderInput, OrderFilters, OrderStats, PagedOrders };
 
-export interface UpdateOrderStatusData {
-  status: OrderStatus;
-  /** When set, the update only applies if the order is still in this status. */
-  expectedStatus?: OrderStatus;
-}
-
 /** Thrown when an order request is well-formed but cannot be fulfilled. */
 export class OrderValidationError extends DomainError {
   constructor(message: string) {
@@ -91,6 +85,19 @@ const ORDER_ID_RANDOM_CHARS = 10;
 const MAX_ID_ATTEMPTS = 3;
 // orders.total is Decimal(10,2): 99,999,999.99
 const MAX_TOTAL_CENTAVOS = 9_999_999_999;
+// Bound pool/lock contention without Prisma's shorter interactive defaults.
+const ORDER_TRANSACTION_OPTIONS = { maxWait: 10_000, timeout: 20_000 };
+
+async function orderTransaction<T>(work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+  try {
+    return await prisma.$transaction(work, ORDER_TRANSACTION_OPTIONS);
+  } catch (error) {
+    if (typeof error === "object" && error !== null && (error as { code?: unknown }).code === "P2028") {
+      throw new DomainError("Checkout is busy, please try again", 503);
+    }
+    throw error;
+  }
+}
 
 // Generate order ID: PK-YYYY-<10 Crockford base32 chars> (50 bits of entropy)
 export function generateOrderId(): string {
@@ -359,7 +366,7 @@ export async function addOrderWithResult(
 ): Promise<AddOrderResult> {
   for (let attempt = 1; attempt <= MAX_ID_ATTEMPTS; attempt++) {
     try {
-      const result = await prisma.$transaction(
+      const result = await orderTransaction(
         async (tx): Promise<AddOrderResult> => {
           if (idempotencyKey) {
             const existing = await findByIdempotencyKey(tx, idempotencyKey);
@@ -526,7 +533,7 @@ export async function updateOrderAdmin(
   id: string,
   input: AdminOrderUpdate
 ): Promise<Order> {
-  const result = await prisma.$transaction(async (tx): Promise<{ order: Order; emailType?: StatusEmailType }> => {
+  const result = await orderTransaction(async (tx): Promise<{ order: Order; emailType?: StatusEmailType }> => {
     const current = await tx.order.findUnique({ where: { id }, include: orderInclude });
     if (!current) throw new DomainError("Order not found", 404);
     const expected = input.expectedStatus ?? current.status;
@@ -647,12 +654,4 @@ export async function updateOrderAdmin(
     catch (error) { console.error("Could not schedule order status email:", error); }
   }
   return result.order;
-}
-
-/** Compatibility entry point for existing status-only callers. */
-export async function updateOrderStatus(
-  id: string,
-  data: UpdateOrderStatusData
-): Promise<Order> {
-  return updateOrderAdmin(id, data);
 }

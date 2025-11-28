@@ -23,6 +23,7 @@ import {
 import Image from "next/image";
 import { useState } from "react";
 import { usePublicOrder } from "@/lib/orders/hooks";
+import { paymentLabel } from "@/lib/orders/ui-helpers";
 
 const statusSteps = [
   {
@@ -35,7 +36,7 @@ const statusSteps = [
     status: "confirmed",
     label: "Confirmed",
     icon: Clock,
-    description: "Payment confirmed, preparing your order",
+    description: "Your order is confirmed",
   },
   {
     status: "processing",
@@ -159,6 +160,7 @@ const Tracking = () => {
                 <CardHeader>
                   <CardTitle>Order Status</CardTitle>
                   <CardDescription>Order #{order.id}</CardDescription>
+                  <p className='text-sm text-muted-foreground'>Payment: {paymentLabel[order.paymentStatus]}</p>
                 </CardHeader>
                 <CardContent>
                   <div className='space-y-6'>

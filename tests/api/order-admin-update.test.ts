@@ -70,6 +70,14 @@ describe("admin order lifecycle", () => {
   it("cancels pending and records cancelledAt", async () => {
     expect(await updateOrderAdmin("o1", { status: "cancelled" })).toMatchObject({ status: "cancelled", cancelledAt: expect.any(Date), restockedAt: expect.any(Date) });
     expect(h.prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(h.prisma.$transaction).toHaveBeenCalledWith(expect.any(Function), { maxWait: 10000, timeout: 20000 });
+  });
+  it("maps a cancel/restock transaction timeout without changing the order", async () => {
+    h.prisma.$transaction.mockRejectedValueOnce(Object.assign(new Error("private timeout"), { code: "P2028" }));
+    const response = await patch({ status: "cancelled" });
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ success: false, error: "Checkout is busy, please try again" });
+    expect(h.state.rows[0]).toMatchObject({ status: "pending", restockedAt: null });
   });
   it("cancelling paid orders preserves payment for an explicit refund", async () => {
     h.state.rows = [row({ paymentStatus: "paid" })];

@@ -6,9 +6,11 @@ import { ShoppingCart, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import { motion } from "framer-motion";
+import { useCart } from "./CartProvider";
 
 const Navbar = () => {
-  const itemCount = 0;
+  const { items } = useCart();
+  const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
   return (
     <motion.header
       initial={{ y: -100 }}

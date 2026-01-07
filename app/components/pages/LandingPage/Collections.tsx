@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { products } from "@/lib/products";
-import ProductCard from "./ProductCard";
+import ProductCard from "../Shop/ProductCard";
 
 const Collections = () => {
   return (

@@ -27,91 +27,119 @@ const FeaturedCarousel = ({ products }: FeaturedCarouselProps) => {
 
   const currentProduct = products[currentIndex];
   return (
-    <div className='relative overflow-hidden rounded-lg border border-border/50 bg-secondary/20'>
-      <div className='relative aspect-4/5 sm:aspect-video md:aspect-21/9'>
+    <div className='relative overflow-hidden rounded-2xl bg-card shadow-lg transition-shadow duration-300 hover:shadow-xl'>
+      <div className='relative aspect-video sm:aspect-[21/9]'>
         <AnimatePresence mode='wait'>
           <motion.div
             key={currentIndex}
             initial={shouldReduceMotion ? undefined : { opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={shouldReduceMotion ? undefined : { opacity: 0 }}
-            transition={{ duration: shouldReduceMotion ? 0 : 0.3 }}
+            transition={{
+              duration: shouldReduceMotion ? 0 : 0.4,
+              ease: "easeInOut",
+            }}
             className='absolute inset-0'
           >
             <div className='flex h-full flex-col md:grid md:grid-cols-2'>
-              <div className='relative h-56 bg-secondary/30 sm:h-72 md:h-full'>
-                <Image
-                  src={currentProduct.image || "/placeholder.svg"}
-                  alt={currentProduct.name}
-                  fill
-                  priority={currentIndex === 0}
-                  className='object-cover'
-                />
+              {/* Image Section */}
+              <div className='relative h-56 overflow-hidden bg-gradient-to-br from-secondary/20 to-secondary/10 sm:h-72 md:h-full'>
+                <div className='absolute inset-0 flex items-center justify-center p-8 md:p-12'>
+                  <Image
+                    src={currentProduct.image || "/placeholder.svg"}
+                    alt={currentProduct.name}
+                    width={500}
+                    height={500}
+                    priority={currentIndex === 0}
+                    className='h-full w-full object-contain drop-shadow-lg'
+                  />
+                </div>
               </div>
-              <div className='flex flex-col justify-center p-6 sm:p-8 md:p-12'>
-                <Badge className='mb-3 w-fit'>{currentProduct.category}</Badge>
-                <h3 className='mb-2 text-2xl font-bold sm:text-3xl md:text-4xl'>
-                  {currentProduct.name}
-                </h3>
-                <p className='mb-4 line-clamp-2 text-sm text-muted-foreground sm:text-base'>
-                  {currentProduct.description}
-                </p>
-                <div className='mb-4 flex items-center gap-2 sm:mb-6 sm:gap-3'>
-                  {currentProduct.discountPrice ? (
-                    <>
-                      <span className='text-2xl font-bold text-primary sm:text-3xl'>
-                        ${currentProduct.discountPrice}
-                      </span>
-                      <span className='text-lg text-muted-foreground line-through sm:text-xl'>
+
+              {/* Content Section */}
+              <div className='flex flex-col justify-center p-8 sm:p-10 md:p-16'>
+                <div className='space-y-4'>
+                  <div>
+                    <Badge className='mb-4 w-fit bg-primary/10 text-primary hover:bg-primary/20'>
+                      {currentProduct.category}
+                    </Badge>
+                  </div>
+
+                  <h3 className='text-2xl font-bold leading-tight tracking-tight sm:text-3xl md:text-4xl lg:text-5xl'>
+                    {currentProduct.name}
+                  </h3>
+
+                  <p className='line-clamp-2 text-sm leading-relaxed text-muted-foreground sm:text-base md:text-lg'>
+                    {currentProduct.description}
+                  </p>
+
+                  <div className='flex items-baseline gap-3 pt-2'>
+                    {currentProduct.discountPrice ? (
+                      <>
+                        <span className='text-3xl font-bold text-primary sm:text-4xl md:text-5xl'>
+                          ${currentProduct.discountPrice}
+                        </span>
+                        <span className='text-lg text-muted-foreground line-through sm:text-xl md:text-2xl'>
+                          ${currentProduct.price}
+                        </span>
+                      </>
+                    ) : (
+                      <span className='text-3xl font-bold text-primary sm:text-4xl md:text-5xl'>
                         ${currentProduct.price}
                       </span>
-                    </>
-                  ) : (
-                    <span className='text-2xl font-bold text-primary sm:text-3xl'>
-                      ${currentProduct.price}
-                    </span>
-                  )}
+                    )}
+                  </div>
+
+                  <div className='pt-4'>
+                    <Button
+                      asChild
+                      size='lg'
+                      className='w-full font-semibold shadow-md transition-all hover:shadow-lg sm:w-auto'
+                    >
+                      <Link href={`/product/${currentProduct.id}`}>
+                        View Details
+                      </Link>
+                    </Button>
+                  </div>
                 </div>
-                <Button asChild className='w-full sm:w-fit'>
-                  <Link href={`/product/${currentProduct.id}`}>
-                    View Details
-                  </Link>
-                </Button>
               </div>
             </div>
           </motion.div>
         </AnimatePresence>
 
+        {/* Navigation Buttons */}
         <Button
-          variant='outline'
+          variant='ghost'
           size='icon'
-          className='absolute left-2 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 bg-background/90 backdrop-blur-sm md:left-4 md:h-10 md:w-10'
+          className='absolute left-3 top-1/2 z-10 h-10 w-10 -translate-y-1/2 rounded-full bg-background/80 backdrop-blur-md shadow-md transition-all hover:bg-background hover:shadow-lg md:left-6 md:h-12 md:w-12'
           onClick={prevSlide}
           aria-label='Previous slide'
         >
-          <ChevronLeft className='h-3 w-3 md:h-4 md:w-4' />
+          <ChevronLeft className='h-5 w-5 md:h-6 md:w-6' />
         </Button>
         <Button
-          variant='outline'
+          variant='ghost'
           size='icon'
-          className='absolute right-2 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 bg-background/90 backdrop-blur-sm md:right-4 md:h-10 md:w-10'
+          className='absolute right-3 top-1/2 z-10 h-10 w-10 -translate-y-1/2 rounded-full bg-background/80 backdrop-blur-md shadow-md transition-all hover:bg-background hover:shadow-lg md:right-6 md:h-12 md:w-12'
           onClick={nextSlide}
           aria-label='Next slide'
         >
-          <ChevronRight className='h-3 w-3 md:h-4 md:w-4' />
+          <ChevronRight className='h-5 w-5 md:h-6 md:w-6' />
         </Button>
       </div>
 
-      <div className='flex justify-center gap-2 p-3 sm:p-4'>
+      {/* Carousel Indicators */}
+      <div className='flex items-center justify-center gap-2 border-t border-border/50 bg-secondary/5 px-4 py-4'>
         {products.map((_, index) => (
           <button
             key={index}
             onClick={() => setCurrentIndex(index)}
-            className={`h-2 rounded-full transition-all ${
+            className={`rounded-full transition-all duration-300 ${
               index === currentIndex
-                ? "w-8 bg-primary"
-                : "w-2 bg-muted-foreground/30"
+                ? "h-2.5 w-8 bg-primary shadow-sm"
+                : "h-2 w-2 bg-muted-foreground/30 hover:bg-muted-foreground/50"
             }`}
+            aria-label={`Go to slide ${index + 1}`}
           />
         ))}
       </div>

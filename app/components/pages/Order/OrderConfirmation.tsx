@@ -14,23 +14,29 @@ import {
 } from "@/components/ui/card";
 import Image from "next/image";
 import { Separator } from "@/components/ui/separator";
+import { toast } from "sonner";
 
 interface OrderConfirmationProps {
   orderId: string;
 }
 const OrderConfirmation = ({ orderId }: OrderConfirmationProps) => {
-  //   const { toast } = useToast();
-
   const order = useMemo(() => {
     return getOrderById(orderId) || null;
   }, [orderId]);
 
-  const copyOrderId = () => {
-    navigator.clipboard.writeText(orderId);
-    // toast({
-    //   title: "Copied!",
-    //   description: "Order ID copied to clipboard",
-    // });
+  const copyOrderId = async () => {
+    try {
+      await navigator.clipboard.writeText(orderId);
+      toast.success("Copied!", {
+        description: "Order ID copied to clipboard",
+        duration: 3000,
+      });
+    } catch {
+      toast.error("Failed to copy", {
+        description: "Please try again",
+        duration: 3000,
+      });
+    }
   };
 
   if (!order) {

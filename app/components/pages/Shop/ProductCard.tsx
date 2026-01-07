@@ -16,7 +16,10 @@ const ProductCard = ({ product, index }: ProductCardProps) => {
     <motion.div
       initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: shouldReduceMotion ? 0 : 0.3, delay: shouldReduceMotion ? 0 : index * 0.05 }}
+      transition={{
+        duration: shouldReduceMotion ? 0 : 0.3,
+        delay: shouldReduceMotion ? 0 : index * 0.05,
+      }}
     >
       <Link href={`/product/${product.id}`}>
         <Card className='group overflow-hidden border-border/50 bg-card transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10'>
@@ -29,8 +32,8 @@ const ProductCard = ({ product, index }: ProductCardProps) => {
                 <Image
                   src={product.image || "/placeholder.svg"}
                   alt={product.name}
-                  width={400}
-                  height={400}
+                  width={300}
+                  height={300}
                   loading='lazy'
                   className='h-full w-full object-cover'
                 />

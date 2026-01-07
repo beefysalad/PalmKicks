@@ -1,106 +1,63 @@
 "use client";
-import { Button } from "@/components/ui/button";
-import { Menu, ShoppingCart, X } from "lucide-react";
-import Image from "next/image";
+
 import Link from "next/link";
-import React, { useState } from "react";
+import Image from "next/image";
+import { ShoppingCart, Package } from "lucide-react";
+import { Button } from "@/components/ui/button";
+
+import { motion } from "framer-motion";
 
 const Navbar = () => {
-  const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
-
-  const cartCount = 3;
-
-  const navLinks = [
-    { href: "/shop", label: "Shop" },
-    { href: "/track", label: "Track Order" },
-  ];
+  const itemCount = 0;
   return (
-    <nav className='sticky top-0 z-50 backdrop-blur-xl bg-black/80 border-b border-white/5'>
-      <div className='container mx-auto px-4'>
-        <div className='flex items-center justify-between h-16'>
-          {/* Logo */}
-          <Link
-            href='/'
-            className='flex items-center gap-2 hover:opacity-80 transition-opacity'
-          >
-            <Image
-              src='/logo.jpg'
-              alt='Palmkicks Logo'
-              width={40}
-              height={40}
-              className='rounded-full'
-            />
-            <span className='text-lg font-bold tracking-tight'>Palm Kicks</span>
-          </Link>
+    <motion.header
+      initial={{ y: -100 }}
+      animate={{ y: 0 }}
+      transition={{ duration: 0.5 }}
+      className='sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60'
+    >
+      <div className='w-full flex h-16 items-center justify-between px-4'>
+        <Link href='/' className='flex items-center'>
+          <Image
+            src='/logo.png'
+            alt='Palm Kicks'
+            width={40}
+            height={40}
+            className='h-10 w-10 rounded-full'
+          />
+          <span className='ml-2 hidden text-xl font-bold sm:inline'>
+            Palm Kicks
+          </span>
+        </Link>
 
-          {/* Desktop Navigation */}
-          <div className='hidden md:flex items-center gap-6'>
-            {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className='text-sm text-muted-foreground hover:text-primary transition-colors'
-              >
-                {link.label}
-              </Link>
-            ))}
-            <Link href='/cart' className='relative'>
-              <Button variant='ghost' size='icon' className='relative'>
-                <ShoppingCart className='h-5 w-5' />
-                {cartCount > 0 && (
-                  <span className='absolute top-0 right-0 bg-primary text-black text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center'>
-                    {cartCount}
-                  </span>
-                )}
-              </Button>
+        <nav className='flex items-center gap-2'>
+          <Button variant='ghost' asChild>
+            <Link href='/shop'>Shop</Link>
+          </Button>
+          <Button variant='ghost' asChild>
+            <Link href='/track'>
+              <Package className='h-4 w-4' />
+              <span className='ml-2 hidden sm:inline'>Track</span>
             </Link>
-          </div>
-
-          {/* Mobile Menu Button */}
-          <div className='md:hidden flex items-center gap-2'>
-            <Link href='/cart' className='relative'>
-              <Button variant='ghost' size='icon' className='relative'>
-                <ShoppingCart className='h-5 w-5' />
-                {cartCount > 0 && (
-                  <span className='absolute top-0 right-0 bg-primary text-black text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center'>
-                    {cartCount}
-                  </span>
-                )}
-              </Button>
-            </Link>
-            <Button
-              variant='ghost'
-              size='icon'
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-            >
-              {isMenuOpen ? (
-                <X className='h-5 w-5' />
-              ) : (
-                <Menu className='h-5 w-5' />
-              )}
-            </Button>
-          </div>
-        </div>
-
-        {/* Mobile Menu */}
-        {isMenuOpen && (
-          <div className='md:hidden pb-4 animate-in slide-in-from-top-2'>
-            <div className='flex flex-col gap-3'>
-              {navLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className='text-sm text-muted-foreground hover:text-primary transition-colors py-2'
-                  onClick={() => setIsMenuOpen(false)}
+          </Button>
+          <Button variant='ghost' asChild className='relative'>
+            <Link href='/cart'>
+              <ShoppingCart className='h-4 w-4' />
+              <span className='ml-2 hidden sm:inline'>Cart</span>
+              {itemCount > 0 && (
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className='absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground'
                 >
-                  {link.label}
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
+                  {itemCount}
+                </motion.span>
+              )}
+            </Link>
+          </Button>
+        </nav>
       </div>
-    </nav>
+    </motion.header>
   );
 };
 

@@ -1,56 +1,91 @@
 "use client";
-import React from "react";
-import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { motion } from "framer-motion";
+import { ArrowRight } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
-import PulsingBackground from "../../shared/PulsingBackground";
 const Hero = () => {
   return (
-    <section className='relative min-h-screen flex items-center justify-center overflow-hidden bg-background pt-20'>
-      <PulsingBackground />
+    <div className='container relative z-10 px-4'>
+      <div className='mx-auto max-w-4xl text-center'>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.5, delay: 0.2 }}
+          className='mb-6 inline-block'
+        >
+          <Image
+            src='/logo.jpg'
+            alt='Palm Kicks Logo'
+            width={140}
+            height={140}
+            className='mx-auto h-28 w-28 rounded-full md:h-36 md:w-36'
+          />
+        </motion.div>
 
-      <div className='container mx-auto px-4 relative z-10'>
+        <motion.h1
+          className='mb-6 text-balance text-4xl font-bold tracking-tighter sm:text-5xl md:text-6xl lg:text-7xl'
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.3 }}
+        >
+          Your Premium Destination for{" "}
+          <span className='text-primary'>Authentic Sneakers</span>
+        </motion.h1>
+
+        <motion.p
+          className='mx-auto mb-8 max-w-2xl text-pretty text-base text-muted-foreground sm:text-lg md:text-xl'
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.4 }}
+        >
+          Explore the Tropics <span className='text-primary'>one step</span> at
+          a time
+        </motion.p>
+
+        <motion.div
+          className='flex flex-col items-center justify-center gap-3 sm:flex-row'
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.5 }}
+        >
+          <Button size='lg' asChild className='w-full gap-2 sm:w-auto'>
+            <Link href='/shop'>
+              Shop Now <ArrowRight className='h-4 w-4' />
+            </Link>
+          </Button>
+          <Button
+            size='lg'
+            variant='outline'
+            asChild
+            className='w-full bg-transparent sm:w-auto'
+          >
+            <Link href='/track'>Track Order</Link>
+          </Button>
+        </motion.div>
+
+        {/* Stats section */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 1 }}
-          className='flex flex-col items-center justify-center text-center space-y-8 max-w-4xl mx-auto'
+          transition={{ duration: 0.8, delay: 0.6 }}
+          className='mt-12 grid grid-cols-3 gap-6 md:mt-16'
         >
-          <div className='space-y-6'>
-            <h1 className='text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight text-balance leading-tight'>
-              Explore the tropics,
-              <br />
-              <span className='text-primary'>one step at a time.</span>
-            </h1>
-            <p className='text-xl md:text-2xl text-muted-foreground max-w-2xl mx-auto'>
-              Handpicked pairs. Limited stock. Zero fakes.
-            </p>
+          <div>
+            <p className='text-3xl font-bold text-primary md:text-4xl'>100+</p>
+            <p className='mt-1 text-sm text-muted-foreground'>Premium Kicks</p>
           </div>
-
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3, duration: 0.8 }}
-          >
-            <Button
-              asChild
-              size='lg'
-              className='bg-primary hover:bg-primary/90 text-background px-8 h-12 text-lg'
-            >
-              <Link href='/shop'>Shop Now</Link>
-            </Button>
-          </motion.div>
-
-          <motion.div
-            animate={{ y: [0, 10, 0] }}
-            transition={{ duration: 2, repeat: Number.POSITIVE_INFINITY }}
-            className='pt-8'
-          >
-            <p className='text-sm text-muted-foreground'>Scroll to explore</p>
-          </motion.div>
+          <div>
+            <p className='text-3xl font-bold text-primary md:text-4xl'>100%</p>
+            <p className='mt-1 text-sm text-muted-foreground'>Authentic</p>
+          </div>
+          <div>
+            <p className='text-3xl font-bold text-primary md:text-4xl'>Fast</p>
+            <p className='mt-1 text-sm text-muted-foreground'>Shipping</p>
+          </div>
         </motion.div>
       </div>
-    </section>
+    </div>
   );
 };
 

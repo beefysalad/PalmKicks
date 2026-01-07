@@ -1,31 +1,42 @@
 "use client";
 import React, { Fragment } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
+
 const FloatingOrbs = () => {
+  const shouldReduceMotion = useReducedMotion();
+
   return (
     <Fragment>
       <motion.div
-        className='absolute left-1/4 top-1/4 h-64 w-64 rounded-full bg-primary/20 blur-[100px]'
-        animate={{
-          x: [0, 50, 0],
-          y: [0, 30, 0],
-          scale: [1, 1.2, 1],
-        }}
+        className='absolute left-1/4 top-1/4 h-48 w-48 rounded-full bg-primary/20 blur-[40px] will-change-transform md:h-64 md:w-64 md:blur-[100px]'
+        animate={
+          shouldReduceMotion
+            ? {}
+            : {
+                x: [0, 30, 0],
+                y: [0, 20, 0],
+                scale: [1, 1.1, 1],
+              }
+        }
         transition={{
-          duration: 8,
+          duration: 12,
           repeat: Number.POSITIVE_INFINITY,
           ease: "easeInOut",
         }}
       />
       <motion.div
-        className='absolute right-1/4 top-1/2 h-64 w-64 rounded-full bg-primary/10 blur-[100px]'
-        animate={{
-          x: [0, -50, 0],
-          y: [0, -30, 0],
-          scale: [1, 1.3, 1],
-        }}
+        className='absolute right-1/4 top-1/2 h-48 w-48 rounded-full bg-primary/10 blur-[40px] will-change-transform md:h-64 md:w-64 md:blur-[100px]'
+        animate={
+          shouldReduceMotion
+            ? {}
+            : {
+                x: [0, -30, 0],
+                y: [0, -20, 0],
+                scale: [1, 1.15, 1],
+              }
+        }
         transition={{
-          duration: 10,
+          duration: 15,
           repeat: Number.POSITIVE_INFINITY,
           ease: "easeInOut",
         }}

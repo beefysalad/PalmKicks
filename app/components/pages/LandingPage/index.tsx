@@ -6,7 +6,7 @@ import Featured from "./Featured";
 import WhyPalmKicks from "./WhyPalmKicks";
 import Collections from "./Collections";
 
-const LandingPageCOmponent = () => {
+const LandingPageComponent = () => {
   return (
     <main className='min-h-screen'>
       <section className='container mx-auto relative overflow-hidden from-background via-background to-secondary/20 py-20 md:py-28 lg:py-36'>
@@ -21,4 +21,4 @@ const LandingPageCOmponent = () => {
   );
 };
 
-export default LandingPageCOmponent;
+export default LandingPageComponent;

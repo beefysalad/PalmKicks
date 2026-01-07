@@ -93,7 +93,7 @@ const Footer = () => {
             <h3 className='mb-4 text-base font-semibold'>Follow Us</h3>
             <div className='flex gap-4'>
               <a
-                href='https://instagram.com/palmkicks'
+                href={process.env.NEXT_PUBLIC_INSTAGRAM_URL || "#"}
                 target='_blank'
                 rel='noopener noreferrer'
                 className='transition-colors text-muted-foreground hover:text-primary'
@@ -101,25 +101,21 @@ const Footer = () => {
                 <Instagram className='h-5 w-5' />
               </a>
               <a
-                href='#'
+                href={process.env.NEXT_PUBLIC_FACEBOOK_URL || "#"}
+                target='_blank'
+                rel='noopener noreferrer'
                 className='transition-colors text-muted-foreground hover:text-primary'
               >
                 <Facebook className='h-5 w-5' />
-              </a>
-              <a
-                href='#'
-                className='transition-colors text-muted-foreground hover:text-primary'
-              >
-                <Twitter className='h-5 w-5' />
               </a>
             </div>
             <p className='mt-4 text-sm text-muted-foreground'>
               DM us on Instagram{" "}
               <a
-                href='https://instagram.com/palmkicks'
+                href={process.env.NEXT_PUBLIC_INSTAGRAM_URL || "#"}
                 className='text-primary transition-colors hover:underline'
               >
-                @palmkicks
+                @palmkicks23
               </a>
             </p>
           </div>

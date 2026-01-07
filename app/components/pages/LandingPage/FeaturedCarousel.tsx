@@ -32,9 +32,9 @@ const FeaturedCarousel = ({ products }: FeaturedCarouselProps) => {
         <AnimatePresence mode='wait'>
           <motion.div
             key={currentIndex}
-            initial={shouldReduceMotion ? false : { opacity: 0 }}
+            initial={shouldReduceMotion ? undefined : { opacity: 0 }}
             animate={{ opacity: 1 }}
-            exit={shouldReduceMotion ? false : { opacity: 0 }}
+            exit={shouldReduceMotion ? undefined : { opacity: 0 }}
             transition={{ duration: shouldReduceMotion ? 0 : 0.3 }}
             className='absolute inset-0'
           >

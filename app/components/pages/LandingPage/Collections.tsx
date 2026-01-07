@@ -1,19 +1,20 @@
 "use client";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { products } from "@/lib/products";
 import ProductCard from "../Shop/ProductCard";
 
 const Collections = () => {
+  const shouldReduceMotion = useReducedMotion();
   return (
     <section className='py-12 md:py-16'>
       <div className='w-full px-4'>
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: shouldReduceMotion ? 0 : 0.4 }}
           className='mb-8'
         >
           <h2 className='text-3xl font-bold md:text-4xl'>Latest Collection</h2>
@@ -27,10 +28,13 @@ const Collections = () => {
           ))}
         </div>
         <motion.div
-          initial={{ opacity: 0 }}
+          initial={shouldReduceMotion ? false : { opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.4 }}
+          transition={{
+            duration: shouldReduceMotion ? 0 : 0.4,
+            delay: shouldReduceMotion ? 0 : 0.2,
+          }}
           className='mt-8 text-center'
         >
           <Button size='lg' variant='outline' asChild>

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ interface FeaturedCarouselProps {
 
 const FeaturedCarousel = ({ products }: FeaturedCarouselProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const shouldReduceMotion = useReducedMotion();
 
   const nextSlide = () => {
     setCurrentIndex((prev) => (prev + 1) % products.length);
@@ -31,10 +32,10 @@ const FeaturedCarousel = ({ products }: FeaturedCarouselProps) => {
         <AnimatePresence mode='wait'>
           <motion.div
             key={currentIndex}
-            initial={{ opacity: 0, x: 100 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -100 }}
-            transition={{ duration: 0.5 }}
+            initial={shouldReduceMotion ? undefined : { opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={shouldReduceMotion ? undefined : { opacity: 0 }}
+            transition={{ duration: shouldReduceMotion ? 0 : 0.3 }}
             className='absolute inset-0'
           >
             <div className='flex h-full flex-col md:grid md:grid-cols-2'>
@@ -43,6 +44,7 @@ const FeaturedCarousel = ({ products }: FeaturedCarouselProps) => {
                   src={currentProduct.image || "/placeholder.svg"}
                   alt={currentProduct.name}
                   fill
+                  priority={currentIndex === 0}
                   className='object-cover'
                 />
               </div>
@@ -83,18 +85,20 @@ const FeaturedCarousel = ({ products }: FeaturedCarouselProps) => {
         <Button
           variant='outline'
           size='icon'
-          className='absolute left-4 top-1/2 z-10 hidden -translate-y-1/2 bg-background/80 backdrop-blur md:flex'
+          className='absolute left-2 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 bg-background/90 backdrop-blur-sm md:left-4 md:h-10 md:w-10'
           onClick={prevSlide}
+          aria-label='Previous slide'
         >
-          <ChevronLeft className='h-4 w-4' />
+          <ChevronLeft className='h-3 w-3 md:h-4 md:w-4' />
         </Button>
         <Button
           variant='outline'
           size='icon'
-          className='absolute right-4 top-1/2 z-10 hidden -translate-y-1/2 bg-background/80 backdrop-blur md:flex'
+          className='absolute right-2 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 bg-background/90 backdrop-blur-sm md:right-4 md:h-10 md:w-10'
           onClick={nextSlide}
+          aria-label='Next slide'
         >
-          <ChevronRight className='h-4 w-4' />
+          <ChevronRight className='h-3 w-3 md:h-4 md:w-4' />
         </Button>
       </div>
 

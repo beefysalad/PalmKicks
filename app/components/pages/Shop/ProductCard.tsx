@@ -2,7 +2,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Product } from "@/lib/products";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -11,25 +11,27 @@ interface ProductCardProps {
   index: number;
 }
 const ProductCard = ({ product, index }: ProductCardProps) => {
+  const shouldReduceMotion = useReducedMotion();
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={shouldReduceMotion ? false : { opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: index * 0.1 }}
+      transition={{ duration: shouldReduceMotion ? 0 : 0.3, delay: shouldReduceMotion ? 0 : index * 0.05 }}
     >
       <Link href={`/product/${product.id}`}>
         <Card className='group overflow-hidden border-border/50 bg-card transition-all hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10'>
           <CardContent className='p-0'>
             <div className='relative aspect-square overflow-hidden bg-secondary/30'>
               <motion.div
-                whileHover={{ scale: 1.05 }}
-                transition={{ duration: 0.3 }}
+                whileHover={shouldReduceMotion ? {} : { scale: 1.05 }}
+                transition={{ duration: 0.2 }}
               >
                 <Image
                   src={product.image || "/placeholder.svg"}
                   alt={product.name}
                   width={400}
                   height={400}
+                  loading='lazy'
                   className='h-full w-full object-cover'
                 />
               </motion.div>

@@ -37,7 +37,7 @@ const Cart = () => {
                   <Card>
                     <CardContent className='p-3 md:p-4'>
                       <div className='flex flex-col gap-4 sm:flex-row'>
-                        <div className='relative h-32 w-full flex-shrink-0 overflow-hidden rounded-md border border-border sm:h-24 sm:w-24'>
+                        <div className='relative h-20 w-full flex-shrink-0 overflow-hidden rounded-md border border-border sm:h-24 sm:w-24'>
                           <Image
                             src={item.image || "/placeholder.svg"}
                             alt={item.name}

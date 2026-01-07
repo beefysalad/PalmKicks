@@ -106,7 +106,7 @@ const OrderConfirmation = ({ orderId }: OrderConfirmationProps) => {
                 </p>
                 <Button asChild size='sm' className='gap-2'>
                   <a
-                    href='https://instagram.com/palmkicks'
+                    href={process.env.NEXT_PUBLIC_INSTAGRAM_URL || "#"}
                     target='_blank'
                     rel='noopener noreferrer'
                   >

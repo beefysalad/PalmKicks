@@ -5,11 +5,12 @@ import { useState } from "react";
 import { useCart } from "../../shared/CartProvider";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Check, ShoppingCart } from "lucide-react";
+import { ArrowLeft, Check, ShoppingCart, Trash2, Eye } from "lucide-react";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import Link from "next/link";
 
 interface ProductDetailProps {
   product: Product;
@@ -18,10 +19,16 @@ interface ProductDetailProps {
 const ProductDetail = ({ product }: ProductDetailProps) => {
   const [selectedSize, setSelectedSize] = useState<string>("");
   const [selectedImage, setSelectedImage] = useState<number>(0);
-  const { addItem } = useCart();
+  const { items, addItem, removeItem } = useCart();
   const router = useRouter();
 
   const allImages = [product.image, ...product.images];
+
+  // Check if this product with selected size is already in cart
+  const isInCart = selectedSize
+    ? items.some((item) => item.id === product.id && item.size === selectedSize)
+    : false;
+
   const handleAddToCart = () => {
     if (!selectedSize) {
       toast.error("Size Required", {
@@ -50,6 +57,16 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
 
     toast.success("Added to Cart", {
       description: `${product.name} (Size ${selectedSize}) has been added to your cart`,
+      duration: 3000,
+    });
+  };
+
+  const handleRemoveFromCart = () => {
+    if (!selectedSize) return;
+
+    removeItem(product.id, selectedSize);
+    toast.success("Removed from Cart", {
+      description: `${product.name} (Size ${selectedSize}) has been removed from your cart`,
       duration: 3000,
     });
   };
@@ -202,11 +219,82 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
 
           <Separator />
 
-          {/* Add to Cart Section */}
-          <div className='space-y-3'>
+          {/* Add to Cart Section - Hidden on mobile, shown on desktop */}
+          <div className='hidden space-y-3 lg:block'>
+            {isInCart ? (
+              <div className='space-y-2'>
+                <Button
+                  size='lg'
+                  variant='destructive'
+                  className='w-full text-base font-semibold shadow-md transition-all hover:shadow-lg'
+                  onClick={handleRemoveFromCart}
+                >
+                  <Trash2 className='mr-2 h-5 w-5' />
+                  Remove from Cart
+                </Button>
+                <Button
+                  size='lg'
+                  variant='outline'
+                  className='w-full text-base font-semibold'
+                  asChild
+                >
+                  <Link href='/cart'>
+                    <Eye className='mr-2 h-5 w-5' />
+                    View Cart
+                  </Link>
+                </Button>
+              </div>
+            ) : (
+              <>
+                <Button
+                  size='lg'
+                  className='w-full text-base font-semibold shadow-md transition-all hover:shadow-lg'
+                  onClick={handleAddToCart}
+                  disabled={!product.inStock || !selectedSize}
+                >
+                  <ShoppingCart className='mr-2 h-5 w-5' />
+                  {!selectedSize
+                    ? "Select a Size"
+                    : product.inStock
+                    ? "Add to Cart"
+                    : "Out of Stock"}
+                </Button>
+                {!product.inStock && (
+                  <p className='text-center text-sm text-muted-foreground'>
+                    This item is currently unavailable
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Sticky Action Bar for Mobile */}
+      <div className='fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur-sm lg:hidden'>
+        <div className='mx-auto max-w-7xl px-4 py-3'>
+          {isInCart ? (
+            <div className='flex gap-2'>
+              <Button
+                size='lg'
+                variant='destructive'
+                className='flex-1'
+                onClick={handleRemoveFromCart}
+              >
+                <Trash2 className='mr-2 h-5 w-5' />
+                Remove
+              </Button>
+              <Button size='lg' variant='outline' className='flex-1' asChild>
+                <Link href='/cart'>
+                  <Eye className='mr-2 h-5 w-5' />
+                  View Cart
+                </Link>
+              </Button>
+            </div>
+          ) : (
             <Button
               size='lg'
-              className='w-full text-base font-semibold shadow-md transition-all hover:shadow-lg'
+              className='w-full'
               onClick={handleAddToCart}
               disabled={!product.inStock || !selectedSize}
             >
@@ -217,31 +305,7 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
                 ? "Add to Cart"
                 : "Out of Stock"}
             </Button>
-            {!product.inStock && (
-              <p className='text-center text-sm text-muted-foreground'>
-                This item is currently unavailable
-              </p>
-            )}
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Sticky Add to Cart for Mobile */}
-      <div className='fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur-sm lg:hidden'>
-        <div className='mx-auto max-w-7xl px-4 py-3'>
-          <Button
-            size='lg'
-            className='w-full'
-            onClick={handleAddToCart}
-            disabled={!product.inStock || !selectedSize}
-          >
-            <ShoppingCart className='mr-2 h-5 w-5' />
-            {!selectedSize
-              ? "Select a Size"
-              : product.inStock
-              ? "Add to Cart"
-              : "Out of Stock"}
-          </Button>
+          )}
         </div>
       </div>
     </div>

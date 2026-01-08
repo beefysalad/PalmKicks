@@ -1,13 +1,13 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Instagram, Facebook, Twitter } from "lucide-react";
+import { Instagram, Facebook } from "lucide-react";
 
 const Footer = () => {
   return (
     <footer className='border-t border-border/40 bg-secondary/20'>
       <div className='w-full max-w-7xl mx-auto px-4 py-12'>
         <div className='grid gap-8 md:grid-cols-2 lg:grid-cols-4'>
-          <div className='flex flex-col items-start'>
+          <div className='flex flex-col items-center text-center md:items-start md:text-left'>
             <Link href='/' className='mb-4 inline-block'>
               <Image
                 src='/logo.jpg'
@@ -22,7 +22,7 @@ const Footer = () => {
             </p>
           </div>
 
-          <div>
+          <div className='text-center md:text-left'>
             <h3 className='mb-4 text-base font-semibold'>Shop</h3>
             <ul className='space-y-3 text-sm text-muted-foreground'>
               <li>
@@ -60,7 +60,7 @@ const Footer = () => {
             </ul>
           </div>
 
-          <div>
+          <div className='text-center md:text-left'>
             <h3 className='mb-4 text-base font-semibold'>Support</h3>
             <ul className='space-y-3 text-sm text-muted-foreground'>
               <li>
@@ -89,9 +89,9 @@ const Footer = () => {
             </ul>
           </div>
 
-          <div>
+          <div className='text-center md:text-left'>
             <h3 className='mb-4 text-base font-semibold'>Follow Us</h3>
-            <div className='flex gap-4'>
+            <div className='flex gap-4 justify-center md:justify-start'>
               <a
                 href={process.env.NEXT_PUBLIC_INSTAGRAM_URL || "#"}
                 target='_blank'

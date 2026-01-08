@@ -221,21 +221,34 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
 
           {/* Add to Cart Section - Hidden on mobile, shown on desktop */}
           <div className='hidden space-y-3 lg:block'>
-            {isInCart ? (
-              <div className='space-y-2'>
+            <Button
+              size='lg'
+              className='w-full text-base font-semibold shadow-md transition-all hover:shadow-lg'
+              onClick={handleAddToCart}
+              disabled={!product.inStock || !selectedSize}
+            >
+              <ShoppingCart className='mr-2 h-5 w-5' />
+              {!selectedSize
+                ? "Select a Size"
+                : product.inStock
+                ? "Add to Cart"
+                : "Out of Stock"}
+            </Button>
+            {isInCart && (
+              <div className='grid grid-cols-2 gap-2'>
                 <Button
                   size='lg'
                   variant='destructive'
-                  className='w-full text-base font-semibold shadow-md transition-all hover:shadow-lg'
+                  className='text-base font-semibold'
                   onClick={handleRemoveFromCart}
                 >
                   <Trash2 className='mr-2 h-5 w-5' />
-                  Remove from Cart
+                  Remove
                 </Button>
                 <Button
                   size='lg'
                   variant='outline'
-                  className='w-full text-base font-semibold'
+                  className='text-base font-semibold'
                   asChild
                 >
                   <Link href='/cart'>
@@ -244,27 +257,11 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
                   </Link>
                 </Button>
               </div>
-            ) : (
-              <>
-                <Button
-                  size='lg'
-                  className='w-full text-base font-semibold shadow-md transition-all hover:shadow-lg'
-                  onClick={handleAddToCart}
-                  disabled={!product.inStock || !selectedSize}
-                >
-                  <ShoppingCart className='mr-2 h-5 w-5' />
-                  {!selectedSize
-                    ? "Select a Size"
-                    : product.inStock
-                    ? "Add to Cart"
-                    : "Out of Stock"}
-                </Button>
-                {!product.inStock && (
-                  <p className='text-center text-sm text-muted-foreground'>
-                    This item is currently unavailable
-                  </p>
-                )}
-              </>
+            )}
+            {!product.inStock && (
+              <p className='text-center text-sm text-muted-foreground'>
+                This item is currently unavailable
+              </p>
             )}
           </div>
         </motion.div>
@@ -272,8 +269,21 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
 
       {/* Sticky Action Bar for Mobile */}
       <div className='fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur-sm lg:hidden'>
-        <div className='mx-auto max-w-7xl px-4 py-3'>
-          {isInCart ? (
+        <div className='mx-auto max-w-7xl px-4 py-3 space-y-2'>
+          <Button
+            size='lg'
+            className='w-full'
+            onClick={handleAddToCart}
+            disabled={!product.inStock || !selectedSize}
+          >
+            <ShoppingCart className='mr-2 h-5 w-5' />
+            {!selectedSize
+              ? "Select a Size"
+              : product.inStock
+              ? "Add to Cart"
+              : "Out of Stock"}
+          </Button>
+          {isInCart && (
             <div className='flex gap-2'>
               <Button
                 size='lg'
@@ -291,20 +301,6 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
                 </Link>
               </Button>
             </div>
-          ) : (
-            <Button
-              size='lg'
-              className='w-full'
-              onClick={handleAddToCart}
-              disabled={!product.inStock || !selectedSize}
-            >
-              <ShoppingCart className='mr-2 h-5 w-5' />
-              {!selectedSize
-                ? "Select a Size"
-                : product.inStock
-                ? "Add to Cart"
-                : "Out of Stock"}
-            </Button>
           )}
         </div>
       </div>

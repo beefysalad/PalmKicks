@@ -28,7 +28,7 @@ const FeaturedCarousel = ({ products }: FeaturedCarouselProps) => {
   const currentProduct = products[currentIndex];
   return (
     <div className='relative overflow-hidden rounded-2xl bg-card shadow-lg transition-shadow duration-300 hover:shadow-xl'>
-      <div className='relative aspect-video sm:aspect-[21/9]'>
+      <div className='relative min-h-[500px] md:min-h-[500px]'>
         <AnimatePresence mode='wait'>
           <motion.div
             key={currentIndex}
@@ -41,45 +41,41 @@ const FeaturedCarousel = ({ products }: FeaturedCarouselProps) => {
             }}
             className='absolute inset-0'
           >
-            <div className='flex h-full flex-col md:grid md:grid-cols-2'>
+            <div className='flex h-full min-h-[500px] flex-col md:grid md:grid-cols-2 md:min-h-[500px]'>
               {/* Image Section */}
-              <div className='relative h-56 overflow-hidden bg-gradient-to-br from-secondary/20 to-secondary/10 sm:h-72 md:h-full'>
-                <div className='absolute inset-0 flex items-center justify-center p-8 md:p-12'>
-                  <Image
-                    src={currentProduct.image || "/placeholder.svg"}
-                    alt={currentProduct.name}
-                    width={500}
-                    height={500}
-                    priority={currentIndex === 0}
-                    className='h-full w-full object-contain drop-shadow-lg'
-                  />
-                </div>
+              <div className='relative h-56 min-h-[224px] overflow-hidden bg-secondary/20 sm:h-64 sm:min-h-[256px] md:h-full md:min-h-0'>
+                <Image
+                  src={currentProduct.image || "/placeholder.svg"}
+                  alt={currentProduct.name}
+                  fill
+                  priority={currentIndex === 0}
+                  className='object-cover'
+                  sizes='(max-width: 768px) 100vw, 50vw'
+                />
               </div>
 
               {/* Content Section */}
-              <div className='flex flex-col justify-center p-8 sm:p-10 md:p-16'>
-                <div className='space-y-4'>
-                  <div>
-                    <Badge className='mb-4 w-fit bg-primary/10 text-primary hover:bg-primary/20'>
-                      {currentProduct.category}
-                    </Badge>
-                  </div>
+              <div className='flex flex-col justify-center p-6 pb-12 sm:p-8 sm:pb-14 md:p-12 md:pb-16'>
+                <div className='space-y-4 sm:space-y-5'>
+                  <Badge className='w-fit bg-primary/10 text-primary hover:bg-primary/20'>
+                    {currentProduct.category}
+                  </Badge>
 
-                  <h3 className='text-2xl font-bold leading-tight tracking-tight sm:text-3xl md:text-4xl lg:text-5xl'>
+                  <h3 className='text-2xl font-bold leading-tight tracking-tight sm:text-3xl md:text-4xl'>
                     {currentProduct.name}
                   </h3>
 
-                  <p className='line-clamp-2 text-sm leading-relaxed text-muted-foreground sm:text-base md:text-lg'>
+                  <p className='line-clamp-2 text-sm leading-relaxed text-muted-foreground sm:text-base'>
                     {currentProduct.description}
                   </p>
 
-                  <div className='flex items-baseline gap-3 pt-2'>
+                  <div className='flex items-baseline gap-3 pt-1'>
                     {currentProduct.discountPrice ? (
                       <>
                         <span className='text-3xl font-bold text-primary sm:text-4xl md:text-5xl'>
                           ${currentProduct.discountPrice}
                         </span>
-                        <span className='text-lg text-muted-foreground line-through sm:text-xl md:text-2xl'>
+                        <span className='text-xl text-muted-foreground line-through sm:text-2xl'>
                           ${currentProduct.price}
                         </span>
                       </>
@@ -90,7 +86,7 @@ const FeaturedCarousel = ({ products }: FeaturedCarouselProps) => {
                     )}
                   </div>
 
-                  <div className='pt-4'>
+                  <div className='pt-4 sm:pt-5'>
                     <Button
                       asChild
                       size='lg'
@@ -129,7 +125,7 @@ const FeaturedCarousel = ({ products }: FeaturedCarouselProps) => {
       </div>
 
       {/* Carousel Indicators */}
-      <div className='flex items-center justify-center gap-2 border-t border-border/50 bg-secondary/5 px-4 py-4'>
+      <div className='flex items-center justify-center gap-2 border-t border-border/50 bg-secondary/5 px-4 py-4 sm:py-5'>
         {products.map((_, index) => (
           <button
             key={index}

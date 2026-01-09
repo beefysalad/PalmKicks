@@ -18,8 +18,8 @@ export const products: Product[] = [
   {
     id: "1",
     name: "Air Jordan 1 Retro High OG",
-    price: 170,
-    discountPrice: 139,
+    price: 2100,
+    discountPrice: 1900,
     gender: "men",
     brand: "Nike",
     category: "Basketball",
@@ -50,7 +50,7 @@ export const products: Product[] = [
   {
     id: "2",
     name: "Nike Dunk Low",
-    price: 110,
+    price: 1300,
     gender: "women",
     brand: "Nike",
     category: "Lifestyle",
@@ -80,8 +80,8 @@ export const products: Product[] = [
   {
     id: "3",
     name: "Adidas Yeezy Boost 350 V2",
-    price: 230,
-    discountPrice: 199,
+    price: 2500,
+    discountPrice: 2100,
     gender: "men",
     brand: "Adidas",
     category: "Lifestyle",
@@ -111,7 +111,7 @@ export const products: Product[] = [
   {
     id: "4",
     name: "New Balance 550",
-    price: 130,
+    price: 1500,
     gender: "women",
     brand: "New Balance",
     category: "Basketball",
@@ -138,8 +138,8 @@ export const products: Product[] = [
   {
     id: "5",
     name: "Converse Chuck 70 High",
-    price: 90,
-    discountPrice: 69,
+    price: 1100,
+    discountPrice: 900,
     gender: "kids",
     brand: "Converse",
     category: "Lifestyle",
@@ -166,7 +166,7 @@ export const products: Product[] = [
   {
     id: "6",
     name: "Vans Old Skool",
-    price: 75,
+    price: 900,
     gender: "kids",
     brand: "Vans",
     category: "Skate",

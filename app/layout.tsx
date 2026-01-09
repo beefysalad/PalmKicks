@@ -2,9 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import "./globals.css";
-import Navbar from "./components/shared/Navbar";
-import Footer from "./components/shared/Footer";
 import { CartProvider } from "./components/shared/CartProvider";
+import ConditionalLayout from "./components/shared/ConditionalLayout";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,9 +32,7 @@ export default function RootLayout({
         suppressHydrationWarning={true}
       >
         <CartProvider>
-          <Navbar />
-          {children}
-          <Footer />
+          <ConditionalLayout>{children}</ConditionalLayout>
         </CartProvider>
         <Toaster position='bottom-right' richColors closeButton />
       </body>

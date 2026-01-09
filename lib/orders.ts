@@ -22,9 +22,9 @@ export interface Order {
 }
 
 export function generateOrderId(): string {
-  const timestamp = Date.now().toString(36);
+  const year = new Date().getFullYear();
   const random = Math.random().toString(36).substring(2, 7);
-  return `PK-${timestamp}-${random}`.toUpperCase();
+  return `PK-${year}-${random}`.toUpperCase();
 }
 
 export function saveOrder(order: Order): void {

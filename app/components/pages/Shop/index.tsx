@@ -1,11 +1,13 @@
 "use client";
-import { products } from "@/lib/products";
+import { getAllProducts } from "@/lib/admin-products";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import ProductCard from "./ProductCard";
+import type { Product } from "@/lib/products";
+
 enum Filter {
   MEN = "men",
   WOMEN = "women",
@@ -13,6 +15,7 @@ enum Filter {
   ALL = "all",
 }
 const Shop = () => {
+  const [products] = useState<Product[]>(() => getAllProducts());
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [filter, setFilter] = useState<Filter>(Filter.ALL);
 

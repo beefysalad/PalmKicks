@@ -292,7 +292,7 @@ const CheckoutForm = () => {
                           Size {item.size} × {item.quantity}
                         </p>
                         <p className='mt-1 text-sm font-semibold text-primary'>
-                          ${(item.price * item.quantity).toFixed(2)}
+                          ₱{(item.price * item.quantity).toFixed(2)}
                         </p>
                       </div>
                     </div>
@@ -302,7 +302,7 @@ const CheckoutForm = () => {
                 <div className='space-y-2.5'>
                   <div className='flex justify-between text-sm'>
                     <span className='text-muted-foreground'>Subtotal</span>
-                    <span className='font-medium'>${total.toFixed(2)}</span>
+                    <span className='font-medium'>₱{total.toFixed(2)}</span>
                   </div>
                   <div className='flex justify-between text-sm'>
                     <span className='text-muted-foreground'>Shipping</span>
@@ -313,7 +313,7 @@ const CheckoutForm = () => {
                 <div className='flex items-center justify-between rounded-lg bg-primary/5 p-3'>
                   <span className='text-base font-semibold'>Total</span>
                   <span className='text-xl font-bold text-primary'>
-                    ${total.toFixed(2)}
+                    ₱{total.toFixed(2)}
                   </span>
                 </div>
 

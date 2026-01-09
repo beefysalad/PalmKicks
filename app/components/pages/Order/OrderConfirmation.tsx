@@ -149,7 +149,7 @@ const OrderConfirmation = ({ orderId }: OrderConfirmationProps) => {
                     </p>
                   </div>
                   <p className='font-semibold text-primary'>
-                    ${(item.price * item.quantity).toFixed(2)}
+                    ₱{(item.price * item.quantity).toFixed(2)}
                   </p>
                 </div>
               ))}
@@ -157,7 +157,7 @@ const OrderConfirmation = ({ orderId }: OrderConfirmationProps) => {
             <Separator />
             <div className='flex justify-between text-lg font-bold'>
               <span>Total</span>
-              <span className='text-primary'>${order.total.toFixed(2)}</span>
+              <span className='text-primary'>₱{order.total.toFixed(2)}</span>
             </div>
           </CardContent>
         </Card>

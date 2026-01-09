@@ -17,6 +17,15 @@ const FeaturedCarousel = ({ products }: FeaturedCarouselProps) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const shouldReduceMotion = useReducedMotion();
 
+  // Guard against empty products array
+  if (!products || products.length === 0) {
+    return (
+      <div className='rounded-2xl bg-card p-12 text-center'>
+        <p className='text-muted-foreground'>No featured products available</p>
+      </div>
+    );
+  }
+
   const nextSlide = () => {
     setCurrentIndex((prev) => (prev + 1) % products.length);
   };
@@ -26,6 +35,16 @@ const FeaturedCarousel = ({ products }: FeaturedCarouselProps) => {
   };
 
   const currentProduct = products[currentIndex];
+
+  // Guard against undefined product
+  if (!currentProduct) {
+    return (
+      <div className='rounded-2xl bg-card p-12 text-center'>
+        <p className='text-muted-foreground'>No featured products available</p>
+      </div>
+    );
+  }
+
   return (
     <div className='relative overflow-hidden rounded-2xl bg-card shadow-lg transition-shadow duration-300 hover:shadow-xl'>
       <div className='relative min-h-[500px] md:min-h-[500px]'>
@@ -73,15 +92,15 @@ const FeaturedCarousel = ({ products }: FeaturedCarouselProps) => {
                     {currentProduct.discountPrice ? (
                       <>
                         <span className='text-3xl font-bold text-primary sm:text-4xl md:text-5xl'>
-                          ${currentProduct.discountPrice}
+                          ₱{currentProduct.discountPrice}
                         </span>
                         <span className='text-xl text-muted-foreground line-through sm:text-2xl'>
-                          ${currentProduct.price}
+                          ₱{currentProduct.price}
                         </span>
                       </>
                     ) : (
                       <span className='text-3xl font-bold text-primary sm:text-4xl md:text-5xl'>
-                        ${currentProduct.price}
+                        ₱{currentProduct.price}
                       </span>
                     )}
                   </div>

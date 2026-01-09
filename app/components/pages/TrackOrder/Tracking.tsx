@@ -212,7 +212,7 @@ const Tracking = () => {
                   <div className='space-y-3'>
                     {order.items.map((item) => (
                       <div
-                        key={`${item.id}-${item.size}`}
+                        key={`${item.id}-${item.size}-${item.color}`}
                         className='flex gap-3'
                       >
                         <div className='relative h-16 w-16 flex-shrink-0 overflow-hidden rounded border border-border'>
@@ -227,7 +227,7 @@ const Tracking = () => {
                         <div className='flex-1'>
                           <p className='font-medium'>{item.name}</p>
                           <p className='text-sm text-muted-foreground'>
-                            Size {item.size} × {item.quantity}
+                            Size {item.size}, Color {item.color} × {item.quantity}
                           </p>
                         </div>
                         <p className='font-semibold text-primary'>

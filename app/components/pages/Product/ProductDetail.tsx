@@ -18,21 +18,36 @@ interface ProductDetailProps {
 
 const ProductDetail = ({ product }: ProductDetailProps) => {
   const [selectedSize, setSelectedSize] = useState<string>("");
+  const [selectedColor, setSelectedColor] = useState<string>("");
   const [selectedImage, setSelectedImage] = useState<number>(0);
   const { items, addItem, removeItem } = useCart();
   const router = useRouter();
 
   const allImages = [product.image, ...product.images];
 
-  // Check if this product with selected size is already in cart
-  const isInCart = selectedSize
-    ? items.some((item) => item.id === product.id && item.size === selectedSize)
-    : false;
+  // Check if this product with selected size and color is already in cart
+  const isInCart =
+    selectedSize && selectedColor
+      ? items.some(
+          (item) =>
+            item.id === product.id &&
+            item.size === selectedSize &&
+            item.color === selectedColor
+        )
+      : false;
 
   const handleAddToCart = () => {
     if (!selectedSize) {
       toast.error("Size Required", {
         description: "Please select a size before adding to cart",
+        duration: 4000,
+      });
+      return;
+    }
+
+    if (!selectedColor) {
+      toast.error("Color Required", {
+        description: "Please select a color before adding to cart",
         duration: 4000,
       });
       return;
@@ -52,21 +67,22 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
       price: product.price,
       image: product.image,
       size: selectedSize,
+      color: selectedColor,
       quantity: 1,
     });
 
     toast.success("Added to Cart", {
-      description: `${product.name} (Size ${selectedSize}) has been added to your cart`,
+      description: `${product.name} (Size ${selectedSize}, Color ${selectedColor}) has been added to your cart`,
       duration: 3000,
     });
   };
 
   const handleRemoveFromCart = () => {
-    if (!selectedSize) return;
+    if (!selectedSize || !selectedColor) return;
 
-    removeItem(product.id, selectedSize);
+    removeItem(product.id, selectedSize, selectedColor);
     toast.success("Removed from Cart", {
-      description: `${product.name} (Size ${selectedSize}) has been removed from your cart`,
+      description: `${product.name} (Size ${selectedSize}, Color ${selectedColor}) has been removed from your cart`,
       duration: 3000,
     });
   };
@@ -201,18 +217,36 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
 
           {/* Colors */}
           <div className='space-y-3'>
-            <h3 className='text-sm font-semibold uppercase tracking-wider'>
-              Available Colors
-            </h3>
+            <div className='flex items-center justify-between'>
+              <h3 className='text-sm font-semibold uppercase tracking-wider'>
+                Select Color
+              </h3>
+              {!selectedColor && (
+                <span className='text-xs text-destructive'>Required</span>
+              )}
+            </div>
             <div className='flex flex-wrap gap-2'>
               {product.colors.map((color) => (
-                <Badge
+                <button
                   key={color}
-                  variant='secondary'
-                  className='px-3 py-1.5 text-sm'
+                  onClick={() => setSelectedColor(color)}
+                  className={`relative flex items-center justify-center rounded-md border-2 px-3 py-1.5 text-sm font-semibold transition-all ${
+                    selectedColor === color
+                      ? "border-primary bg-primary text-primary-foreground shadow-md"
+                      : "border-border bg-secondary/30 hover:border-primary/50 hover:bg-secondary/50"
+                  }`}
                 >
                   {color}
-                </Badge>
+                  {selectedColor === color && (
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className='absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary'
+                    >
+                      <Check className='h-3 w-3 text-primary-foreground' />
+                    </motion.div>
+                  )}
+                </button>
               ))}
             </div>
           </div>
@@ -225,11 +259,13 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
               size='lg'
               className='w-full text-base font-semibold shadow-md transition-all hover:shadow-lg'
               onClick={handleAddToCart}
-              disabled={!product.inStock || !selectedSize}
+              disabled={!product.inStock || !selectedSize || !selectedColor}
             >
               <ShoppingCart className='mr-2 h-5 w-5' />
               {!selectedSize
                 ? "Select a Size"
+                : !selectedColor
+                ? "Select a Color"
                 : product.inStock
                 ? "Add to Cart"
                 : "Out of Stock"}
@@ -274,11 +310,13 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
             size='lg'
             className='w-full'
             onClick={handleAddToCart}
-            disabled={!product.inStock || !selectedSize}
+            disabled={!product.inStock || !selectedSize || !selectedColor}
           >
             <ShoppingCart className='mr-2 h-5 w-5' />
             {!selectedSize
               ? "Select a Size"
+              : !selectedColor
+              ? "Select a Color"
               : product.inStock
               ? "Add to Cart"
               : "Out of Stock"}

@@ -272,7 +272,7 @@ const CheckoutForm = () => {
                 <div className='max-h-[280px] space-y-3 overflow-y-auto pr-2'>
                   {items.map((item) => (
                     <div
-                      key={`${item.id}-${item.size}`}
+                      key={`${item.id}-${item.size}-${item.color}`}
                       className='flex gap-3 rounded-lg border border-border/50 bg-secondary/20 p-2 transition-colors hover:bg-secondary/30'
                     >
                       <div className='relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-md border border-border bg-background'>
@@ -289,7 +289,7 @@ const CheckoutForm = () => {
                           {item.name}
                         </p>
                         <p className='text-xs text-muted-foreground'>
-                          Size {item.size} × {item.quantity}
+                          Size {item.size}, Color {item.color} × {item.quantity}
                         </p>
                         <p className='mt-1 text-sm font-semibold text-primary'>
                           ₱{(item.price * item.quantity).toFixed(2)}

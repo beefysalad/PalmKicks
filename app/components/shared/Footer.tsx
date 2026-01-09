@@ -96,8 +96,8 @@ const Footer = () => {
                 rel='noopener noreferrer'
                 className="
                   w-5 h-5 block
-                  bg-[url('/instagram.svg')]
-                  hover:bg-[url('/instagram-hover.svg')]
+                  bg-[url('/icons/instagram.svg')]
+                  hover:bg-[url('/icons/instagram-hover.svg')]
                   bg-contain bg-no-repeat
                 "
               />
@@ -107,8 +107,8 @@ const Footer = () => {
                 rel='noopener noreferrer'
                 className="
                   w-5 h-5 block
-                  bg-[url('/facebook.svg')]
-                  hover:bg-[url('/facebook-hover.svg')]
+                  bg-[url('/icons/facebook.svg')]
+                  hover:bg-[url('/icons/facebook-hover.svg')]
                   bg-contain bg-no-repeat
                 "
               />
@@ -118,8 +118,8 @@ const Footer = () => {
                 rel='noopener noreferrer'
                 className="
                   w-5 h-5 block
-                  bg-[url('/tiktok.svg')]
-                  hover:bg-[url('/tiktok-hover.svg')]
+                  bg-[url('/icons/tiktok.svg')]
+                  hover:bg-[url('/icons/tiktok-hover.svg')]
                   bg-contain bg-no-repeat
                 "
               />

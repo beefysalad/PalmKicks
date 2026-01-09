@@ -98,7 +98,8 @@ export default function OrderDetailsPage() {
                 <div className='flex-1'>
                   <h3 className='font-semibold'>{item.name}</h3>
                   <p className='text-sm text-muted-foreground'>
-                    Size: {item.size} • Qty: {item.quantity}
+                    Size: {item.size} • Color: {item.color} • Qty:{" "}
+                    {item.quantity}
                   </p>
                   <p className='mt-1 font-medium'>
                     {formatCurrency(item.price * item.quantity)}

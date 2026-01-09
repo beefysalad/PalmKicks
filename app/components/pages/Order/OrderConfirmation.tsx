@@ -132,7 +132,10 @@ const OrderConfirmation = ({ orderId }: OrderConfirmationProps) => {
           <CardContent className='space-y-4'>
             <div className='space-y-3'>
               {order.items.map((item) => (
-                <div key={`${item.id}-${item.size}`} className='flex gap-3'>
+                <div
+                  key={`${item.id}-${item.size}-${item.color}`}
+                  className='flex gap-3'
+                >
                   <div className='relative h-16 w-16 flex-shrink-0 overflow-hidden rounded border border-border'>
                     <Image
                       src={item.image || "/placeholder.svg"}
@@ -145,7 +148,7 @@ const OrderConfirmation = ({ orderId }: OrderConfirmationProps) => {
                   <div className='flex-1'>
                     <p className='font-medium'>{item.name}</p>
                     <p className='text-sm text-muted-foreground'>
-                      Size {item.size} × {item.quantity}
+                      Size {item.size}, Color {item.color} × {item.quantity}
                     </p>
                   </div>
                   <p className='font-semibold text-primary'>

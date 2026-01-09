@@ -27,7 +27,7 @@ const Cart = () => {
             <AnimatePresence mode='popLayout'>
               {items.map((item) => (
                 <motion.div
-                  key={`${item.id}-${item.size}`}
+                  key={`${item.id}-${item.size}-${item.color}`}
                   layout
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
@@ -52,7 +52,7 @@ const Cart = () => {
                               {item.name}
                             </h3>
                             <p className='text-xs md:text-sm text-muted-foreground'>
-                              Size: {item.size}
+                              Size: {item.size}, Color: {item.color}
                             </p>
                           </div>
                           <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
@@ -64,6 +64,7 @@ const Cart = () => {
                                   updateQuantity(
                                     item.id,
                                     item.size,
+                                    item.color,
                                     item.quantity - 1
                                   )
                                 }
@@ -81,6 +82,7 @@ const Cart = () => {
                                   updateQuantity(
                                     item.id,
                                     item.size,
+                                    item.color,
                                     item.quantity + 1
                                   )
                                 }
@@ -96,7 +98,7 @@ const Cart = () => {
                               <Button
                                 size='icon'
                                 variant='ghost'
-                                onClick={() => removeItem(item.id, item.size)}
+                                onClick={() => removeItem(item.id, item.size, item.color)}
                                 className='h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive'
                               >
                                 <Trash2 className='h-4 w-4' />

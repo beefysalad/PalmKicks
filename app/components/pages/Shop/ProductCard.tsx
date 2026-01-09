@@ -63,15 +63,15 @@ const ProductCard = ({ product, index }: ProductCardProps) => {
                   {product.discountPrice ? (
                     <>
                       <p className='text-lg font-bold text-primary'>
-                        ${product.discountPrice}
+                        ₱{product.discountPrice}
                       </p>
                       <p className='text-sm text-muted-foreground line-through'>
-                        ${product.price}
+                        ₱{product.price}
                       </p>
                     </>
                   ) : (
                     <p className='text-lg font-bold text-primary'>
-                      ${product.price}
+                      ₱{product.price}
                     </p>
                   )}
                 </div>

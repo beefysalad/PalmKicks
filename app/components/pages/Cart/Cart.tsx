@@ -91,7 +91,7 @@ const Cart = () => {
                             </div>
                             <div className='flex items-center justify-between sm:gap-4'>
                               <p className='font-bold text-primary'>
-                                ${(item.price * item.quantity).toFixed(2)}
+                                ₱{(item.price * item.quantity).toFixed(2)}
                               </p>
                               <Button
                                 size='icon'
@@ -127,7 +127,7 @@ const Cart = () => {
             <div className='space-y-2'>
               <div className='flex justify-between text-sm'>
                 <span className='text-muted-foreground'>Subtotal</span>
-                <span className='font-medium'>${total.toFixed(2)}</span>
+                <span className='font-medium'>₱{total.toFixed(2)}</span>
               </div>
               <div className='flex justify-between text-sm'>
                 <span className='text-muted-foreground'>Shipping</span>
@@ -139,7 +139,7 @@ const Cart = () => {
             <Separator />
             <div className='flex justify-between text-lg font-bold'>
               <span>Total</span>
-              <span className='text-primary'>${total.toFixed(2)}</span>
+              <span className='text-primary'>₱{total.toFixed(2)}</span>
             </div>
             <Button asChild size='lg' className='w-full'>
               <Link href='/checkout'>

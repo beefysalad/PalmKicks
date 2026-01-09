@@ -145,11 +145,11 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
           {/* Price */}
           <div className='flex items-baseline gap-3'>
             <p className='text-3xl font-bold text-primary sm:text-4xl'>
-              ${product.price}
+              ₱{product.price}
             </p>
             {product.discountPrice && (
               <p className='text-xl text-muted-foreground line-through'>
-                ${product.discountPrice}
+                ₱{product.discountPrice}
               </p>
             )}
           </div>

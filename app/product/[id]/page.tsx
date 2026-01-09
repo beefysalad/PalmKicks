@@ -1,21 +1,26 @@
+"use client";
+
 import ProductComponent from "@/app/components/pages/Product";
-import { products } from "@/lib/products";
-import { notFound } from "next/navigation";
-import React from "react";
+import { getProductById } from "@/lib/admin-products";
+import { notFound, useParams } from "next/navigation";
+import { useMemo } from "react";
 
-interface ProductPageProps {
-  params: Promise<{
-    id: string;
-  }>;
-}
+const ProductPage = () => {
+  const params = useParams();
+  const id = params.id as string;
 
-const ProductPage = async ({ params }: ProductPageProps) => {
-  const { id } = await params;
-  const product = products.find((p) => p.id === id);
+  const product = useMemo(() => {
+    const foundProduct = getProductById(id);
+    if (!foundProduct) {
+      notFound();
+    }
+    return foundProduct;
+  }, [id]);
 
   if (!product) {
-    notFound();
+    return <div>Loading...</div>;
   }
+
   return <ProductComponent product={product} />;
 };
 

@@ -2,11 +2,36 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { TrendingUp } from "lucide-react";
 import FeaturedCarousel from "./FeaturedCarousel";
-import { products } from "@/lib/products";
+import { getAllProducts } from "@/lib/admin-products";
+import { getFeaturedProductIds } from "@/lib/admin-featured";
+import { useState, useLayoutEffect } from "react";
+import type { Product } from "@/lib/products";
 
 const Featured = () => {
   const shouldReduceMotion = useReducedMotion();
-  const featuredProducts = products.slice(0, 4);
+  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+
+  useLayoutEffect(() => {
+    // Defer state update to avoid synchronous setState in effect
+    // Necessary: accessing localStorage requires client-side execution after mount
+    setTimeout(() => {
+      const allProducts = getAllProducts();
+      const featuredIds = getFeaturedProductIds();
+
+      if (featuredIds.length > 0) {
+        // Use featured products from localStorage
+        const featured = featuredIds
+          .map((id) => allProducts.find((p) => p.id === id))
+          .filter((p): p is Product => p !== undefined);
+        setFeaturedProducts(
+          featured.length > 0 ? featured : allProducts.slice(0, 4)
+        );
+      } else {
+        // Fallback to first 4 products if no featured selection
+        setFeaturedProducts(allProducts.slice(0, 4));
+      }
+    }, 0);
+  }, []);
   return (
     <section className='py-12 md:py-16'>
       <div className='w-full px-4'>
@@ -28,7 +53,15 @@ const Featured = () => {
             Handpicked sneakers just for you
           </p>
         </motion.div>
-        <FeaturedCarousel products={featuredProducts} />
+        {featuredProducts.length > 0 ? (
+          <FeaturedCarousel products={featuredProducts} />
+        ) : (
+          <div className='rounded-2xl bg-card p-12 text-center'>
+            <p className='text-muted-foreground'>
+              No featured products available
+            </p>
+          </div>
+        )}
       </div>
     </section>
   );

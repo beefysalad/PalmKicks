@@ -1,6 +1,5 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Instagram, Facebook } from "lucide-react";
 
 const Footer = () => {
   return (
@@ -88,7 +87,6 @@ const Footer = () => {
               </li>
             </ul>
           </div>
-
           <div className='text-center md:text-left'>
             <h3 className='mb-4 text-base font-semibold'>Follow Us</h3>
             <div className='flex gap-4 justify-center md:justify-start'>
@@ -96,18 +94,35 @@ const Footer = () => {
                 href={process.env.NEXT_PUBLIC_INSTAGRAM_URL || "#"}
                 target='_blank'
                 rel='noopener noreferrer'
-                className='transition-colors text-muted-foreground hover:text-primary'
-              >
-                <Instagram className='h-5 w-5' />
-              </a>
+                className="
+                  w-5 h-5 block
+                  bg-[url('/instagram.svg')]
+                  hover:bg-[url('/instagram-hover.svg')]
+                  bg-contain bg-no-repeat
+                "
+              />
               <a
                 href={process.env.NEXT_PUBLIC_FACEBOOK_URL || "#"}
                 target='_blank'
                 rel='noopener noreferrer'
-                className='transition-colors text-muted-foreground hover:text-primary'
-              >
-                <Facebook className='h-5 w-5' />
-              </a>
+                className="
+                  w-5 h-5 block
+                  bg-[url('/facebook.svg')]
+                  hover:bg-[url('/facebook-hover.svg')]
+                  bg-contain bg-no-repeat
+                "
+              />
+              <a
+                href={process.env.NEXT_PUBLIC_TIKTOK_URL || "#"}
+                target='_blank'
+                rel='noopener noreferrer'
+                className="
+                  w-5 h-5 block
+                  bg-[url('/tiktok.svg')]
+                  hover:bg-[url('/tiktok-hover.svg')]
+                  bg-contain bg-no-repeat
+                "
+              />
             </div>
             <p className='mt-4 text-sm text-muted-foreground'>
               DM us on Instagram{" "}

@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import Image from "next/image";
 import { X } from "lucide-react";
+import Link from "next/link";
 
 export default function NewProductPage() {
   const router = useRouter();
@@ -96,7 +97,12 @@ export default function NewProductPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.name || !formData.brand || !formData.price || !formData.image) {
+    if (
+      !formData.name ||
+      !formData.brand ||
+      !formData.price ||
+      !formData.image
+    ) {
       toast.error("Please fill in all required fields");
       return;
     }
@@ -112,16 +118,26 @@ export default function NewProductPage() {
         : undefined,
       description: formData.description,
       image: formData.image,
-      images: additionalImages.length > 0
-        ? additionalImages
-        : formData.images
-        ? formData.images.split(",").map((url) => url.trim()).filter(Boolean)
-        : [],
+      images:
+        additionalImages.length > 0
+          ? additionalImages
+          : formData.images
+          ? formData.images
+              .split(",")
+              .map((url) => url.trim())
+              .filter(Boolean)
+          : [],
       sizes: formData.sizes
-        ? formData.sizes.split(",").map((size) => size.trim()).filter(Boolean)
+        ? formData.sizes
+            .split(",")
+            .map((size) => size.trim())
+            .filter(Boolean)
         : [],
       colors: formData.colors
-        ? formData.colors.split(",").map((color) => color.trim()).filter(Boolean)
+        ? formData.colors
+            .split(",")
+            .map((color) => color.trim())
+            .filter(Boolean)
         : [],
       inStock: formData.inStock,
     };
@@ -135,7 +151,9 @@ export default function NewProductPage() {
     <div className='space-y-6'>
       <div>
         <h1 className='text-3xl font-bold'>Add New Product</h1>
-        <p className='text-muted-foreground'>Create a new product for your store</p>
+        <p className='text-muted-foreground'>
+          Create a new product for your store
+        </p>
       </div>
 
       <form onSubmit={handleSubmit}>
@@ -161,7 +179,14 @@ export default function NewProductPage() {
 
               <div className='space-y-2'>
                 <Label htmlFor='brand'>
-                  Brand <span className='text-destructive'>*</span>
+                  Brand{" "}
+                  <Link
+                    href={"/admin/brands"}
+                    className='text-muted-foreground text-xs'
+                  >
+                    (add here)
+                  </Link>{" "}
+                  <span className='text-destructive'>*</span>
                 </Label>
                 {brands.length > 0 ? (
                   <select
@@ -408,11 +433,7 @@ export default function NewProductPage() {
 
         <div className='mt-6 flex gap-4'>
           <Button type='submit'>Create Product</Button>
-          <Button
-            type='button'
-            variant='outline'
-            onClick={() => router.back()}
-          >
+          <Button type='button' variant='outline' onClick={() => router.back()}>
             Cancel
           </Button>
         </div>
@@ -420,4 +441,3 @@ export default function NewProductPage() {
     </div>
   );
 }
-

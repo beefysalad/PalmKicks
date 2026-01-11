@@ -13,7 +13,6 @@ export default function NewBrandPage() {
   const router = useRouter();
   const [formData, setFormData] = useState({
     name: "",
-    logo: "",
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -26,7 +25,6 @@ export default function NewBrandPage() {
 
     addBrand({
       name: formData.name,
-      logo: formData.logo || undefined,
     });
 
     toast.success("Brand created successfully");
@@ -37,7 +35,9 @@ export default function NewBrandPage() {
     <div className='space-y-6'>
       <div>
         <h1 className='text-3xl font-bold'>Add New Brand</h1>
-        <p className='text-muted-foreground'>Create a new brand for your store</p>
+        <p className='text-muted-foreground'>
+          Create a new brand for your store
+        </p>
       </div>
 
       <Card className='max-w-2xl'>
@@ -61,19 +61,6 @@ export default function NewBrandPage() {
               />
             </div>
 
-            <div className='space-y-2'>
-              <Label htmlFor='logo'>Brand Logo URL (optional)</Label>
-              <Input
-                id='logo'
-                type='url'
-                value={formData.logo}
-                onChange={(e) =>
-                  setFormData({ ...formData, logo: e.target.value })
-                }
-                placeholder='https://example.com/logo.png'
-              />
-            </div>
-
             <div className='flex gap-4'>
               <Button type='submit'>Create Brand</Button>
               <Button
@@ -90,4 +77,3 @@ export default function NewBrandPage() {
     </div>
   );
 }
-

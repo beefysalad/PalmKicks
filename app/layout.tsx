@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import "./globals.css";
 import { CartProvider } from "./components/shared/CartProvider";
 import ConditionalLayout from "./components/shared/ConditionalLayout";
+import { Providers } from "./providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,10 +32,12 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
         suppressHydrationWarning={true}
       >
-        <CartProvider>
-          <ConditionalLayout>{children}</ConditionalLayout>
-        </CartProvider>
-        <Toaster position='bottom-right' richColors closeButton />
+        <Providers>
+          <CartProvider>
+            <ConditionalLayout>{children}</ConditionalLayout>
+          </CartProvider>
+          <Toaster position='bottom-right' richColors closeButton />
+        </Providers>
       </body>
     </html>
   );

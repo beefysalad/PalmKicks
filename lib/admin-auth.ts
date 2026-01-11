@@ -1,39 +1,58 @@
 // Admin authentication utilities
-// Hardcoded credentials for now
+// DEPRECATED: Use NextAuth directly instead
+// This file is kept for backwards compatibility but should be migrated to NextAuth
 
-const ADMIN_USERNAME = "admin";
-const ADMIN_PASSWORD = "admin123";
-const AUTH_COOKIE_NAME = "admin-auth";
+import { signIn, signOut, useSession } from "next-auth/react";
 
-export function login(username: string, password: string): boolean {
-  if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-    if (typeof document !== "undefined") {
-      document.cookie = `${AUTH_COOKIE_NAME}=true; path=/; max-age=86400`; // 24 hours
-    }
-    return true;
-  }
-  return false;
+/**
+ * @deprecated Use signIn from next-auth/react instead
+ */
+export async function login(
+  username: string,
+  password: string
+): Promise<boolean> {
+  const result = await signIn("credentials", {
+    username,
+    password,
+    redirect: false,
+  });
+  return !result?.error;
 }
 
-export function logout(): void {
-  if (typeof document !== "undefined") {
-    document.cookie = `${AUTH_COOKIE_NAME}=; path=/; max-age=0`;
-  }
+/**
+ * @deprecated Use signOut from next-auth/react instead
+ */
+export async function logout(): Promise<void> {
+  await signOut({ redirect: false });
 }
 
+/**
+ * @deprecated Use useSession from next-auth/react instead
+ */
 export function isAuthenticated(): boolean {
-  if (typeof document === "undefined") return false;
+  // This is a client-side check only
+  // For server-side checks, use getServerSession from next-auth
+  if (typeof window === "undefined") return false;
+
+  // Check if we have a session cookie (basic check)
   const cookies = document.cookie.split(";");
-  return cookies.some((cookie) =>
-    cookie.trim().startsWith(`${AUTH_COOKIE_NAME}=true`)
+  return cookies.some(
+    (cookie) =>
+      cookie.trim().startsWith("next-auth.session-token=") ||
+      cookie.trim().startsWith("__Secure-next-auth.session-token=")
   );
 }
 
+/**
+ * @deprecated Use useSession from next-auth/react instead
+ */
 export function getAuthCookie(): string | null {
   if (typeof document === "undefined") return null;
   const cookies = document.cookie.split(";");
-  const authCookie = cookies.find((cookie) =>
-    cookie.trim().startsWith(`${AUTH_COOKIE_NAME}=`)
+  const authCookie = cookies.find(
+    (cookie) =>
+      cookie.trim().startsWith("next-auth.session-token=") ||
+      cookie.trim().startsWith("__Secure-next-auth.session-token=")
   );
   return authCookie ? authCookie.split("=")[1] : null;
 }

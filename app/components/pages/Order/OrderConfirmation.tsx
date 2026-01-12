@@ -15,6 +15,7 @@ import {
 import Image from "next/image";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { DeliveryMethod } from "../Checkout/CheckoutForm";
 
 interface OrderConfirmationProps {
   orderId: string;
@@ -178,9 +179,15 @@ const OrderConfirmation = ({ orderId }: OrderConfirmationProps) => {
               {order.customer.phone}
             </p>
             <p className='mt-2 text-sm text-muted-foreground'>
-              {order.customer.address}
-              <br />
-              {order.customer.city}, {order.customer.zipCode}
+              {order.deliveryMethod === DeliveryMethod.Meetup ? (
+                order.customer.meetupLocation
+              ) : (
+                <>
+                  {order.customer.address}
+                  <br />
+                  {order.customer.city}, {order.customer.zipCode}
+                </>
+              )}
             </p>
           </CardContent>
         </Card>
@@ -190,7 +197,7 @@ const OrderConfirmation = ({ orderId }: OrderConfirmationProps) => {
             <Link href='/track'>Track Your Order</Link>
           </Button>
           <Button asChild className='flex-1'>
-            <Link href='/'>Continue Shopping</Link>
+            <Link href='/shop'>Continue Shopping</Link>
           </Button>
         </div>
       </motion.div>

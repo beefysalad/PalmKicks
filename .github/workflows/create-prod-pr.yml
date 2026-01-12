@@ -21,22 +21,22 @@ jobs:
         with:
           source_branch: "main"
           destination_branch: "prod"
-          pr_title: "🚀 Deploy main to production"
+          pr_title: "Deploy main to production"
           pr_body: |
-            ## 🚀 Automated Production Deployment
+            ##  Automated Production Deployment
             
             This PR deploys changes from `main` to `prod` branch.
             
-            ### 📋 Pre-Deployment Checklist
+            ###  Pre-Deployment Checklist
             - [ ] All tests are passing
             - [ ] Code has been reviewed
             - [ ] No breaking changes or migrations needed
             - [ ] Environment variables are up to date
             
-            ### 📝 Changes
+            ###  Changes
             Review the **Files changed** tab to see all modifications included in this deployment.
             
-            ### ⚠️ Deployment Notes
+            ###  Deployment Notes
             - Ensure the production database is backed up before merging
             - Verify all environment configurations are correct
             - Monitor logs after deployment

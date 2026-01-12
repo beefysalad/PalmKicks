@@ -1,3 +1,5 @@
+import { DeliveryMethod } from "@/app/components/pages/Checkout/CheckoutForm";
+
 export interface Order {
   id: string;
   items: Array<{
@@ -13,13 +15,15 @@ export interface Order {
     name: string;
     email: string;
     phone: string;
-    address: string;
-    city: string;
-    zipCode: string;
+    address?: string;
+    city?: string;
+    zipCode?: string;
+    meetupLocation?: string;
   };
   total: number;
   status: "pending" | "confirmed" | "processing" | "shipped" | "delivered";
   createdAt: string;
+  deliveryMethod: DeliveryMethod
 }
 
 export function generateOrderId(): string {

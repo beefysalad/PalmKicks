@@ -76,9 +76,10 @@ model Order {
   customerName    String
   customerEmail   String
   customerPhone   String
-  shippingAddress String
-  shippingCity    String
-  shippingZipCode String
+  shippingAddress String?
+  shippingCity    String?
+  shippingZipCode String?
+  meetupLocation  String?
   total           Decimal     @db.Decimal(10, 2)
   status          OrderStatus @default(pending)
   createdAt       DateTime    @default(now())

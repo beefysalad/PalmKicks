@@ -287,10 +287,7 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
                   className='text-base font-semibold'
                   asChild
                 >
-                  <Link href='/cart'>
-                    <Eye className='mr-2 h-5 w-5' />
-                    View Cart
-                  </Link>
+                  <Link href='/cart'>Checkout</Link>
                 </Button>
               </div>
             )}
@@ -303,7 +300,6 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
         </motion.div>
       </div>
 
-      {/* Sticky Action Bar for Mobile */}
       <div className='fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur-sm lg:hidden'>
         <div className='mx-auto max-w-7xl px-4 py-3 space-y-2'>
           <Button
@@ -333,10 +329,7 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
                 Remove
               </Button>
               <Button size='lg' variant='outline' className='flex-1' asChild>
-                <Link href='/cart'>
-                  <Eye className='mr-2 h-5 w-5' />
-                  View Cart
-                </Link>
+                <Link href='/cart'>Checkout</Link>
               </Button>
             </div>
           )}

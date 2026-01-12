@@ -19,9 +19,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { Separator } from "@/components/ui/separator";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { getOrderById, Order } from "@/lib/orders";
 import { Label } from "@/components/ui/label";
+import { DeliveryMethod } from "../Checkout/CheckoutForm";
 
 const statusSteps = [
   {
@@ -227,7 +228,8 @@ const Tracking = () => {
                         <div className='flex-1'>
                           <p className='font-medium'>{item.name}</p>
                           <p className='text-sm text-muted-foreground'>
-                            Size {item.size}, Color {item.color} × {item.quantity}
+                            Size {item.size}, Color {item.color} ×{" "}
+                            {item.quantity}
                           </p>
                         </div>
                         <p className='font-semibold text-primary'>
@@ -259,9 +261,15 @@ const Tracking = () => {
                     {order.customer.phone}
                   </p>
                   <p className='mt-2 text-sm text-muted-foreground'>
-                    {order.customer.address}
-                    <br />
-                    {order.customer.city}, {order.customer.zipCode}
+                    {order.deliveryMethod === DeliveryMethod.Meetup ? (
+                      order.customer.meetupLocation
+                    ) : (
+                      <>
+                        {order.customer.address}
+                        <br />
+                        {order.customer.city}, {order.customer.zipCode}
+                      </>
+                    )}
                   </p>
                 </CardContent>
               </Card>

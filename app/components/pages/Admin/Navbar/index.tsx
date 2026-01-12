@@ -3,6 +3,7 @@ import {
   Package,
   Tag,
   Star,
+  Sparkles,
   ShoppingBag,
   LogOut,
   User,
@@ -35,6 +36,7 @@ const navItems = [
   { href: "/admin/products", label: "Products", icon: Package },
   { href: "/admin/brands", label: "Brands", icon: Tag },
   { href: "/admin/featured", label: "Featured", icon: Star },
+  { href: "/admin/latest", label: "Latest", icon: Sparkles },
   { href: "/admin/orders", label: "Orders", icon: ShoppingBag },
 ];
 const AdminNavbar = () => {

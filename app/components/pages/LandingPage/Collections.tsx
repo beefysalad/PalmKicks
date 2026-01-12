@@ -3,10 +3,16 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { products } from "@/lib/products";
+import { getLatestProductIds } from "@/lib/admin-latest";
 import ProductCard from "../Shop/ProductCard";
 
 const Collections = () => {
   const shouldReduceMotion = useReducedMotion();
+  const latestIds = getLatestProductIds();
+  const latestProducts = latestIds.length > 0 
+    ? products.filter(p => latestIds.includes(p.id))
+    : products;
+
   return (
     <section className='py-12 md:py-16'>
       <div className='w-full px-4'>
@@ -23,7 +29,7 @@ const Collections = () => {
           </p>
         </motion.div>
         <div className='grid gap-6 sm:grid-cols-2 lg:grid-cols-3'>
-          {products.map((product, index) => (
+          {latestProducts.map((product, index) => (
             <ProductCard key={product.id} product={product} index={index} />
           ))}
         </div>

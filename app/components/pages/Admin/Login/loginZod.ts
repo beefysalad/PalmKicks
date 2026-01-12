@@ -1,7 +1,7 @@
 import z from "zod";
 
 export const loginSchema = z.object({
-  username: z.string().min(4, "Username must be at least 4 characters"),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  username: z.string().min(1, "Username is required"),
+  password: z.string().min(1, "Password is required"),
 });
 export type TLoginSchema = z.infer<typeof loginSchema>;

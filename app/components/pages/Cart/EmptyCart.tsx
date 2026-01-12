@@ -16,7 +16,7 @@ const EmptyCart = () => {
         Add some sneakers to get started
       </p>
       <Button asChild size='lg'>
-        <Link href='/'>
+        <Link href='/shop'>
           Browse Collection
           <ArrowRight className='ml-2 h-4 w-4' />
         </Link>

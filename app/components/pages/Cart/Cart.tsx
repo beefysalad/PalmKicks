@@ -98,7 +98,9 @@ const Cart = () => {
                               <Button
                                 size='icon'
                                 variant='ghost'
-                                onClick={() => removeItem(item.id, item.size, item.color)}
+                                onClick={() =>
+                                  removeItem(item.id, item.size, item.color)
+                                }
                                 className='h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive'
                               >
                                 <Trash2 className='h-4 w-4' />
@@ -155,7 +157,7 @@ const Cart = () => {
               size='lg'
               className='w-full bg-transparent'
             >
-              <Link href='/'>Continue Shopping</Link>
+              <Link href='/shop'>Continue Shopping</Link>
             </Button>
           </CardContent>
         </Card>

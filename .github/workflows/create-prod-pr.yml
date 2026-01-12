@@ -16,19 +16,30 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Get commit details
+        id: commits
+        run: |
+          COMMITS=$(git log prod..main --pretty=format:"- %s (%h) - %an" --no-merges)
+          COMMIT_COUNT=$(git rev-list --count prod..main)
+          echo "commits<<EOF" >> $GITHUB_OUTPUT
+          echo "$COMMITS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          echo "count=$COMMIT_COUNT" >> $GITHUB_OUTPUT
+
       - name: Create Pull Request
         uses: repo-sync/pull-request@v2
         with:
           source_branch: "main"
           destination_branch: "prod"
-          pr_title: "Deploy main to production"
+          pr_title: "Deploy main to production (${{ steps.commits.outputs.count }} commits)"
           pr_body: |
             ## Automated Production Deployment
             
-            This PR was automatically created to deploy changes from `main` to `prod`.
+            This PR deploys **${{ steps.commits.outputs.count }} commit(s)** from `main` to `prod`.
             
-            ### Changes
-            - Review the commits below for all changes included in this deployment
+            ### 📝 Commits Included
+            ${{ steps.commits.outputs.commits }}
             
+            ---
             **Please review and merge when ready to deploy to production.**
           github_token: ${{ secrets.GITHUB_TOKEN }}

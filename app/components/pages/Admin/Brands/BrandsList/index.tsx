@@ -2,12 +2,16 @@
 
 import { useState } from "react";
 import { getBrands, deleteBrand } from "@/lib/admin-brands";
+import { usePagination } from "@/lib/hooks/usePagination";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Pagination } from "@/components/ui/pagination";
 import Link from "next/link";
 import Image from "next/image";
 import { toast } from "sonner";
 import type { Brand } from "@/lib/admin-brands";
+
+const ITEMS_PER_PAGE = 12;
 
 const BrandsListPage = () => {
   const [brands, setBrands] = useState<Brand[]>(() => getBrands());
@@ -28,6 +32,11 @@ const BrandsListPage = () => {
     setDeleteConfirm(null);
   };
 
+  const { currentPage, totalPages, paginatedItems: paginatedBrands, handlePageChange } = usePagination({
+    items: brands,
+    itemsPerPage: ITEMS_PER_PAGE,
+  });
+
   return (
     <div className='space-y-6'>
       <div className='flex items-center justify-between'>
@@ -45,7 +54,7 @@ const BrandsListPage = () => {
 
       <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
         {brands.length > 0 ? (
-          brands.map((brand) => (
+          paginatedBrands.map((brand) => (
             <div
               key={brand.id}
               className='rounded-lg border bg-card p-4'
@@ -87,6 +96,16 @@ const BrandsListPage = () => {
           </div>
         )}
       </div>
+
+      {brands.length > ITEMS_PER_PAGE && (
+        <div className='mt-6'>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+          />
+        </div>
+      )}
 
       {deleteConfirm && (
         <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50'>

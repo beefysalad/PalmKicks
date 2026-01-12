@@ -1,11 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { getOrders } from "@/lib/orders";
+import { usePagination } from "@/lib/hooks/usePagination";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Pagination } from "@/components/ui/pagination";
 import Link from "next/link";
 import type { Order } from "@/lib/orders";
+
+const ITEMS_PER_PAGE = 10;
 
 const OrdersListPage = () => {
   const [orders] = useState<Order[]>(() => getOrders());
@@ -40,15 +44,23 @@ const OrdersListPage = () => {
     return colors[status] || colors.pending;
   };
 
-  const filteredOrders = orders.filter((order) => {
-    const matchesSearch =
-      order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.customer.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus =
-      filterStatus === "all" || order.status === filterStatus;
+  const filteredOrders = useMemo(() => {
+    return orders.filter((order) => {
+      const matchesSearch =
+        order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        order.customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        order.customer.email.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus =
+        filterStatus === "all" || order.status === filterStatus;
 
-    return matchesSearch && matchesStatus;
+      return matchesSearch && matchesStatus;
+    });
+  }, [orders, searchQuery, filterStatus]);
+
+  const { currentPage, totalPages, paginatedItems: paginatedOrders, handlePageChange } = usePagination({
+    items: filteredOrders,
+    itemsPerPage: ITEMS_PER_PAGE,
+    resetDeps: [searchQuery, filterStatus],
   });
 
   return (
@@ -64,7 +76,9 @@ const OrdersListPage = () => {
           <Input
             placeholder='Search by order ID, customer name, or email...'
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+            }}
             className='pl-9'
           />
         </div>
@@ -72,7 +86,9 @@ const OrdersListPage = () => {
           <label className='mb-1 block text-sm font-medium'>Status</label>
           <select
             value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
+            onChange={(e) => {
+              setFilterStatus(e.target.value);
+            }}
             className='rounded-md border border-input bg-background px-3 py-2 text-sm'
           >
             <option value='all'>All Statuses</option>
@@ -111,7 +127,7 @@ const OrdersListPage = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredOrders.map((order) => (
+              {paginatedOrders.map((order) => (
                 <tr key={order.id} className='border-b hover:bg-secondary/50'>
                   <td className='px-4 py-3'>
                     <Link
@@ -159,6 +175,19 @@ const OrdersListPage = () => {
           </div>
         )}
       </div>
+
+      {filteredOrders.length > 0 && (
+        <div className='flex items-center justify-between'>
+          <p className='text-sm text-muted-foreground'>
+            Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, filteredOrders.length)} of {filteredOrders.length} orders
+          </p>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+          />
+        </div>
+      )}
     </div>
   );
 };

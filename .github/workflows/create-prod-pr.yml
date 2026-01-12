@@ -16,30 +16,31 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Get commit details
-        id: commits
-        run: |
-          COMMITS=$(git log prod..main --pretty=format:"- %s (%h) - %an" --no-merges)
-          COMMIT_COUNT=$(git rev-list --count prod..main)
-          echo "commits<<EOF" >> $GITHUB_OUTPUT
-          echo "$COMMITS" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          echo "count=$COMMIT_COUNT" >> $GITHUB_OUTPUT
-
       - name: Create Pull Request
         uses: repo-sync/pull-request@v2
         with:
           source_branch: "main"
           destination_branch: "prod"
-          pr_title: "Deploy main to production (${{ steps.commits.outputs.count }} commits)"
+          pr_title: "🚀 Deploy main to production"
           pr_body: |
-            ## Automated Production Deployment
+            ## 🚀 Automated Production Deployment
             
-            This PR deploys **${{ steps.commits.outputs.count }} commit(s)** from `main` to `prod`.
+            This PR deploys changes from `main` to `prod` branch.
             
-            ### 📝 Commits Included
-            ${{ steps.commits.outputs.commits }}
+            ### 📋 Pre-Deployment Checklist
+            - [ ] All tests are passing
+            - [ ] Code has been reviewed
+            - [ ] No breaking changes or migrations needed
+            - [ ] Environment variables are up to date
+            
+            ### 📝 Changes
+            Review the **Files changed** tab to see all modifications included in this deployment.
+            
+            ### ⚠️ Deployment Notes
+            - Ensure the production database is backed up before merging
+            - Verify all environment configurations are correct
+            - Monitor logs after deployment
             
             ---
-            **Please review and merge when ready to deploy to production.**
+            **Once reviewed and approved, merge this PR to deploy to production.**
           github_token: ${{ secrets.GITHUB_TOKEN }}

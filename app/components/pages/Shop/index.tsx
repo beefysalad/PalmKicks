@@ -1,10 +1,12 @@
 "use client";
 import { getAllProducts } from "@/lib/admin-products";
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import { usePagination } from "@/lib/hooks/usePagination";
 import { motion } from "framer-motion";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Pagination } from "@/components/ui/pagination";
 import ProductCard from "./ProductCard";
 import type { Product } from "@/lib/products";
 
@@ -14,18 +16,37 @@ enum Filter {
   KIDS = "kids",
   ALL = "all",
 }
+
+const ITEMS_PER_PAGE = 12;
+
 const Shop = () => {
   const [products] = useState<Product[]>(() => getAllProducts());
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [filter, setFilter] = useState<Filter>(Filter.ALL);
 
-  const filteredProducts = products.filter((p) => {
-    const matchesFilter = filter === "all" || p.gender === filter;
-    const matchesSearch = p.name
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase());
-    return matchesFilter && matchesSearch;
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => {
+      const matchesFilter = filter === "all" || p.gender === filter;
+      const matchesSearch = p.name
+        .toLowerCase()
+        .includes(searchQuery.toLowerCase());
+      return matchesFilter && matchesSearch;
+    });
+  }, [products, filter, searchQuery]);
+
+  const { currentPage, totalPages, paginatedItems: paginatedProducts, handlePageChange } = usePagination({
+    items: filteredProducts,
+    itemsPerPage: ITEMS_PER_PAGE,
+    resetDeps: [searchQuery, filter],
   });
+
+  const handleFilterChange = (newFilter: Filter) => {
+    setFilter(newFilter);
+  };
+
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query);
+  };
 
   return (
     <main className='min-h-screen'>
@@ -62,7 +83,7 @@ const Shop = () => {
                 type='text'
                 placeholder='Search sneakers...'
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => handleSearchChange(e.target.value)}
                 className='pl-9'
               />
             </div>
@@ -80,28 +101,28 @@ const Shop = () => {
             <Button
               variant={filter === Filter.ALL ? "default" : "outline"}
               size='sm'
-              onClick={() => setFilter(Filter.ALL)}
+              onClick={() => handleFilterChange(Filter.ALL)}
             >
               All
             </Button>
             <Button
               variant={filter === Filter.MEN ? "default" : "outline"}
               size='sm'
-              onClick={() => setFilter(Filter.MEN)}
+              onClick={() => handleFilterChange(Filter.MEN)}
             >
               Men
             </Button>
             <Button
               variant={filter === Filter.WOMEN ? "default" : "outline"}
               size='sm'
-              onClick={() => setFilter(Filter.WOMEN)}
+              onClick={() => handleFilterChange(Filter.WOMEN)}
             >
               Women
             </Button>
             <Button
               variant={filter === Filter.KIDS ? "default" : "outline"}
               size='sm'
-              onClick={() => setFilter(Filter.KIDS)}
+              onClick={() => handleFilterChange(Filter.KIDS)}
             >
               Kids
             </Button>
@@ -113,15 +134,24 @@ const Shop = () => {
             transition={{ duration: 0.5, delay: 0.3 }}
           >
             {filteredProducts.length > 0 ? (
-              <div className='grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'>
-                {filteredProducts.map((product, index) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    index={index}
+              <>
+                <div className='grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'>
+                  {paginatedProducts.map((product, index) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      index={index}
+                    />
+                  ))}
+                </div>
+                <div className='mt-8'>
+                  <Pagination
+                    currentPage={currentPage}
+                    totalPages={totalPages}
+                    onPageChange={handlePageChange}
                   />
-                ))}
-              </div>
+                </div>
+              </>
             ) : (
               <div className='py-16 text-center'>
                 <p className='text-muted-foreground'>

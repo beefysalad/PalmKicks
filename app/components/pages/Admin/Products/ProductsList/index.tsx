@@ -1,15 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { getAllProducts, deleteProduct } from "@/lib/admin-products";
 import { toggleFeatured, isFeatured } from "@/lib/admin-featured";
+import { usePagination } from "@/lib/hooks/usePagination";
 import { Search, Plus, Edit, Trash2, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Pagination } from "@/components/ui/pagination";
 import Link from "next/link";
 import Image from "next/image";
 import type { Product } from "@/lib/products";
 import { toast } from "sonner";
+
+const ITEMS_PER_PAGE = 10;
 
 const ProductsListPage = () => {
   const [products, setProducts] = useState<Product[]>(() => getAllProducts());
@@ -41,20 +45,28 @@ const ProductsListPage = () => {
     );
   };
 
-  const filteredProducts = products.filter((product) => {
-    const matchesSearch =
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.brand.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory =
-      filterCategory === "all" || product.category === filterCategory;
-    const matchesGender =
-      filterGender === "all" || product.gender === filterGender;
-    const matchesStock =
-      filterStock === "all" ||
-      (filterStock === "in" && product.inStock) ||
-      (filterStock === "out" && !product.inStock);
+  const filteredProducts = useMemo(() => {
+    return products.filter((product) => {
+      const matchesSearch =
+        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        product.brand.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesCategory =
+        filterCategory === "all" || product.category === filterCategory;
+      const matchesGender =
+        filterGender === "all" || product.gender === filterGender;
+      const matchesStock =
+        filterStock === "all" ||
+        (filterStock === "in" && product.inStock) ||
+        (filterStock === "out" && !product.inStock);
 
-    return matchesSearch && matchesCategory && matchesGender && matchesStock;
+      return matchesSearch && matchesCategory && matchesGender && matchesStock;
+    });
+  }, [products, searchQuery, filterCategory, filterGender, filterStock]);
+
+  const { currentPage, totalPages, paginatedItems: paginatedProducts, handlePageChange } = usePagination({
+    items: filteredProducts,
+    itemsPerPage: ITEMS_PER_PAGE,
+    resetDeps: [searchQuery, filterCategory, filterGender, filterStock],
   });
 
   const categories = Array.from(new Set(products.map((p) => p.category)));
@@ -80,7 +92,9 @@ const ProductsListPage = () => {
           <Input
             placeholder='Search by name or brand...'
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+            }}
             className='pl-9'
           />
         </div>
@@ -89,7 +103,9 @@ const ProductsListPage = () => {
             <label className='mb-1 block text-sm font-medium'>Category</label>
             <select
               value={filterCategory}
-              onChange={(e) => setFilterCategory(e.target.value)}
+              onChange={(e) => {
+                setFilterCategory(e.target.value);
+              }}
               className='rounded-md border border-input bg-background px-3 py-2 text-sm'
             >
               <option value='all'>All Categories</option>
@@ -104,7 +120,9 @@ const ProductsListPage = () => {
             <label className='mb-1 block text-sm font-medium'>Gender</label>
             <select
               value={filterGender}
-              onChange={(e) => setFilterGender(e.target.value)}
+              onChange={(e) => {
+                setFilterGender(e.target.value);
+              }}
               className='rounded-md border border-input bg-background px-3 py-2 text-sm'
             >
               <option value='all'>All</option>
@@ -117,7 +135,9 @@ const ProductsListPage = () => {
             <label className='mb-1 block text-sm font-medium'>Stock</label>
             <select
               value={filterStock}
-              onChange={(e) => setFilterStock(e.target.value)}
+              onChange={(e) => {
+                setFilterStock(e.target.value);
+              }}
               className='rounded-md border border-input bg-background px-3 py-2 text-sm'
             >
               <option value='all'>All</option>
@@ -154,7 +174,7 @@ const ProductsListPage = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredProducts.map((product) => (
+              {paginatedProducts.map((product) => (
                 <tr key={product.id} className='border-b'>
                   <td className='px-4 py-3'>
                     <div className='relative h-16 w-16 overflow-hidden rounded'>
@@ -243,6 +263,21 @@ const ProductsListPage = () => {
           </div>
         )}
       </div>
+
+      {filteredProducts.length > 0 && (
+        <div className='flex items-center justify-between'>
+          <p className='text-sm text-muted-foreground'>
+            Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1} to{" "}
+            {Math.min(currentPage * ITEMS_PER_PAGE, filteredProducts.length)} of{" "}
+            {filteredProducts.length} products
+          </p>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+          />
+        </div>
+      )}
 
       {deleteConfirm && (
         <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50'>

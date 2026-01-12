@@ -1,0 +1,32 @@
+name: Create Production PR
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  create-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create Pull Request
+        uses: repo-sync/pull-request@v2
+        with:
+          source_branch: "main"
+          destination_branch: "prod"
+          pr_title: "Deploy main to production"
+          pr_body: |
+            ## Automated Production Deployment
+            
+            This PR was automatically created to deploy changes from `main` to `prod`.
+            
+            ### Changes
+            - Review the commits below for all changes included in this deployment
+            
+            **Please review and merge when ready to deploy to production.**
+          github_token: ${{ secrets.GITHUB_TOKEN }}

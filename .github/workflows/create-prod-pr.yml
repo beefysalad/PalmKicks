@@ -23,12 +23,24 @@ jobs:
           destination_branch: "prod"
           pr_title: "Deploy main to production"
           pr_body: |
-            ## Automated Production Deployment
+            ##  Automated Production Deployment
             
-            This PR was automatically created to deploy changes from `main` to `prod`.
+            This PR deploys changes from `main` to `prod` branch.
             
-            ### Changes
-            - Review the commits below for all changes included in this deployment
+            ###  Pre-Deployment Checklist
+            - [ ] All tests are passing
+            - [ ] Code has been reviewed
+            - [ ] No breaking changes or migrations needed
+            - [ ] Environment variables are up to date
             
-            **Please review and merge when ready to deploy to production.**
+            ###  Changes
+            Review the **Files changed** tab to see all modifications included in this deployment.
+            
+            ###  Deployment Notes
+            - Ensure the production database is backed up before merging
+            - Verify all environment configurations are correct
+            - Monitor logs after deployment
+            
+            ---
+            **Once reviewed and approved, merge this PR to deploy to production.**
           github_token: ${{ secrets.GITHUB_TOKEN }}

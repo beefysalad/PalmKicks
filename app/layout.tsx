@@ -5,7 +5,7 @@ import "./globals.css";
 import { CartProvider } from "./components/shared/CartProvider";
 import ConditionalLayout from "./components/shared/ConditionalLayout";
 import { Providers } from "./providers";
-
+import { Analytics } from "@vercel/analytics/next";
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -37,6 +37,7 @@ export default function RootLayout({
             <ConditionalLayout>{children}</ConditionalLayout>
           </CartProvider>
           <Toaster position='bottom-right' richColors closeButton />
+          <Analytics />
         </Providers>
       </body>
     </html>

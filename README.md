@@ -255,10 +255,14 @@ export default function AdminDashboard() {
 
 ## 📦 File Upload
 
-- **Storage:** Local file system (`/public/uploads`)
+- **Storage:** Cloudinary (cloud-based image storage)
 - **Endpoint:** `/api/upload`
+- **Folder:** Images are stored in the `products` folder in Cloudinary
 - **Supported:** Image files for products and brands
-- **Max Size:** Configurable (default: 5MB)
+- **Environment Variables Required:**
+  - `CLOUDINARY_CLOUD_NAME`
+  - `CLOUDINARY_API_KEY`
+  - `CLOUDINARY_API_SECRET`
 
 ## 🎯 Key Features Implementation
 

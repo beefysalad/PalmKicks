@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { Separator } from "@/components/ui/separator";
 import { Fragment, useState } from "react";
-import { getOrderById, Order } from "@/lib/orders";
+import { getOrderById, Order } from "@/lib/orders/orders";
 import { Label } from "@/components/ui/label";
 import { DeliveryMethod } from "../Checkout/CheckoutForm";
 

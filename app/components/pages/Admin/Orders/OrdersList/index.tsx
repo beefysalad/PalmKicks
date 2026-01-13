@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { getOrders } from "@/lib/orders";
+import { getOrders } from "@/lib/orders/orders";
 import { usePagination } from "@/lib/hooks/usePagination";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Pagination } from "@/components/ui/pagination";
 import Link from "next/link";
-import type { Order } from "@/lib/orders";
+import type { Order } from "@/lib/orders/orders";
 
 const ITEMS_PER_PAGE = 10;
 
@@ -57,7 +57,12 @@ const OrdersListPage = () => {
     });
   }, [orders, searchQuery, filterStatus]);
 
-  const { currentPage, totalPages, paginatedItems: paginatedOrders, handlePageChange } = usePagination({
+  const {
+    currentPage,
+    totalPages,
+    paginatedItems: paginatedOrders,
+    handlePageChange,
+  } = usePagination({
     items: filteredOrders,
     itemsPerPage: ITEMS_PER_PAGE,
     resetDeps: [searchQuery, filterStatus],
@@ -179,7 +184,9 @@ const OrdersListPage = () => {
       {filteredOrders.length > 0 && (
         <div className='flex items-center justify-between'>
           <p className='text-sm text-muted-foreground'>
-            Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, filteredOrders.length)} of {filteredOrders.length} orders
+            Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1} to{" "}
+            {Math.min(currentPage * ITEMS_PER_PAGE, filteredOrders.length)} of{" "}
+            {filteredOrders.length} orders
           </p>
           <Pagination
             currentPage={currentPage}

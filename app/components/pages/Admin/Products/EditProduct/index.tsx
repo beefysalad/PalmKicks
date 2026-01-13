@@ -2,10 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import {
-  getProductById,
-  updateProduct,
-} from "@/lib/admin-products";
+import { getProductById, updateProduct } from "@/lib/admin-products";
 import { getBrands } from "@/lib/admin-brands";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import Image from "next/image";
 import { X } from "lucide-react";
-import type { Product } from "@/lib/products";
+import type { Product } from "@/lib/products/products";
 
 const EditProductPage = () => {
   const router = useRouter();
@@ -131,7 +128,12 @@ const EditProductPage = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.name || !formData.brand || !formData.price || !formData.image) {
+    if (
+      !formData.name ||
+      !formData.brand ||
+      !formData.price ||
+      !formData.image
+    ) {
       toast.error("Please fill in all required fields");
       return;
     }
@@ -147,16 +149,26 @@ const EditProductPage = () => {
         : undefined,
       description: formData.description,
       image: formData.image,
-      images: additionalImages.length > 0
-        ? additionalImages
-        : formData.images
-        ? formData.images.split(",").map((url) => url.trim()).filter(Boolean)
-        : [],
+      images:
+        additionalImages.length > 0
+          ? additionalImages
+          : formData.images
+          ? formData.images
+              .split(",")
+              .map((url) => url.trim())
+              .filter(Boolean)
+          : [],
       sizes: formData.sizes
-        ? formData.sizes.split(",").map((size) => size.trim()).filter(Boolean)
+        ? formData.sizes
+            .split(",")
+            .map((size) => size.trim())
+            .filter(Boolean)
         : [],
       colors: formData.colors
-        ? formData.colors.split(",").map((color) => color.trim()).filter(Boolean)
+        ? formData.colors
+            .split(",")
+            .map((color) => color.trim())
+            .filter(Boolean)
         : [],
       inStock: formData.inStock,
     };
@@ -450,11 +462,7 @@ const EditProductPage = () => {
 
         <div className='mt-6 flex gap-4'>
           <Button type='submit'>Update Product</Button>
-          <Button
-            type='button'
-            variant='outline'
-            onClick={() => router.back()}
-          >
+          <Button type='button' variant='outline' onClick={() => router.back()}>
             Cancel
           </Button>
         </div>

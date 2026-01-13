@@ -1,5 +1,5 @@
-import { products as hardcodedProducts } from "./products";
-import type { Product } from "./products";
+import { products as hardcodedProducts } from "./products/products";
+import type { Product } from "./products/products";
 
 const STORAGE_KEY = "palm-kicks-products";
 
@@ -12,20 +12,20 @@ export function getAdminProducts(): Product[] {
 export function getAllProducts(): Product[] {
   const adminProducts = getAdminProducts();
   const hardcoded = hardcodedProducts;
-  
+
   // Merge: admin products take precedence if same ID exists
   const productMap = new Map<string, Product>();
-  
+
   // Add hardcoded products first
   hardcoded.forEach((product) => {
     productMap.set(product.id, product);
   });
-  
+
   // Override with admin products
   adminProducts.forEach((product) => {
     productMap.set(product.id, product);
   });
-  
+
   return Array.from(productMap.values());
 }
 
@@ -47,7 +47,9 @@ export function getProductByIdServerSafe(id: string): Product | undefined {
 
 export function addProduct(product: Omit<Product, "id">): Product {
   const products = getAdminProducts();
-  const newId = `admin-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  const newId = `admin-${Date.now()}-${Math.random()
+    .toString(36)
+    .substring(2, 9)}`;
   const newProduct: Product = {
     ...product,
     id: newId,
@@ -57,12 +59,15 @@ export function addProduct(product: Omit<Product, "id">): Product {
   return newProduct;
 }
 
-export function updateProduct(id: string, updates: Partial<Product>): Product | null {
+export function updateProduct(
+  id: string,
+  updates: Partial<Product>
+): Product | null {
   const products = getAdminProducts();
   const index = products.findIndex((p) => p.id === id);
-  
+
   if (index === -1) return null;
-  
+
   products[index] = { ...products[index], ...updates };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(products));
   return products[index];
@@ -71,10 +76,9 @@ export function updateProduct(id: string, updates: Partial<Product>): Product | 
 export function deleteProduct(id: string): boolean {
   const products = getAdminProducts();
   const filtered = products.filter((p) => p.id !== id);
-  
+
   if (filtered.length === products.length) return false;
-  
+
   localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
   return true;
 }
-

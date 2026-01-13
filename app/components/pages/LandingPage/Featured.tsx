@@ -5,7 +5,7 @@ import FeaturedCarousel from "./FeaturedCarousel";
 import { getAllProducts } from "@/lib/admin-products";
 import { getFeaturedProductIds } from "@/lib/admin-featured";
 import { useState, useLayoutEffect } from "react";
-import type { Product } from "@/lib/products";
+import type { Product } from "@/lib/products/products";
 
 const Featured = () => {
   const shouldReduceMotion = useReducedMotion();

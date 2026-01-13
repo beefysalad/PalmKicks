@@ -11,7 +11,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Separator } from "@/components/ui/separator";
-import { generateOrderId, saveOrder } from "@/lib/orders";
 import { motion } from "framer-motion";
 import { CheckCircle2, MapPin, Truck } from "lucide-react";
 import Image from "next/image";
@@ -24,6 +23,7 @@ import { useForm } from "react-hook-form";
 import { checkoutSchema, TCheckoutSchema } from "./checkoutZod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
+import { checkoutFn } from "../../../../lib/checkout/checkout";
 
 export enum DeliveryMethod {
   Shipping = "shipping",
@@ -37,6 +37,7 @@ const CheckoutForm = () => {
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>(
     DeliveryMethod.Shipping
   );
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
   const form = useForm<TCheckoutSchema>({
     resolver: zodResolver(checkoutSchema),
@@ -52,31 +53,14 @@ const CheckoutForm = () => {
   });
 
   const checkoutMutation = useMutation({
-    mutationFn: async (values: TCheckoutSchema) => {
-      if (items.length === 0) {
-        throw new Error("Cart is empty");
-      }
-
-      if (!deliveryMethod) {
-        throw new Error("Please select a delivery method");
-      }
-
-      const orderId = generateOrderId();
-      const order = {
-        id: orderId,
-        items: items.map((item) => ({ ...item })),
-        customer: values,
-        deliveryMethod,
+    mutationFn: (values: TCheckoutSchema) =>
+      checkoutFn({
+        values,
+        items,
         total,
-        status: "pending" as const,
-        createdAt: new Date().toISOString(),
-      };
-
-      saveOrder(order);
-      clearCart();
-
-      return orderId;
-    },
+        deliveryMethod,
+        clearCart,
+      }),
     onSuccess: (orderId) => {
       toast.success("Order Placed!", {
         description: `Your order #${orderId} has been placed successfully`,
@@ -88,6 +72,7 @@ const CheckoutForm = () => {
       }, 500);
     },
     onError: (error: Error) => {
+      setIsPlacingOrder(false);
       toast.error("Order Failed", {
         description: error.message,
         duration: 4000,
@@ -96,17 +81,41 @@ const CheckoutForm = () => {
   });
 
   const onSubmit = (values: TCheckoutSchema) => {
+    setIsPlacingOrder(true);
     checkoutMutation.mutate(values);
   };
 
   useEffect(() => {
-    if (items.length === 0) {
+    if (items.length === 0 && !isPlacingOrder) {
       router.push("/cart");
     }
-  }, [items.length, router]);
+  }, [items.length, isPlacingOrder, router]);
 
-  if (items.length === 0) {
+  if (items.length === 0 && !isPlacingOrder) {
     return null;
+  }
+
+  if (isPlacingOrder) {
+    return (
+      <div className='min-h-screen flex items-center justify-center px-4'>
+        <div className='max-w-md w-full text-center space-y-4'>
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{
+              duration: 1,
+              repeat: Infinity,
+              ease: "linear",
+            }}
+            className='mx-auto h-10 w-10 rounded-full border-2 border-primary border-t-transparent'
+          />
+          <h1 className='text-2xl font-semibold'>Finalizing your order</h1>
+          <p className='text-sm text-muted-foreground'>
+            Please wait while we confirm your order and prepare your
+            confirmation page.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (

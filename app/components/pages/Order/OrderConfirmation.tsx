@@ -1,6 +1,6 @@
 "use client";
 import { motion } from "framer-motion";
-import { getOrderById } from "@/lib/orders";
+import { getOrderById } from "@/lib/orders/orders";
 import { useMemo } from "react";
 import { CheckCircle2, Copy, Instagram, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -77,7 +77,8 @@ const OrderConfirmation = ({ orderId }: OrderConfirmationProps) => {
           </motion.div>
           <h1 className='mb-2 text-3xl font-bold'>Order Confirmed!</h1>
           <p className='text-muted-foreground'>
-            Thank you for your order. We&apos;ve received it successfully.
+            Thank you for your order. We&apos;ve received it successfully. Please
+            check your email for order details and next steps.
           </p>
         </div>
 

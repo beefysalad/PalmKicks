@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Pagination } from "@/components/ui/pagination";
 import Image from "next/image";
 import { toast } from "sonner";
-import type { Product } from "@/lib/products";
+import type { Product } from "@/lib/products/products";
 
 const ITEMS_PER_PAGE = 12;
 
@@ -39,7 +39,7 @@ const FeaturedPage = () => {
 
   const filteredProducts = useMemo(() => {
     if (!searchQuery.trim()) return products;
-    
+
     const query = searchQuery.toLowerCase();
     return products.filter(
       (product) =>
@@ -48,7 +48,12 @@ const FeaturedPage = () => {
     );
   }, [products, searchQuery]);
 
-  const { currentPage, totalPages, paginatedItems: paginatedProducts, handlePageChange } = usePagination({
+  const {
+    currentPage,
+    totalPages,
+    paginatedItems: paginatedProducts,
+    handlePageChange,
+  } = usePagination({
     items: filteredProducts,
     itemsPerPage: ITEMS_PER_PAGE,
   });

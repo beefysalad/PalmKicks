@@ -2,67 +2,65 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { getBrandById, updateBrand } from "@/lib/admin-brands";
+import { useBrand, useUpdateBrand } from "@/lib/brands/hooks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import type { Brand } from "@/lib/admin-brands";
 
 const EditBrandPage = () => {
   const router = useRouter();
   const params = useParams();
   const brandId = params.id as string;
 
-  const [brand] = useState<Brand | null>(() => {
-    const foundBrand = getBrandById(brandId);
-    if (!foundBrand) {
-      return null;
-    }
-    return foundBrand;
-  });
-  const [formData, setFormData] = useState(() => {
-    const foundBrand = getBrandById(brandId);
-    if (!foundBrand) {
-      return { name: "", logo: "" };
-    }
-    return {
-      name: foundBrand.name,
-      logo: foundBrand.logo || "",
-    };
+  const { data: brand, isLoading, error } = useBrand(brandId);
+  const updateBrandMutation = useUpdateBrand();
+  const [formData, setFormData] = useState({
+    name: "",
   });
 
   useEffect(() => {
-    if (!brand) {
+    if (brand) {
+      setFormData({ name: brand.name });
+    }
+  }, [brand]);
+
+  useEffect(() => {
+    if (error) {
       toast.error("Brand not found");
       router.push("/admin/brands");
     }
-  }, [brand, router]);
+  }, [error, router]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.name) {
+    if (!formData.name.trim()) {
       toast.error("Brand name is required");
       return;
     }
 
-    if (
-      updateBrand(brandId, {
-        name: formData.name,
-        logo: formData.logo || undefined,
-      })
-    ) {
+    try {
+      await updateBrandMutation.mutateAsync({
+        id: brandId,
+        payload: { name: formData.name.trim() },
+      });
       toast.success("Brand updated successfully");
       router.push("/admin/brands");
-    } else {
-      toast.error("Failed to update brand");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to update brand"
+      );
     }
   };
 
-  if (!brand) {
+  if (isLoading) {
     return <div>Loading...</div>;
+  }
+
+  if (!brand) {
+    return <div>Brand not found</div>;
   }
 
   return (
@@ -93,25 +91,15 @@ const EditBrandPage = () => {
               />
             </div>
 
-            <div className='space-y-2'>
-              <Label htmlFor='logo'>Brand Logo URL (optional)</Label>
-              <Input
-                id='logo'
-                type='url'
-                value={formData.logo}
-                onChange={(e) =>
-                  setFormData({ ...formData, logo: e.target.value })
-                }
-                placeholder='https://example.com/logo.png'
-              />
-            </div>
-
             <div className='flex gap-4'>
-              <Button type='submit'>Update Brand</Button>
+              <Button type='submit' disabled={updateBrandMutation.isPending}>
+                {updateBrandMutation.isPending ? "Updating..." : "Update Brand"}
+              </Button>
               <Button
                 type='button'
                 variant='outline'
                 onClick={() => router.back()}
+                disabled={updateBrandMutation.isPending}
               >
                 Cancel
               </Button>

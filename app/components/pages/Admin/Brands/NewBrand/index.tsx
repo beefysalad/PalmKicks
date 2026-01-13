@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { addBrand } from "@/lib/admin-brands";
+import { useCreateBrand } from "@/lib/brands/hooks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,24 +11,28 @@ import { toast } from "sonner";
 
 const NewBrandPage = () => {
   const router = useRouter();
+  const createBrandMutation = useCreateBrand();
   const [formData, setFormData] = useState({
     name: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formData.name) {
+    if (!formData.name.trim()) {
       toast.error("Brand name is required");
       return;
     }
 
-    addBrand({
-      name: formData.name,
-    });
-
-    toast.success("Brand created successfully");
-    router.push("/admin/brands");
+    try {
+      await createBrandMutation.mutateAsync({ name: formData.name.trim() });
+      toast.success("Brand created successfully");
+      router.push("/admin/brands");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to create brand"
+      );
+    }
   };
 
   return (
@@ -62,11 +66,14 @@ const NewBrandPage = () => {
             </div>
 
             <div className='flex gap-4'>
-              <Button type='submit'>Create Brand</Button>
+              <Button type='submit' disabled={createBrandMutation.isPending}>
+                {createBrandMutation.isPending ? "Creating..." : "Create Brand"}
+              </Button>
               <Button
                 type='button'
                 variant='outline'
                 onClick={() => router.back()}
+                disabled={createBrandMutation.isPending}
               >
                 Cancel
               </Button>

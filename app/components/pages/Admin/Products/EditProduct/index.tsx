@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { getProductById, updateProduct } from "@/lib/admin-products";
-import { getBrands } from "@/lib/admin-brands";
+import { useBrands } from "@/lib/brands/hooks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,7 +18,7 @@ const EditProductPage = () => {
   const params = useParams();
   const productId = params.id as string;
 
-  const [brands, setBrands] = useState<Array<{ id: string; name: string }>>([]);
+  const { data: brands = [] } = useBrands();
   const [product, setProduct] = useState<Product | null>(null);
   const [uploading, setUploading] = useState(false);
   const [mainImagePreview, setMainImagePreview] = useState<string>("");
@@ -39,8 +39,6 @@ const EditProductPage = () => {
   });
 
   useEffect(() => {
-    const allBrands = getBrands();
-    setBrands(allBrands);
 
     const foundProduct = getProductById(productId);
     if (!foundProduct) {

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { addProduct } from "@/lib/admin-products";
-import { getBrands } from "@/lib/admin-brands";
+import { useBrands } from "@/lib/brands/hooks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,7 +15,7 @@ import Link from "next/link";
 
 const NewProductPage = () => {
   const router = useRouter();
-  const [brands, setBrands] = useState<Array<{ id: string; name: string }>>([]);
+  const { data: brands = [] } = useBrands();
   const [uploading, setUploading] = useState(false);
   const [mainImagePreview, setMainImagePreview] = useState<string>("");
   const [additionalImages, setAdditionalImages] = useState<string[]>([]);
@@ -33,11 +33,6 @@ const NewProductPage = () => {
     colors: "",
     inStock: true,
   });
-
-  useEffect(() => {
-    const allBrands = getBrands();
-    setBrands(allBrands);
-  }, []);
 
   const handleFileUpload = async (file: File, isMain: boolean = false) => {
     if (!file.type.startsWith("image/")) {

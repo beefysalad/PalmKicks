@@ -16,9 +16,7 @@ const adapter = new PrismaPg(pool);
 // Create Prisma client with adapter
 const prisma = new PrismaClient({ adapter });
 
-async function main() {
-  console.log("Starting seed...");
-
+async function adminSeed() {
   const username = process.env.ADMIN_SEED_USERNAME;
   const password = process.env.ADMIN_SEED_PASSWORD;
   if (!username || !password) {
@@ -42,8 +40,37 @@ async function main() {
       password: hashedPassword,
     },
   });
-
-  console.log("⚠️  Please change the password after first login!");
+}
+async function brandSeed() {
+  const brands = [
+    {
+      name: "Nike",
+    },
+    {
+      name: "Adidas",
+    },
+    {
+      name: "Puma",
+    },
+    {
+      name: "Reebok",
+    },
+  ];
+  const existingBrands = await prisma.brand.findMany();
+  if (existingBrands.length > 0) {
+    console.log("Brands already exist. Skipping seed.");
+    return;
+  }
+  for (const brand of brands) {
+    await prisma.brand.create({
+      data: brand,
+    });
+  }
+}
+async function main() {
+  console.log("Starting seed...");
+  await adminSeed();
+  await brandSeed();
 }
 
 main()

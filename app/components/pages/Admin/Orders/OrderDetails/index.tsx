@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { getOrderById } from "@/lib/orders";
+import { getOrderById } from "@/lib/orders/orders";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Image from "next/image";
 import { toast } from "sonner";
-import type { Order } from "@/lib/orders";
+import type { Order } from "@/lib/orders/orders";
 
 const OrderDetailsPage = () => {
   const params = useParams();

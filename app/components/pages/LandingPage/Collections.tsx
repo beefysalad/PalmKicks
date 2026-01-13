@@ -2,16 +2,17 @@
 import { motion, useReducedMotion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { products } from "@/lib/products";
+import { products } from "@/lib/products/products";
 import { getLatestProductIds } from "@/lib/admin-latest";
 import ProductCard from "../Shop/ProductCard";
 
 const Collections = () => {
   const shouldReduceMotion = useReducedMotion();
   const latestIds = getLatestProductIds();
-  const latestProducts = latestIds.length > 0 
-    ? products.filter(p => latestIds.includes(p.id))
-    : products;
+  const latestProducts =
+    latestIds.length > 0
+      ? products.filter((p) => latestIds.includes(p.id))
+      : products;
 
   return (
     <section className='py-12 md:py-16'>

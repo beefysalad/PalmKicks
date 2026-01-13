@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import { getAllProducts } from "@/lib/admin-products";
-import { getOrders } from "@/lib/orders";
+import { getOrders } from "@/lib/orders/orders";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Package, ShoppingBag, DollarSign, Clock } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import type { Order } from "@/lib/orders";
+import type { Order } from "@/lib/orders/orders";
 
 const DashboardPage = () => {
   const [stats] = useState(() => {

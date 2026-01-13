@@ -1,6 +1,6 @@
 "use client";
 import { motion } from "framer-motion";
-import { getOrderById } from "@/lib/orders";
+import { getOrderById } from "@/lib/orders/orders";
 import { useMemo } from "react";
 import { CheckCircle2, Copy, Instagram, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";

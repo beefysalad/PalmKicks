@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Pagination } from "@/components/ui/pagination";
 import Link from "next/link";
 import Image from "next/image";
-import type { Product } from "@/lib/products";
+import type { Product } from "@/lib/products/products";
 import { toast } from "sonner";
 
 const ITEMS_PER_PAGE = 10;
@@ -63,7 +63,12 @@ const ProductsListPage = () => {
     });
   }, [products, searchQuery, filterCategory, filterGender, filterStock]);
 
-  const { currentPage, totalPages, paginatedItems: paginatedProducts, handlePageChange } = usePagination({
+  const {
+    currentPage,
+    totalPages,
+    paginatedItems: paginatedProducts,
+    handlePageChange,
+  } = usePagination({
     items: filteredProducts,
     itemsPerPage: ITEMS_PER_PAGE,
     resetDeps: [searchQuery, filterCategory, filterGender, filterStock],

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
 import ProductCard from "./ProductCard";
-import type { Product } from "@/lib/products";
+import type { Product } from "@/lib/products/products";
 
 enum Filter {
   MEN = "men",
@@ -34,7 +34,12 @@ const Shop = () => {
     });
   }, [products, filter, searchQuery]);
 
-  const { currentPage, totalPages, paginatedItems: paginatedProducts, handlePageChange } = usePagination({
+  const {
+    currentPage,
+    totalPages,
+    paginatedItems: paginatedProducts,
+    handlePageChange,
+  } = usePagination({
     items: filteredProducts,
     itemsPerPage: ITEMS_PER_PAGE,
     resetDeps: [searchQuery, filter],

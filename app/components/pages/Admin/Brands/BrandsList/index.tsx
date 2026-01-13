@@ -1,41 +1,87 @@
 "use client";
 
 import { useState } from "react";
-import { getBrands, deleteBrand } from "@/lib/admin-brands";
+import { useBrands, useDeleteBrand } from "@/lib/brands/hooks";
 import { usePagination } from "@/lib/hooks/usePagination";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
 import Link from "next/link";
-import Image from "next/image";
 import { toast } from "sonner";
-import type { Brand } from "@/lib/admin-brands";
 
 const ITEMS_PER_PAGE = 12;
 
 const BrandsListPage = () => {
-  const [brands, setBrands] = useState<Brand[]>(() => getBrands());
+  const { data: brands = [], isLoading, error } = useBrands();
+  const deleteBrandMutation = useDeleteBrand();
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
-  const loadBrands = () => {
-    const allBrands = getBrands();
-    setBrands(allBrands);
-  };
-
-  const handleDelete = (id: string) => {
-    if (deleteBrand(id)) {
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteBrandMutation.mutateAsync(id);
       toast.success("Brand deleted");
-      loadBrands();
-    } else {
-      toast.error("Failed to delete brand");
+      setDeleteConfirm(null);
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to delete brand"
+      );
     }
-    setDeleteConfirm(null);
   };
 
-  const { currentPage, totalPages, paginatedItems: paginatedBrands, handlePageChange } = usePagination({
+  const {
+    currentPage,
+    totalPages,
+    paginatedItems: paginatedBrands,
+    handlePageChange,
+  } = usePagination({
     items: brands,
     itemsPerPage: ITEMS_PER_PAGE,
   });
+
+  if (isLoading) {
+    return (
+      <div className='space-y-6'>
+        <div className='flex items-center justify-between'>
+          <div>
+            <h1 className='text-3xl font-bold'>Brands</h1>
+            <p className='text-muted-foreground'>Manage your brand catalog</p>
+          </div>
+          <Button asChild>
+            <Link href='/admin/brands/new'>
+              <Plus className='mr-2 h-4 w-4' />
+              Add Brand
+            </Link>
+          </Button>
+        </div>
+        <div className='py-12 text-center text-muted-foreground'>
+          Loading brands...
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className='space-y-6'>
+        <div className='flex items-center justify-between'>
+          <div>
+            <h1 className='text-3xl font-bold'>Brands</h1>
+            <p className='text-muted-foreground'>Manage your brand catalog</p>
+          </div>
+          <Button asChild>
+            <Link href='/admin/brands/new'>
+              <Plus className='mr-2 h-4 w-4' />
+              Add Brand
+            </Link>
+          </Button>
+        </div>
+        <div className='py-12 text-center text-destructive'>
+          Error loading brands:{" "}
+          {error instanceof Error ? error.message : "Unknown error"}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className='space-y-6'>
@@ -55,21 +101,8 @@ const BrandsListPage = () => {
       <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
         {brands.length > 0 ? (
           paginatedBrands.map((brand) => (
-            <div
-              key={brand.id}
-              className='rounded-lg border bg-card p-4'
-            >
+            <div key={brand.id} className='rounded-lg border bg-card p-4'>
               <div className='flex items-center gap-4'>
-                {brand.logo && (
-                  <div className='relative h-16 w-16 overflow-hidden rounded'>
-                    <Image
-                      src={brand.logo}
-                      alt={brand.name}
-                      fill
-                      className='object-contain'
-                    />
-                  </div>
-                )}
                 <div className='flex-1'>
                   <h3 className='font-semibold'>{brand.name}</h3>
                 </div>
@@ -83,6 +116,7 @@ const BrandsListPage = () => {
                     variant='ghost'
                     size='icon'
                     onClick={() => setDeleteConfirm(brand.id)}
+                    disabled={deleteBrandMutation.isPending}
                   >
                     <Trash2 className='h-4 w-4 text-destructive' />
                   </Button>
@@ -112,7 +146,8 @@ const BrandsListPage = () => {
           <div className='rounded-lg border bg-card p-6 shadow-lg'>
             <h3 className='mb-2 text-lg font-semibold'>Confirm Delete</h3>
             <p className='mb-4 text-sm text-muted-foreground'>
-              Are you sure you want to delete this brand? This action cannot be undone.
+              Are you sure you want to delete this brand? This action cannot be
+              undone.
             </p>
             <div className='flex gap-2'>
               <Button
@@ -121,10 +156,7 @@ const BrandsListPage = () => {
               >
                 Delete
               </Button>
-              <Button
-                variant='outline'
-                onClick={() => setDeleteConfirm(null)}
-              >
+              <Button variant='outline' onClick={() => setDeleteConfirm(null)}>
                 Cancel
               </Button>
             </div>

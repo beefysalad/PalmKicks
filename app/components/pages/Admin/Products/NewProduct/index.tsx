@@ -80,7 +80,66 @@ const NewProductPage = () => {
       setUploading(false);
     }
   };
+  const handleMultipleFileUpload = async (files: FileList) => {
+    const imageFiles = Array.from(files).filter((file) =>
+      file.type.startsWith("image/")
+    );
 
+    if (imageFiles.length === 0) {
+      toast.error("Please upload at least one image file");
+      return;
+    }
+
+    if (imageFiles.length !== files.length) {
+      toast.warning("Some files were skipped (only images are allowed)");
+    }
+
+    setUploading(true);
+    const uploadedUrls: string[] = [];
+    let successCount = 0;
+    let failCount = 0;
+
+    try {
+      // Upload all files in parallel
+      const uploadPromises = imageFiles.map(async (file) => {
+        try {
+          const uploadFormData = new FormData();
+          uploadFormData.append("file", file);
+
+          const response = await axios.post("/api/upload", uploadFormData, {
+            headers: {
+              "Content-Type": "multipart/form-data",
+            },
+          });
+          uploadedUrls.push(response.data.url);
+          successCount++;
+        } catch (error) {
+          console.error(`Upload error for ${file.name}:`, error);
+          failCount++;
+        }
+      });
+
+      await Promise.all(uploadPromises);
+
+      // Update state with all uploaded images
+      if (uploadedUrls.length > 0) {
+        const newImages = [...additionalImages, ...uploadedUrls];
+        setAdditionalImages(newImages);
+        form.setValue("additionalImages", newImages);
+      }
+
+      // Show appropriate toast message
+      if (failCount === 0) {
+        toast.success(`${successCount} image(s) uploaded successfully`);
+      } else if (successCount > 0) {
+        toast.warning(`${successCount} image(s) uploaded, ${failCount} failed`);
+      } else {
+        toast.error("Failed to upload images");
+      }
+    } finally {
+      setUploading(false);
+    }
+  };
   const removeAdditionalImage = (index: number) => {
     const newImages = additionalImages.filter((_, i) => i !== index);
     setAdditionalImages(newImages);
@@ -342,15 +401,21 @@ const NewProductPage = () => {
                     id='additionalImages'
                     type='file'
                     accept='image/*'
+                    multiple
                     onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        handleFileUpload(file, false);
+                      const files = e.target.files;
+                      if (files && files.length > 0) {
+                        handleMultipleFileUpload(files);
                       }
                     }}
                     disabled={uploading}
                     className='cursor-pointer'
                   />
+                  {uploading && (
+                    <p className='text-sm text-muted-foreground'>
+                      Uploading images...
+                    </p>
+                  )}
                   {additionalImages.length > 0 && (
                     <div className='grid grid-cols-4 gap-2'>
                       {additionalImages.map((img, index) => (

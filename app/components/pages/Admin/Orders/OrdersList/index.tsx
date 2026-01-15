@@ -1,20 +1,23 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { getOrders } from "@/lib/orders/orders";
+import { useOrders } from "@/lib/orders/hooks";
 import { usePagination } from "@/lib/hooks/usePagination";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Pagination } from "@/components/ui/pagination";
 import Link from "next/link";
-import type { Order } from "@/lib/orders/orders";
+import type { Order } from "@/lib/orders/api";
 
 const ITEMS_PER_PAGE = 10;
 
 const OrdersListPage = () => {
-  const [orders] = useState<Order[]>(() => getOrders());
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  
+  const { data: orders = [], isLoading } = useOrders(
+    filterStatus !== "all" ? { status: filterStatus as Order["status"] } : undefined
+  );
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -48,14 +51,12 @@ const OrdersListPage = () => {
     return orders.filter((order) => {
       const matchesSearch =
         order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        order.customer.email.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesStatus =
-        filterStatus === "all" || order.status === filterStatus;
+        order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        order.customerEmail.toLowerCase().includes(searchQuery.toLowerCase());
 
-      return matchesSearch && matchesStatus;
+      return matchesSearch;
     });
-  }, [orders, searchQuery, filterStatus]);
+  }, [orders, searchQuery]);
 
   const {
     currentPage,
@@ -67,6 +68,20 @@ const OrdersListPage = () => {
     itemsPerPage: ITEMS_PER_PAGE,
     resetDeps: [searchQuery, filterStatus],
   });
+
+  if (isLoading) {
+    return (
+      <div className='space-y-6'>
+        <div>
+          <h1 className='text-3xl font-bold'>Orders</h1>
+          <p className='text-muted-foreground'>View and manage customer orders</p>
+        </div>
+        <div className='py-12 text-center text-muted-foreground'>
+          Loading orders...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className='space-y-6'>
@@ -144,9 +159,9 @@ const OrdersListPage = () => {
                   </td>
                   <td className='px-4 py-3'>
                     <div>
-                      <div className='font-medium'>{order.customer.name}</div>
+                      <div className='font-medium'>{order.customerName}</div>
                       <div className='text-sm text-muted-foreground'>
-                        {order.customer.email}
+                        {order.customerEmail}
                       </div>
                     </div>
                   </td>

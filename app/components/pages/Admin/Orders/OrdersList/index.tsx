@@ -14,9 +14,11 @@ const ITEMS_PER_PAGE = 10;
 const OrdersListPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
-  
+
   const { data: orders = [], isLoading } = useOrders(
-    filterStatus !== "all" ? { status: filterStatus as Order["status"] } : undefined
+    filterStatus !== "all"
+      ? { status: filterStatus as Order["status"] }
+      : undefined
   );
 
   const formatCurrency = (amount: number) => {
@@ -74,7 +76,9 @@ const OrdersListPage = () => {
       <div className='space-y-6'>
         <div>
           <h1 className='text-3xl font-bold'>Orders</h1>
-          <p className='text-muted-foreground'>View and manage customer orders</p>
+          <p className='text-muted-foreground'>
+            View and manage customer orders
+          </p>
         </div>
         <div className='py-12 text-center text-muted-foreground'>
           Loading orders...

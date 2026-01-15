@@ -37,6 +37,11 @@ export const updateOrderStatusSchema = z.object({
   ]),
 });
 
+export const deleteOrderSchema = z.object({
+  id: z.string().min(1, "Order ID is required"),
+});
+
 export type TOrderSchema = z.infer<typeof orderSchema>;
 export type TOrderItemSchema = z.infer<typeof orderItemSchema>;
 export type TUpdateOrderStatusSchema = z.infer<typeof updateOrderStatusSchema>;
+export type TDeleteOrderSchema = z.infer<typeof deleteOrderSchema>;

@@ -1,9 +1,9 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ordersApi, type CreateOrderPayload, type Order } from "./api";
+import { useRouter } from "next/navigation";
 
 export const useOrders = (filters?: {
   status?: "pending" | "confirmed" | "processing" | "shipped" | "delivered";
@@ -36,6 +36,26 @@ export const useCreateOrder = () => {
     onError: (error: Error) => {
       toast.error(
         error instanceof Error ? error.message : "Failed to create order"
+      );
+    },
+  });
+};
+
+export const useDeleteOrder = () => {
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  return useMutation({
+    mutationFn: (id: string) => {
+      return ordersApi.deleteOrderById(id);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      toast.success("Order deleted successfully");
+      router.push("/admin/orders");
+    },
+    onError: (error: Error) => {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to delete order"
       );
     },
   });

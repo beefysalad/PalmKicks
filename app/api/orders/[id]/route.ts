@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  deleteOrderById,
   getOrderById,
   updateOrderStatus,
 } from "@/app/api/orders/orders-service";
-import { updateOrderStatusSchema } from "@/app/components/pages/Checkout/orderZod";
+import {
+  deleteOrderSchema,
+  updateOrderStatusSchema,
+} from "@/app/components/pages/Checkout/orderZod";
 
 interface RouteParams {
   params: Promise<{
@@ -28,6 +32,24 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     console.error("Error fetching order:", error);
     return NextResponse.json(
       { success: false, error: "Failed to fetch order" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  try {
+    const { id } = await params;
+
+    await deleteOrderById(id);
+    return NextResponse.json({
+      success: true,
+      message: "Order deleted successfully",
+    });
+  } catch (error) {
+    console.error("Error deleting order:", error);
+    return NextResponse.json(
+      { success: false, error: "Failed to delete order" },
       { status: 500 }
     );
   }

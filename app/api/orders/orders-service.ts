@@ -72,6 +72,7 @@ export function generateOrderId(): string {
 export async function getOrders(filters?: {
   status?: OrderStatus;
 }): Promise<Order[]> {
+  //eslint-disable-next-line @typescript-eslint/no-explicit-any
   const where: any = {};
   if (filters?.status !== undefined) {
     where.status = filters.status;
@@ -105,6 +106,12 @@ export async function getOrders(filters?: {
       price: Number(item.price),
     })),
   }));
+}
+
+export async function deleteOrderById(id: string): Promise<void> {
+  await prisma.order.delete({
+    where: { id },
+  });
 }
 
 export async function getOrderById(id: string): Promise<Order | null> {

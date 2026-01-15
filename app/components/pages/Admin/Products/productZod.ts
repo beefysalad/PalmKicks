@@ -23,7 +23,10 @@ export const productSchema = z.object({
   category: z.string().min(1, "Category is required"),
   gender: z.enum(["men", "women", "kids"]),
   price: z.number().positive("Price must be positive"),
-  discountPrice: z.number().positive("Discount price must be positive").optional(),
+  discountPrice: z
+    .number()
+    .positive("Discount price must be positive")
+    .optional(),
   description: z.string().min(1, "Description is required"),
   image: z.string().min(1, "Main image is required"),
   additionalImages: z.array(z.string()).default([]),

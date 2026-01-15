@@ -1,18 +1,19 @@
 "use client";
 
 import { useProducts } from "@/lib/products/hooks";
-import { getOrders } from "@/lib/orders/orders";
+import { useOrders } from "@/lib/orders/hooks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Package, ShoppingBag, DollarSign, Clock } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import type { Order } from "@/lib/orders/orders";
-import { useMemo, useState } from "react";
+import type { Order } from "@/lib/orders/api";
+import { useMemo } from "react";
 
 const DashboardPage = () => {
   const { data: products = [] } = useProducts();
+  const { data: orders = [], isLoading: isLoadingOrders } = useOrders();
+
   const stats = useMemo(() => {
-    const orders = getOrders();
     const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
     const pendingOrders = orders.filter(
       (order) => order.status === "pending"
@@ -24,15 +25,15 @@ const DashboardPage = () => {
       totalRevenue,
       pendingOrders,
     };
-  }, [products]);
-  const [recentOrders] = useState<Order[]>(() => {
-    const orders = getOrders();
+  }, [products, orders]);
+
+  const recentOrders = useMemo(() => {
     const sorted = [...orders].sort(
       (a, b) =>
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
     return sorted.slice(0, 10);
-  });
+  }, [orders]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -133,7 +134,11 @@ const DashboardPage = () => {
           </div>
         </CardHeader>
         <CardContent>
-          {recentOrders.length > 0 ? (
+          {isLoadingOrders ? (
+            <p className='py-8 text-center text-muted-foreground'>
+              Loading orders...
+            </p>
+          ) : recentOrders.length > 0 ? (
             <div className='overflow-x-auto'>
               <table className='w-full'>
                 <thead>
@@ -166,7 +171,7 @@ const DashboardPage = () => {
                           {order.id}
                         </Link>
                       </td>
-                      <td className='px-4 py-2'>{order.customer.name}</td>
+                      <td className='px-4 py-2'>{order.customerName}</td>
                       <td className='px-4 py-2'>
                         {formatCurrency(order.total)}
                       </td>

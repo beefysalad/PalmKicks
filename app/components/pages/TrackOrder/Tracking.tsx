@@ -1,13 +1,5 @@
 "use client";
-import {
-  CheckCircle2,
-  Clock,
-  Home,
-  Package,
-  Search,
-  Truck,
-} from "lucide-react";
-import { AnimatePresence, motion } from "framer-motion";
+import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -16,13 +8,22 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import Image from "next/image";
-import { Separator } from "@/components/ui/separator";
-import { Fragment, useState } from "react";
-import { getOrderById, Order } from "@/lib/orders/orders";
 import { Label } from "@/components/ui/label";
-import { DeliveryMethod } from "../Checkout/CheckoutForm";
+import { Separator } from "@/components/ui/separator";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  CheckCircle2,
+  Clock,
+  Home,
+  Package,
+  Search,
+  Truck,
+  Loader2,
+} from "lucide-react";
+import Image from "next/image";
+import { useState } from "react";
+import { useOrder } from "@/lib/orders/hooks";
+import type { Order } from "@/lib/orders/api";
 
 const statusSteps = [
   {
@@ -56,25 +57,26 @@ const statusSteps = [
     description: "Order delivered successfully",
   },
 ];
+
 const Tracking = () => {
   const [orderId, setOrderId] = useState("");
-  const [order, setOrder] = useState<Order | null>(null);
-  const [searched, setSearched] = useState(false);
+  const [searchedOrderId, setSearchedOrderId] = useState<string | null>(null);
+
+  // Use the hook with the searched order ID
+  const { data: order, isLoading, error } = useOrder(searchedOrderId || "");
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (!orderId.trim()) return;
-
-    const foundOrder = getOrderById(orderId.trim());
-    setOrder(foundOrder || null);
-    setSearched(true);
+    setSearchedOrderId(orderId.trim());
   };
 
   const currentStatusIndex = order
     ? statusSteps.findIndex((step) => step.status === order.status)
     : -1;
+
   return (
-    <div className='mx-auto max-w-3xl'>
+    <div className='mx-auto max-w-3xl px-4 py-8'>
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -107,8 +109,12 @@ const Tracking = () => {
                   className='font-mono'
                 />
               </div>
-              <Button type='submit'>
-                <Search className='h-4 w-4' />
+              <Button type='submit' disabled={isLoading}>
+                {isLoading ? (
+                  <Loader2 className='h-4 w-4 animate-spin' />
+                ) : (
+                  <Search className='h-4 w-4' />
+                )}
                 Track
               </Button>
             </form>
@@ -116,7 +122,7 @@ const Tracking = () => {
         </Card>
 
         <AnimatePresence mode='wait'>
-          {searched && !order && (
+          {searchedOrderId && error && (
             <motion.div
               key='not-found'
               initial={{ opacity: 0, y: 20 }}
@@ -212,10 +218,7 @@ const Tracking = () => {
                 <CardContent className='space-y-4'>
                   <div className='space-y-3'>
                     {order.items.map((item) => (
-                      <div
-                        key={`${item.id}-${item.size}-${item.color}`}
-                        className='flex gap-3'
-                      >
+                      <div key={item.id} className='flex gap-3'>
                         <div className='relative h-16 w-16 flex-shrink-0 overflow-hidden rounded border border-border'>
                           <Image
                             src={item.image || "/placeholder.svg"}
@@ -250,24 +253,28 @@ const Tracking = () => {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Shipping Address</CardTitle>
+                  <CardTitle>
+                    {order.meetupLocation
+                      ? "Meetup Location"
+                      : "Shipping Address"}
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className='font-medium'>{order.customer.name}</p>
+                  <p className='font-medium'>{order.customerName}</p>
                   <p className='text-sm text-muted-foreground'>
-                    {order.customer.email}
+                    {order.customerEmail}
                   </p>
                   <p className='text-sm text-muted-foreground'>
-                    {order.customer.phone}
+                    {order.customerPhone}
                   </p>
-                  <p className='mt-2 text-sm text-muted-foreground'>
-                    {order.deliveryMethod === DeliveryMethod.Meetup ? (
-                      order.customer.meetupLocation
+                  <p className='mt-2 text-sm'>
+                    {order.meetupLocation ? (
+                      order.meetupLocation
                     ) : (
                       <>
-                        {order.customer.address}
+                        {order.shippingAddress}
                         <br />
-                        {order.customer.city}, {order.customer.zipCode}
+                        {order.shippingCity}, {order.shippingZipCode}
                       </>
                     )}
                   </p>

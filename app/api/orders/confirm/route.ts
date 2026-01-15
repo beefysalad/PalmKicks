@@ -1,51 +1,69 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendMail, buildOrderConfirmationEmail } from "@/lib/send-mail";
-import { Order } from "@/lib/orders/orders";
-
-/**
- * Validate order data structure
- */
-function validateOrder(data: unknown): data is Order {
-  if (!data || typeof data !== "object") {
-    return false;
-  }
-
-  const order = data as Partial<Order>;
-
-  return (
-    typeof order.id === "string" &&
-    typeof order.customer?.email === "string" &&
-    typeof order.customer?.name === "string" &&
-    Array.isArray(order.items) &&
-    order.items.length > 0 &&
-    typeof order.total === "number" &&
-    typeof order.deliveryMethod === "string"
-  );
-}
+import { getOrderById } from "@/app/api/orders/orders-service";
+import { DeliveryMethod } from "@/app/components/pages/Checkout/CheckoutForm";
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    const orderId = body.orderId;
 
-    // Validate order data
-    if (!validateOrder(body)) {
+    if (!orderId || typeof orderId !== "string") {
       return NextResponse.json(
         {
-          error:
-            "Invalid order data. Required fields: id, customer (email, name), items, total, deliveryMethod",
+          error: "Order ID is required",
         },
         { status: 400 }
       );
     }
 
-    const order = body as Order;
+    // Fetch order from database
+    const order = await getOrderById(orderId);
+
+    if (!order) {
+      return NextResponse.json(
+        {
+          error: "Order not found",
+        },
+        { status: 404 }
+      );
+    }
+
+    // Convert database order format to email template format
+    const orderForEmail = {
+      id: order.id,
+      items: order.items.map((item) => ({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        image: item.image,
+        size: item.size,
+        color: item.color,
+        quantity: item.quantity,
+      })),
+      customer: {
+        name: order.customerName,
+        email: order.customerEmail,
+        phone: order.customerPhone,
+        address: order.shippingAddress || undefined,
+        city: order.shippingCity || undefined,
+        zipCode: order.shippingZipCode || undefined,
+        meetupLocation: order.meetupLocation || undefined,
+      },
+      total: order.total,
+      status: order.status,
+      createdAt: order.createdAt.toISOString(),
+      deliveryMethod: order.meetupLocation
+        ? DeliveryMethod.Meetup
+        : DeliveryMethod.Shipping,
+    };
 
     // Build email content
-    const emailContent = buildOrderConfirmationEmail(order);
+    const emailContent = buildOrderConfirmationEmail(orderForEmail);
 
     // Send email
     const result = await sendMail({
-      sendTo: order.customer.email,
+      sendTo: order.customerEmail,
       subject: emailContent.subject,
       html: emailContent.html,
       text: emailContent.text,

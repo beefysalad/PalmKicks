@@ -1,7 +1,6 @@
 "use client";
 import { motion } from "framer-motion";
-import { getOrderById } from "@/lib/orders/orders";
-import { useMemo } from "react";
+import { useOrder } from "@/lib/orders/hooks";
 import { CheckCircle2, Copy, Instagram, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -15,15 +14,12 @@ import {
 import Image from "next/image";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import { DeliveryMethod } from "../Checkout/CheckoutForm";
 
 interface OrderConfirmationProps {
   orderId: string;
 }
 const OrderConfirmation = ({ orderId }: OrderConfirmationProps) => {
-  const order = useMemo(() => {
-    return getOrderById(orderId) || null;
-  }, [orderId]);
+  const { data: order, isLoading } = useOrder(orderId);
 
   const copyOrderId = async () => {
     try {
@@ -39,6 +35,19 @@ const OrderConfirmation = ({ orderId }: OrderConfirmationProps) => {
       });
     }
   };
+
+  if (isLoading) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className='flex min-h-[60vh] flex-col items-center justify-center text-center'
+      >
+        <Package className='mb-4 h-16 w-16 text-muted-foreground' />
+        <h2 className='mb-2 text-2xl font-bold'>Loading order...</h2>
+      </motion.div>
+    );
+  }
 
   if (!order) {
     return (
@@ -77,8 +86,8 @@ const OrderConfirmation = ({ orderId }: OrderConfirmationProps) => {
           </motion.div>
           <h1 className='mb-2 text-3xl font-bold'>Order Confirmed!</h1>
           <p className='text-muted-foreground'>
-            Thank you for your order. We&apos;ve received it successfully. Please
-            check your email for order details and next steps.
+            Thank you for your order. We&apos;ve received it successfully.
+            Please check your email for order details and next steps.
           </p>
         </div>
 
@@ -133,11 +142,8 @@ const OrderConfirmation = ({ orderId }: OrderConfirmationProps) => {
           </CardHeader>
           <CardContent className='space-y-4'>
             <div className='space-y-3'>
-              {order.items.map((item) => (
-                <div
-                  key={`${item.id}-${item.size}-${item.color}`}
-                  className='flex gap-3'
-                >
+              {order.items.map((item, index) => (
+                <div key={`${item.id}-${index}`} className='flex gap-3'>
                   <div className='relative h-16 w-16 flex-shrink-0 overflow-hidden rounded border border-border'>
                     <Image
                       src={item.image || "/placeholder.svg"}
@@ -172,21 +178,21 @@ const OrderConfirmation = ({ orderId }: OrderConfirmationProps) => {
             <CardTitle>Shipping Address</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className='font-medium'>{order.customer.name}</p>
+            <p className='font-medium'>{order.customerName}</p>
             <p className='text-sm text-muted-foreground'>
-              {order.customer.email}
+              {order.customerEmail}
             </p>
             <p className='text-sm text-muted-foreground'>
-              {order.customer.phone}
+              {order.customerPhone}
             </p>
             <p className='mt-2 text-sm text-muted-foreground'>
-              {order.deliveryMethod === DeliveryMethod.Meetup ? (
-                order.customer.meetupLocation
+              {order.meetupLocation ? (
+                order.meetupLocation
               ) : (
                 <>
-                  {order.customer.address}
+                  {order.shippingAddress}
                   <br />
-                  {order.customer.city}, {order.customer.zipCode}
+                  {order.shippingCity}, {order.shippingZipCode}
                 </>
               )}
             </p>

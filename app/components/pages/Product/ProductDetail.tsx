@@ -1,16 +1,16 @@
 "use client";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { Product } from "@/lib/products/api";
+import { motion } from "framer-motion";
+import { ArrowLeft, Check, ShoppingCart, Trash2 } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { useCart } from "../../shared/CartProvider";
-import { motion } from "framer-motion";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft, Check, ShoppingCart, Trash2, Eye } from "lucide-react";
-import Image from "next/image";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-import Link from "next/link";
+import { useCart } from "../../shared/CartProvider";
 
 interface ProductDetailProps {
   product: Product;
@@ -23,12 +23,8 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
   const { items, addItem, removeItem } = useCart();
   const router = useRouter();
 
-  const allImages = [
-    product.image,
-    ...product.images.map((img) => img.url),
-  ];
+  const allImages = [product.image, ...product.images.map((img) => img.url)];
 
-  // Check if this product with selected size and color is already in cart
   const isInCart =
     selectedSize && selectedColor
       ? items.some(
@@ -63,11 +59,11 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
       });
       return;
     }
-
+    const price = product.discountPrice ? Number(product.discountPrice) : Number(product.price);
     addItem({
       id: product.id,
       name: product.name,
-      price: Number(product.price),
+      price: price,
       image: product.image,
       size: selectedSize,
       color: selectedColor,
@@ -97,7 +93,6 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
       </Button>
 
       <div className='grid gap-6 lg:grid-cols-2 lg:gap-12'>
-        {/* Image Section */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
@@ -163,19 +158,23 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
             </div>
           </div>
 
-          {/* Price */}
           <div className='flex items-baseline gap-3'>
-            <p className='text-3xl font-bold text-primary sm:text-4xl'>
-              ₱{Number(product.price)}
-            </p>
-            {product.discountPrice && (
-              <p className='text-xl text-muted-foreground line-through'>
-                ₱{Number(product.discountPrice)}
+            {product.discountPrice ? (
+              <>
+                <p className='text-3xl font-bold text-primary sm:text-4xl'>
+                  ₱{Number(product.discountPrice)}
+                </p>
+                <p className='text-xl text-muted-foreground line-through'>
+                  ₱{Number(product.price)}
+                </p>
+              </>
+            ) : (
+              <p className='text-3xl font-bold text-primary sm:text-4xl'>
+                ₱{Number(product.price)}
               </p>
             )}
           </div>
 
-          {/* Description */}
           <div className='space-y-2'>
             <p className='text-pretty leading-relaxed text-muted-foreground'>
               {product.description}
@@ -184,7 +183,6 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
 
           <Separator />
 
-          {/* Size Selection */}
           <div className='space-y-3'>
             <div className='flex items-center justify-between'>
               <h3 className='text-sm font-semibold uppercase tracking-wider'>
@@ -220,7 +218,6 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
             </div>
           </div>
 
-          {/* Colors */}
           <div className='space-y-3'>
             <div className='flex items-center justify-between'>
               <h3 className='text-sm font-semibold uppercase tracking-wider'>
@@ -258,7 +255,6 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
 
           <Separator />
 
-          {/* Add to Cart Section - Hidden on mobile, shown on desktop */}
           <div className='hidden space-y-3 lg:block'>
             <Button
               size='lg'

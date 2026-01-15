@@ -1,6 +1,5 @@
-import React from "react";
-import ProductDetail from "./ProductDetail";
 import { Product } from "@/lib/products/api";
+import ProductDetail from "./ProductDetail";
 
 interface ProductProps {
   product: Product;

@@ -106,11 +106,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
     if (dataToValidate.discountPrice !== undefined) {
       updateData.discountPrice =
-        dataToValidate.discountPrice === ""
-          ? undefined
-          : typeof dataToValidate.discountPrice === "string"
-          ? parseFloat(dataToValidate.discountPrice)
-          : dataToValidate.discountPrice;
+        dataToValidate.sale === true
+          ? typeof dataToValidate.discountPrice === "string"
+            ? parseFloat(dataToValidate.discountPrice)
+            : dataToValidate.discountPrice
+          : undefined;
     }
     if (dataToValidate.description !== undefined) {
       updateData.description = dataToValidate.description;
@@ -145,6 +145,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
     if (dataToValidate.latest !== undefined) {
       updateData.latest = dataToValidate.latest;
+    }
+    if (dataToValidate.sale !== undefined) {
+      updateData.sale = dataToValidate.sale;
+    }
+    if (updateData.sale === false) {
+      updateData.discountPrice = null;
     }
 
     const product = await updateProduct(id, updateData);

@@ -1,13 +1,12 @@
-import { NextRequest, NextResponse } from "next/server";
 import {
   deleteOrderById,
   getOrderById,
   updateOrderStatus,
 } from "@/app/api/orders/orders-service";
 import {
-  deleteOrderSchema,
-  updateOrderStatusSchema,
+  updateOrderStatusSchema
 } from "@/app/components/pages/Checkout/orderZod";
+import { NextRequest, NextResponse } from "next/server";
 
 interface RouteParams {
   params: Promise<{

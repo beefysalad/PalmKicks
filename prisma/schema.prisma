@@ -42,6 +42,7 @@ model Product {
   name          String
   price         Decimal        @db.Decimal(10, 2)
   discountPrice Decimal?       @db.Decimal(10, 2)
+  sale          Boolean        @default(false)
   gender        Gender
   brandId       String
   category      String

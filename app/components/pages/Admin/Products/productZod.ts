@@ -14,6 +14,7 @@ export const productFormSchema = z.object({
   sizes: z.array(z.string()).default([]),
   colors: z.array(z.string()).default([]),
   inStock: z.boolean().default(true),
+  sale: z.boolean().default(false),
 });
 
 // API payload schema - accepts numbers
@@ -33,6 +34,7 @@ export const productSchema = z.object({
   sizes: z.array(z.string()).default([]),
   colors: z.array(z.string()).default([]),
   inStock: z.boolean().default(true),
+  sale: z.boolean().default(false),
 });
 
 export type TProductFormSchema = z.infer<typeof productFormSchema>;

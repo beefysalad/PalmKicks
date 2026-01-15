@@ -31,7 +31,6 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-
     let brandId = body.brandId;
     if (!brandId && body.brand) {
       const brand = await prisma.brand.findFirst({
@@ -59,11 +58,12 @@ export async function POST(request: NextRequest) {
         typeof validatedData.price === "string"
           ? parseFloat(validatedData.price)
           : validatedData.price,
-      discountPrice: validatedData.discountPrice
-        ? typeof validatedData.discountPrice === "string"
-          ? parseFloat(validatedData.discountPrice)
-          : validatedData.discountPrice
-        : undefined,
+      discountPrice:
+        validatedData.sale === true
+          ? typeof validatedData.discountPrice === "string"
+            ? parseFloat(validatedData.discountPrice)
+            : validatedData.discountPrice
+          : undefined,
     };
 
     const product = await addProduct(productData);

@@ -41,6 +41,7 @@ export interface CreateProductData {
   sizes?: string[];
   colors?: string[];
   inStock?: boolean;
+  sale: boolean;
 }
 
 export interface UpdateProductData {
@@ -49,7 +50,7 @@ export interface UpdateProductData {
   category?: string;
   gender?: "men" | "women" | "kids";
   price?: number;
-  discountPrice?: number;
+  discountPrice?: number | null;
   description?: string;
   image?: string;
   additionalImages?: string[];
@@ -58,12 +59,14 @@ export interface UpdateProductData {
   inStock?: boolean;
   featured?: boolean;
   latest?: boolean;
+  sale?: boolean;
 }
 
 export async function getProducts(filters?: {
   featured?: boolean;
   latest?: boolean;
 }): Promise<Product[]> {
+  //eslint-disable-next-line @typescript-eslint/no-explicit-any
   const where: any = {};
   if (filters?.featured !== undefined) {
     where.featured = filters.featured;
@@ -147,6 +150,7 @@ export async function addProduct(data: CreateProductData): Promise<Product> {
       inStock: productData.inStock ?? true,
       featured: false, // Explicitly set to false - products must be manually featured
       latest: false, // Explicitly set to false - products must be manually added to latest
+      sale: productData.sale,
     },
     include: {
       brand: {
@@ -210,6 +214,7 @@ export async function updateProduct(
   const { additionalImages, ...productUpdates } = updates;
 
   // Prepare update data - use a flexible type that includes all possible fields
+  //eslint-disable-next-line @typescript-eslint/no-explicit-any
   const updateData: any = {};
   if (productUpdates.name !== undefined) updateData.name = productUpdates.name;
   if (productUpdates.brandId !== undefined)
@@ -236,8 +241,8 @@ export async function updateProduct(
     updateData.featured = productUpdates.featured;
   if (productUpdates.latest !== undefined)
     updateData.latest = productUpdates.latest;
+  if (productUpdates.sale !== undefined) updateData.sale = productUpdates.sale;
 
-  // Update product
   await prisma.product.update({
     where: { id },
     data: updateData,

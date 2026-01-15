@@ -15,12 +15,13 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { productFormSchema, TProductFormSchema } from "../productZod";
-
+import axios from "axios";
 const NewProductPage = () => {
   const router = useRouter();
   const { data: brands = [] } = useBrands();
   const createProductMutation = useCreateProduct();
-  const [uploading, setUploading] = useState(false);
+
+  const [uploading, setUploading] = useState<boolean>(false);
   const [mainImagePreview, setMainImagePreview] = useState<string>("");
   const [additionalImages, setAdditionalImages] = useState<string[]>([]);
 
@@ -40,9 +41,10 @@ const NewProductPage = () => {
       sizes: [],
       colors: [],
       inStock: true,
+      sale: false,
     },
   });
-
+  const sale = form.watch("sale");
   const handleFileUpload = async (file: File, isMain: boolean = false) => {
     if (!file.type.startsWith("image/")) {
       toast.error("Please upload an image file");
@@ -54,17 +56,12 @@ const NewProductPage = () => {
       const uploadFormData = new FormData();
       uploadFormData.append("file", file);
 
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: uploadFormData,
+      const response = await axios.post("/api/upload", uploadFormData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
       });
-
-      if (!response.ok) {
-        throw new Error("Upload failed");
-      }
-
-      const data = await response.json();
-      const imageUrl = data.url;
+      const imageUrl = response.data.url;
 
       if (isMain) {
         form.setValue("image", imageUrl);
@@ -99,11 +96,11 @@ const NewProductPage = () => {
           ? parseFloat(values.price)
           : values.price,
       discountPrice:
-        values.discountPrice === undefined || values.discountPrice === ""
-          ? undefined
-          : typeof values.discountPrice === "string"
-          ? parseFloat(values.discountPrice)
-          : values.discountPrice,
+        sale === true
+          ? typeof values.discountPrice === "string"
+            ? parseFloat(values.discountPrice)
+            : values.discountPrice
+          : undefined,
     };
 
     await createProductMutation.mutateAsync(payload);
@@ -255,20 +252,41 @@ const NewProductPage = () => {
                 )}
               </div>
 
+              <div className='space-y-2 '>
+                <div className='flex-col'>
+                  <div className='flex items-center space-x-2'>
+                    <input
+                      id='sale'
+                      type='checkbox'
+                      {...form.register("sale")}
+                      disabled={createProductMutation.isPending}
+                      className='h-5 w-5 rounded border-gray-300'
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <Label htmlFor='sale'>On sale</Label>
+                  </div>
+                </div>
+              </div>
               <div className='space-y-2'>
-                <Label htmlFor='discountPrice'>Discount Price (optional)</Label>
-                <Input
-                  id='discountPrice'
-                  type='number'
-                  step='0.01'
-                  min='0'
-                  {...form.register("discountPrice", { valueAsNumber: false })}
-                />
-                {form.formState.errors.discountPrice && (
-                  <p className='text-sm text-destructive'>
-                    {form.formState.errors.discountPrice.message}
-                  </p>
-                )}
+                {sale ? (
+                  <div>
+                    <Label htmlFor='discountPrice'>Discount Price</Label>
+                    <Input
+                      id='discountPrice'
+                      type='number'
+                      step='0.01'
+                      min='0'
+                      {...form.register("discountPrice", {
+                        valueAsNumber: false,
+                      })}
+                    />
+                    {form.formState.errors.discountPrice && (
+                      <p className='text-sm text-destructive'>
+                        {form.formState.errors.discountPrice.message}
+                      </p>
+                    )}
+                  </div>
+                ) : null}
               </div>
 
               <div className='space-y-2'>

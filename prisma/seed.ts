@@ -41,6 +41,7 @@ async function adminSeed() {
     },
   });
 }
+
 async function brandSeed() {
   const brands = [
     {
@@ -67,10 +68,257 @@ async function brandSeed() {
     });
   }
 }
+
+async function productSeed() {
+  const existingProducts = await prisma.product.findMany();
+  if (existingProducts.length > 0) {
+    console.log("Products already exist. Skipping seed.");
+    return;
+  }
+
+  // Get brand IDs for reference
+  const nike = await prisma.brand.findFirst({ where: { name: "Nike" } });
+  const adidas = await prisma.brand.findFirst({ where: { name: "Adidas" } });
+  const puma = await prisma.brand.findFirst({ where: { name: "Puma" } });
+  const reebok = await prisma.brand.findFirst({ where: { name: "Reebok" } });
+
+  if (!nike || !adidas || !puma || !reebok) {
+    throw new Error("Brands must be seeded before products");
+  }
+
+  const products = [
+    {
+      name: "Nike Kobe 9 EM Low Protro 'Purple Dynasty'🔥",
+      price: 11999.97,
+      discountPrice: null,
+      gender: "men",
+      brandId: nike.id,
+      category: "Basketball",
+      image:
+        "https://res.cloudinary.com/drgnvg987/image/upload/v1768500837/products/jpt0dsknxivzcbwglrsh.jpg",
+      description: "High-performance basketball shoes with premium cushioning",
+      sizes: ["7", "7.5", "8", "8.5", "9", "9.5", "10", "10.5", "11"],
+      colors: ["Black/Red", "Purple Dynasty"],
+      inStock: true,
+      featured: true,
+      latest: false,
+      sale: false,
+    },
+    {
+      name: "Nike Air Jordan 1 Retro High",
+      price: 13500.0,
+      discountPrice: 12000.0,
+      gender: "men",
+      brandId: nike.id,
+      category: "Basketball",
+      image:
+        "https://res.cloudinary.com/drgnvg987/image/upload/v1768495155/products/gymxrw1nlspfdfd47len.jpg",
+      description: "Classic basketball sneaker with iconic style",
+      sizes: ["8", "8.5", "9", "9.5", "10", "10.5", "11", "11.5", "12"],
+      colors: ["Black/Red", "White/Black", "Royal Blue"],
+      inStock: true,
+      featured: true,
+      latest: true,
+      sale: true,
+    },
+    {
+      name: "Adidas Ultraboost 22",
+      price: 9999.99,
+      discountPrice: 8499.99,
+      gender: "women",
+      brandId: adidas.id,
+      category: "Running",
+      image:
+        "https://res.cloudinary.com/drgnvg987/image/upload/v1768495155/products/gymxrw1nlspfdfd47len.jpg",
+      description: "Ultimate comfort and energy return for runners",
+      sizes: ["5.5", "6", "6.5", "7", "7.5", "8", "8.5", "9", "9.5"],
+      colors: ["Black/White", "Grey/Blue", "Navy"],
+      inStock: true,
+      featured: false,
+      latest: true,
+      sale: true,
+    },
+    {
+      name: "Puma Suede Classic",
+      price: 5999.0,
+      discountPrice: null,
+      gender: "men",
+      brandId: puma.id,
+      category: "Lifestyle",
+      image:
+        "https://res.cloudinary.com/drgnvg987/image/upload/v1768500837/products/jpt0dsknxivzcbwglrsh.jpg",
+      description: "Timeless style with premium suede construction",
+      sizes: ["6", "6.5", "7", "7.5", "8", "8.5", "9", "9.5", "10"],
+      colors: ["Black", "Navy", "Red", "Green"],
+      inStock: true,
+      featured: false,
+      latest: false,
+      sale: false,
+    },
+    {
+      name: "Nike Zoom Freak 4",
+      price: 10500.0,
+      discountPrice: 9200.0,
+      gender: "men",
+      brandId: nike.id,
+      category: "Basketball",
+      image:
+        "https://res.cloudinary.com/drgnvg987/image/upload/v1768495155/products/gymxrw1nlspfdfd47len.jpg",
+      description: "Giannis signature shoe with explosive responsiveness",
+      sizes: ["8", "8.5", "9", "9.5", "10", "10.5", "11", "11.5", "12", "13"],
+      colors: ["White/Gold", "Black/Green"],
+      inStock: true,
+      featured: true,
+      latest: true,
+      sale: true,
+    },
+    {
+      name: "Adidas Predator Edge",
+      price: 12999.0,
+      discountPrice: null,
+      gender: "men",
+      brandId: adidas.id,
+      category: "Football",
+      image:
+        "https://res.cloudinary.com/drgnvg987/image/upload/v1768500837/products/jpt0dsknxivzcbwglrsh.jpg",
+      description: "Premium football boots for precision control",
+      sizes: ["7", "7.5", "8", "8.5", "9", "9.5", "10", "10.5", "11"],
+      colors: ["Black/Pink", "White/Black"],
+      inStock: false,
+      featured: false,
+      latest: true,
+      sale: false,
+    },
+    {
+      name: "Reebok Classic Leather",
+      price: 6499.0,
+      discountPrice: 5499.0,
+      gender: "women",
+      brandId: reebok.id,
+      category: "Lifestyle",
+      image:
+        "https://res.cloudinary.com/drgnvg987/image/upload/v1768495155/products/gymxrw1nlspfdfd47len.jpg",
+      description: "Iconic silhouette with soft leather upper",
+      sizes: ["5", "5.5", "6", "6.5", "7", "7.5", "8", "8.5", "9"],
+      colors: ["White", "Black", "Grey"],
+      inStock: true,
+      featured: false,
+      latest: false,
+      sale: true,
+    },
+    {
+      name: "Nike Pegasus 40",
+      price: 8999.0,
+      discountPrice: null,
+      gender: "kids",
+      brandId: nike.id,
+      category: "Running",
+      image:
+        "https://res.cloudinary.com/drgnvg987/image/upload/v1768500837/products/jpt0dsknxivzcbwglrsh.jpg",
+      description: "Versatile running shoe for daily training",
+      sizes: ["1", "1.5", "2", "2.5", "3", "3.5", "4", "4.5", "5"],
+      colors: ["Black/White", "Blue/Orange", "Grey/Pink"],
+      inStock: true,
+      featured: true,
+      latest: true,
+      sale: false,
+    },
+    {
+      name: "Puma RS-X Reinvention",
+      price: 7499.0,
+      discountPrice: 6299.0,
+      gender: "women",
+      brandId: puma.id,
+      category: "Lifestyle",
+      image:
+        "https://res.cloudinary.com/drgnvg987/image/upload/v1768495155/products/gymxrw1nlspfdfd47len.jpg",
+      description: "Bold design with retro-futuristic aesthetic",
+      sizes: ["5.5", "6", "6.5", "7", "7.5", "8", "8.5", "9"],
+      colors: ["Multi-color", "Black/White", "White/Blue"],
+      inStock: true,
+      featured: false,
+      latest: true,
+      sale: true,
+    },
+    {
+      name: "Adidas Samba OG",
+      price: 6999.0,
+      discountPrice: null,
+      gender: "men",
+      brandId: adidas.id,
+      category: "Lifestyle",
+      image:
+        "https://res.cloudinary.com/drgnvg987/image/upload/v1768500837/products/jpt0dsknxivzcbwglrsh.jpg",
+      description: "Classic indoor football shoe turned street style icon",
+      sizes: [
+        "6",
+        "6.5",
+        "7",
+        "7.5",
+        "8",
+        "8.5",
+        "9",
+        "9.5",
+        "10",
+        "10.5",
+        "11",
+      ],
+      colors: ["Black/White", "White/Green", "Navy/White"],
+      inStock: true,
+      featured: true,
+      latest: false,
+      sale: false,
+    },
+    {
+      name: "Nike Air Force 1 Low",
+      price: 7999.0,
+      discountPrice: 6999.0,
+      gender: "kids",
+      brandId: nike.id,
+      category: "Lifestyle",
+      image:
+        "https://res.cloudinary.com/drgnvg987/image/upload/v1768495155/products/gymxrw1nlspfdfd47len.jpg",
+      description: "Classic basketball silhouette for kids",
+      sizes: ["10.5", "11", "11.5", "12", "12.5", "13", "13.5", "1", "1.5"],
+      colors: ["White", "Black", "White/Red"],
+      inStock: true,
+      featured: false,
+      latest: false,
+      sale: true,
+    },
+    {
+      name: "Reebok Nano X3",
+      price: 9499.0,
+      discountPrice: null,
+      gender: "women",
+      brandId: reebok.id,
+      category: "Training",
+      image:
+        "https://res.cloudinary.com/drgnvg987/image/upload/v1768500837/products/jpt0dsknxivzcbwglrsh.jpg",
+      description: "Versatile training shoe for CrossFit and gym workouts",
+      sizes: ["5", "5.5", "6", "6.5", "7", "7.5", "8", "8.5"],
+      colors: ["Black/Grey", "Pink/White", "Blue"],
+      inStock: true,
+      featured: true,
+      latest: true,
+      sale: false,
+    },
+  ];
+
+  for (const product of products) {
+    await prisma.product.create({
+      data: product,
+    });
+  }
+
+  console.log(`✅ Seeded ${products.length} products`);
+}
+
 async function main() {
   console.log("Starting seed...");
   await adminSeed();
   await brandSeed();
+  await productSeed();
 }
 
 main()

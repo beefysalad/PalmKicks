@@ -7,7 +7,7 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import type { Product } from "@/lib/products/products";
+import type { Product } from "@/lib/products/api";
 
 interface FeaturedCarouselProps {
   products: Product[];
@@ -92,15 +92,15 @@ const FeaturedCarousel = ({ products }: FeaturedCarouselProps) => {
                     {currentProduct.discountPrice ? (
                       <>
                         <span className='text-3xl font-bold text-primary sm:text-4xl md:text-5xl'>
-                          ₱{currentProduct.discountPrice}
+                          ₱{Number(currentProduct.discountPrice)}
                         </span>
                         <span className='text-xl text-muted-foreground line-through sm:text-2xl'>
-                          ₱{currentProduct.price}
+                          ₱{Number(currentProduct.price)}
                         </span>
                       </>
                     ) : (
                       <span className='text-3xl font-bold text-primary sm:text-4xl md:text-5xl'>
-                        ₱{currentProduct.price}
+                        ₱{Number(currentProduct.price)}
                       </span>
                     )}
                   </div>

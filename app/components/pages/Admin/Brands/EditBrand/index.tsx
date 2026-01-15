@@ -1,13 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
-import { useBrand, useUpdateBrand } from "@/lib/brands/hooks";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useBrand, useUpdateBrand } from "@/lib/brands/hooks";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { useForm } from "react-hook-form";
 import { toast } from "sonner";
+import { brandsSchema, TBrandsSchema } from "../brandsZod";
 
 const EditBrandPage = () => {
   const router = useRouter();
@@ -16,15 +19,26 @@ const EditBrandPage = () => {
 
   const { data: brand, isLoading, error } = useBrand(brandId);
   const updateBrandMutation = useUpdateBrand();
-  const [formData, setFormData] = useState({
-    name: "",
+  const form = useForm<TBrandsSchema>({
+    resolver: zodResolver(brandsSchema),
+    defaultValues: {
+      name: brand?.name || "",
+    },
   });
-
   useEffect(() => {
     if (brand) {
-      setFormData({ name: brand.name });
+      form.reset({
+        name: brand.name,
+      });
     }
-  }, [brand]);
+  }, [brand, form]);
+
+  const onSubmit = (values: TBrandsSchema) => {
+    updateBrandMutation.mutateAsync({
+      id: brandId,
+      payload: values,
+    });
+  };
 
   useEffect(() => {
     if (error) {
@@ -32,28 +46,6 @@ const EditBrandPage = () => {
       router.push("/admin/brands");
     }
   }, [error, router]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!formData.name.trim()) {
-      toast.error("Brand name is required");
-      return;
-    }
-
-    try {
-      await updateBrandMutation.mutateAsync({
-        id: brandId,
-        payload: { name: formData.name.trim() },
-      });
-      toast.success("Brand updated successfully");
-      router.push("/admin/brands");
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to update brand"
-      );
-    }
-  };
 
   if (isLoading) {
     return <div>Loading...</div>;
@@ -75,17 +67,19 @@ const EditBrandPage = () => {
           <CardTitle>Brand Information</CardTitle>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className='space-y-4'>
+          <form
+            onSubmit={form.handleSubmit(onSubmit, (errors) => {
+              toast.error(errors.name?.message);
+            })}
+            className='space-y-4'
+          >
             <div className='space-y-2'>
               <Label htmlFor='name'>
                 Brand Name <span className='text-destructive'>*</span>
               </Label>
               <Input
                 id='name'
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
+                {...form.register("name")}
                 required
                 placeholder='e.g., Nike, Adidas'
               />

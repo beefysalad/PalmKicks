@@ -1,55 +1,59 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { getAllProducts, deleteProduct } from "@/lib/admin-products";
-import { toggleFeatured, isFeatured } from "@/lib/admin-featured";
-import { usePagination } from "@/lib/hooks/usePagination";
-import { Search, Plus, Edit, Trash2, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Pagination } from "@/components/ui/pagination";
-import Link from "next/link";
+import { usePagination } from "@/lib/hooks/usePagination";
+import {
+  useDeleteProduct,
+  useProducts,
+  useToggleFeatured,
+} from "@/lib/products/hooks";
+import { Edit, Plus, Search, Star, Trash2 } from "lucide-react";
 import Image from "next/image";
-import type { Product } from "@/lib/products/products";
-import { toast } from "sonner";
+import Link from "next/link";
+import { useMemo, useState } from "react";
 
 const ITEMS_PER_PAGE = 10;
 
 const ProductsListPage = () => {
-  const [products, setProducts] = useState<Product[]>(() => getAllProducts());
+  const { data: products = [], isLoading } = useProducts();
+  const deleteProductMutation = useDeleteProduct();
+  const toggleFeaturedMutation = useToggleFeatured();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterGender, setFilterGender] = useState<string>("all");
   const [filterStock, setFilterStock] = useState<string>("all");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
-  const loadProducts = () => {
-    const allProducts = getAllProducts();
-    setProducts(allProducts);
-  };
-
-  const handleDelete = (id: string) => {
-    if (deleteProduct(id)) {
-      toast.success("Product deleted");
-      loadProducts();
-    } else {
-      toast.error("Failed to delete product");
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteProductMutation.mutateAsync(id);
+      setDeleteConfirm(null);
+    } catch {
+      // Error is handled by the hook
     }
-    setDeleteConfirm(null);
   };
 
-  const handleToggleFeatured = (id: string) => {
-    toggleFeatured(id);
-    toast.success(
-      isFeatured(id) ? "Added to featured" : "Removed from featured"
-    );
+  const handleToggleFeatured = async (id: string) => {
+    const product = products.find((p) => p.id === id);
+    if (!product) return;
+
+    try {
+      await toggleFeaturedMutation.mutateAsync({
+        id,
+        featured: !product.featured,
+      });
+    } catch {
+      // Error is handled by the hook
+    }
   };
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
       const matchesSearch =
         product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.brand.toLowerCase().includes(searchQuery.toLowerCase());
+        product.brand.name.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesCategory =
         filterCategory === "all" || product.category === filterCategory;
       const matchesGender =
@@ -75,6 +79,22 @@ const ProductsListPage = () => {
   });
 
   const categories = Array.from(new Set(products.map((p) => p.category)));
+
+  if (isLoading) {
+    return (
+      <div className='space-y-6'>
+        <div className='flex items-center justify-between'>
+          <div>
+            <h1 className='text-3xl font-bold'>Products</h1>
+            <p className='text-muted-foreground'>Manage your product catalog</p>
+          </div>
+        </div>
+        <div className='py-12 text-center text-muted-foreground'>
+          Loading products...
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className='space-y-6'>
@@ -197,19 +217,21 @@ const ProductsListPage = () => {
                       {product.category}
                     </div>
                   </td>
-                  <td className='px-4 py-3'>{product.brand}</td>
+                  <td className='px-4 py-3'>{product.brand.name}</td>
                   <td className='px-4 py-3'>
                     {product.discountPrice ? (
                       <div>
                         <span className='font-medium text-primary'>
-                          ₱{product.discountPrice}
+                          ₱{Number(product.discountPrice)}
                         </span>
                         <span className='ml-2 text-sm text-muted-foreground line-through'>
-                          ₱{product.price}
+                          ₱{Number(product.price)}
                         </span>
                       </div>
                     ) : (
-                      <span className='font-medium'>₱{product.price}</span>
+                      <span className='font-medium'>
+                        ₱{Number(product.price)}
+                      </span>
                     )}
                   </td>
                   <td className='px-4 py-3'>
@@ -230,14 +252,14 @@ const ProductsListPage = () => {
                         size='icon'
                         onClick={() => handleToggleFeatured(product.id)}
                         title={
-                          isFeatured(product.id)
+                          product.featured
                             ? "Remove from featured"
                             : "Add to featured"
                         }
                       >
                         <Star
                           className={`h-4 w-4 ${
-                            isFeatured(product.id)
+                            product.featured
                               ? "fill-yellow-500 text-yellow-500"
                               : ""
                           }`}
@@ -296,8 +318,9 @@ const ProductsListPage = () => {
               <Button
                 variant='destructive'
                 onClick={() => handleDelete(deleteConfirm)}
+                disabled={deleteProductMutation.isPending}
               >
-                Delete
+                {deleteProductMutation.isPending ? "Deleting..." : "Delete"}
               </Button>
               <Button variant='outline' onClick={() => setDeleteConfirm(null)}>
                 Cancel

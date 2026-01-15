@@ -1,38 +1,37 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { getAllProducts } from "@/lib/admin-products";
-import { getLatestProductIds, setLatestProductIds } from "@/lib/admin-latest";
+import { useProducts, useToggleLatest } from "@/lib/products/hooks";
 import { usePagination } from "@/lib/hooks/usePagination";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Pagination } from "@/components/ui/pagination";
 import Image from "next/image";
-import { toast } from "sonner";
-import type { Product } from "@/lib/products/products";
 
 const ITEMS_PER_PAGE = 12;
 
 const LatestPage = () => {
-  const [products] = useState<Product[]>(() => getAllProducts());
-  const [latestIds, setLatestIds] = useState<string[]>(() =>
-    getLatestProductIds()
-  );
+  const { data: products = [], isLoading } = useProducts();
+  const toggleLatestMutation = useToggleLatest();
   const [searchQuery, setSearchQuery] = useState("");
 
-  const handleToggle = (productId: string) => {
-    const newLatest = latestIds.includes(productId)
-      ? latestIds.filter((id) => id !== productId)
-      : [...latestIds, productId];
+  const handleToggle = async (productId: string) => {
+    const product = products.find((p) => p.id === productId);
+    if (!product) return;
 
-    setLatestIds(newLatest);
+    try {
+      await toggleLatestMutation.mutateAsync({
+        id: productId,
+        latest: !product.latest,
+      });
+    } catch {
+      // Error is handled by the hook
+    }
   };
 
-  const handleSave = () => {
-    setLatestProductIds(latestIds);
-    toast.success("Latest collection updated");
-  };
+  const latestProducts = useMemo(() => {
+    return products.filter((p) => p.latest);
+  }, [products]);
 
   const filteredProducts = useMemo(() => {
     if (!searchQuery.trim()) return products;
@@ -41,7 +40,7 @@ const LatestPage = () => {
     return products.filter(
       (product) =>
         product.name.toLowerCase().includes(query) ||
-        product.brand.toLowerCase().includes(query)
+        product.brand.name.toLowerCase().includes(query)
     );
   }, [products, searchQuery]);
 
@@ -55,6 +54,22 @@ const LatestPage = () => {
     itemsPerPage: ITEMS_PER_PAGE,
   });
 
+  if (isLoading) {
+    return (
+      <div className='space-y-6'>
+        <div>
+          <h1 className='text-3xl font-bold'>Latest Collection</h1>
+          <p className='text-muted-foreground'>
+            Select products to display in the latest collection on the homepage
+          </p>
+        </div>
+        <div className='py-12 text-center text-muted-foreground'>
+          Loading products...
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className='space-y-6'>
       <div className='flex items-center justify-between'>
@@ -64,13 +79,12 @@ const LatestPage = () => {
             Select products to display in the latest collection on the homepage
           </p>
         </div>
-        <Button onClick={handleSave}>Save Changes</Button>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>
-            Select Latest Products ({latestIds.length} selected)
+            Select Latest Products ({latestProducts.length} selected)
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -85,7 +99,7 @@ const LatestPage = () => {
           </div>
           <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
             {paginatedProducts.map((product) => {
-              const isLatest = latestIds.includes(product.id);
+              const isLatest = product.latest;
               return (
                 <div
                   key={product.id}
@@ -108,7 +122,7 @@ const LatestPage = () => {
                     <div className='flex-1'>
                       <h3 className='font-semibold'>{product.name}</h3>
                       <p className='text-sm text-muted-foreground'>
-                        {product.brand} • ₱{product.price}
+                        {product.brand.name} • ₱{Number(product.price)}
                       </p>
                     </div>
                     <div className='shrink-0'>
@@ -116,6 +130,7 @@ const LatestPage = () => {
                         type='checkbox'
                         checked={isLatest}
                         onChange={() => handleToggle(product.id)}
+                        disabled={toggleLatestMutation.isPending}
                         className='h-5 w-5 rounded border-gray-300'
                         onClick={(e) => e.stopPropagation()}
                       />
@@ -127,7 +142,7 @@ const LatestPage = () => {
           </div>
           {filteredProducts.length === 0 && searchQuery.trim() && (
             <div className='py-12 text-center text-muted-foreground'>
-              No products found matching "{searchQuery}"
+              No products found matching &quot;{searchQuery}&quot;
             </div>
           )}
           {products.length === 0 && (

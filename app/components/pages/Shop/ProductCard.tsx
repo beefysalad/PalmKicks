@@ -1,7 +1,7 @@
 "use client";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Product } from "@/lib/products/products";
+import { Product } from "@/lib/products/api";
 import { motion, useReducedMotion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
@@ -56,22 +56,22 @@ const ProductCard = ({ product, index }: ProductCardProps) => {
                 </h3>
               </div>
               <p className='mb-2 text-sm text-muted-foreground'>
-                {product.brand}
+                {product.brand.name}
               </p>
               <div className='flex items-center justify-between'>
                 <div className='flex items-center gap-2'>
                   {product.discountPrice ? (
                     <>
                       <p className='text-lg font-bold text-primary'>
-                        ₱{product.discountPrice}
+                        ₱{Number(product.discountPrice)}
                       </p>
                       <p className='text-sm text-muted-foreground line-through'>
-                        ₱{product.price}
+                        ₱{Number(product.price)}
                       </p>
                     </>
                   ) : (
                     <p className='text-lg font-bold text-primary'>
-                      ₱{product.price}
+                      ₱{Number(product.price)}
                     </p>
                   )}
                 </div>

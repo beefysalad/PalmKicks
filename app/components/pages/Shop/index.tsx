@@ -1,14 +1,13 @@
 "use client";
-import { getAllProducts } from "@/lib/admin-products";
-import { useState, useMemo } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Pagination } from "@/components/ui/pagination";
 import { usePagination } from "@/lib/hooks/usePagination";
+import { useProducts } from "@/lib/products/hooks";
 import { motion } from "framer-motion";
 import { Search } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Pagination } from "@/components/ui/pagination";
+import { useMemo, useState } from "react";
 import ProductCard from "./ProductCard";
-import type { Product } from "@/lib/products/products";
 
 enum Filter {
   MEN = "men",
@@ -20,7 +19,7 @@ enum Filter {
 const ITEMS_PER_PAGE = 12;
 
 const Shop = () => {
-  const [products] = useState<Product[]>(() => getAllProducts());
+  const { data: products = [], isLoading } = useProducts();
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [filter, setFilter] = useState<Filter>(Filter.ALL);
 
@@ -138,7 +137,11 @@ const Shop = () => {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5, delay: 0.3 }}
           >
-            {filteredProducts.length > 0 ? (
+            {isLoading ? (
+              <div className='py-16 text-center'>
+                <p className='text-muted-foreground'>Loading products...</p>
+              </div>
+            ) : filteredProducts.length > 0 ? (
               <>
                 <div className='grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'>
                   {paginatedProducts.map((product, index) => (

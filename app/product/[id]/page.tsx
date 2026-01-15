@@ -1,24 +1,20 @@
 "use client";
 
 import ProductComponent from "@/app/components/pages/Product";
-import { getProductById } from "@/lib/admin-products";
-import { notFound, useParams } from "next/navigation";
-import { useMemo } from "react";
+import { useProduct } from "@/lib/products/hooks";
+import { useParams } from "next/navigation";
 
 const ProductPage = () => {
   const params = useParams();
   const id = params.id as string;
+  const { data: product, isLoading } = useProduct(id);
 
-  const product = useMemo(() => {
-    const foundProduct = getProductById(id);
-    if (!foundProduct) {
-      notFound();
-    }
-    return foundProduct;
-  }, [id]);
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
 
   if (!product) {
-    return <div>Loading...</div>;
+    return <div>Product not found</div>;
   }
 
   return <ProductComponent product={product} />;

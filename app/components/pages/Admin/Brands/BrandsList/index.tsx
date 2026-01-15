@@ -11,6 +11,22 @@ import { toast } from "sonner";
 
 const ITEMS_PER_PAGE = 12;
 
+const BrandCardSkeleton = () => {
+  return (
+    <div className='rounded-lg border bg-card p-4'>
+      <div className='flex items-center gap-4'>
+        <div className='flex-1 space-y-2'>
+          <div className='h-4 w-3/4 animate-pulse rounded bg-muted' />
+        </div>
+        <div className='flex gap-2'>
+          <div className='h-8 w-8 animate-pulse rounded-md bg-muted' />
+          <div className='h-8 w-8 animate-pulse rounded-md bg-muted' />
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const BrandsListPage = () => {
   const { data: brands = [], isLoading, error } = useBrands();
   const deleteBrandMutation = useDeleteBrand();
@@ -53,8 +69,10 @@ const BrandsListPage = () => {
             </Link>
           </Button>
         </div>
-        <div className='py-12 text-center text-muted-foreground'>
-          Loading brands...
+        <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
+          {Array.from({ length: ITEMS_PER_PAGE }).map((_, index) => (
+            <BrandCardSkeleton key={index} />
+          ))}
         </div>
       </div>
     );

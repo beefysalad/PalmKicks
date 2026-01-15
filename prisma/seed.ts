@@ -1,5 +1,5 @@
 // prisma/seed.ts
-import { PrismaClient } from "../app/generated/prisma/client";
+import { PrismaClient, Gender } from "../app/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import bcrypt from "bcryptjs";
@@ -91,7 +91,7 @@ async function productSeed() {
       name: "Nike Kobe 9 EM Low Protro 'Purple Dynasty'🔥",
       price: 11999.97,
       discountPrice: null,
-      gender: "men",
+      gender: Gender.men,
       brandId: nike.id,
       category: "Basketball",
       image:
@@ -108,7 +108,7 @@ async function productSeed() {
       name: "Nike Air Jordan 1 Retro High",
       price: 13500.0,
       discountPrice: 12000.0,
-      gender: "men",
+      gender: Gender.men,
       brandId: nike.id,
       category: "Basketball",
       image:
@@ -125,7 +125,7 @@ async function productSeed() {
       name: "Adidas Ultraboost 22",
       price: 9999.99,
       discountPrice: 8499.99,
-      gender: "women",
+      gender: Gender.women,
       brandId: adidas.id,
       category: "Running",
       image:
@@ -142,7 +142,7 @@ async function productSeed() {
       name: "Puma Suede Classic",
       price: 5999.0,
       discountPrice: null,
-      gender: "men",
+      gender: Gender.men,
       brandId: puma.id,
       category: "Lifestyle",
       image:
@@ -159,7 +159,7 @@ async function productSeed() {
       name: "Nike Zoom Freak 4",
       price: 10500.0,
       discountPrice: 9200.0,
-      gender: "men",
+      gender: Gender.men,
       brandId: nike.id,
       category: "Basketball",
       image:
@@ -176,7 +176,7 @@ async function productSeed() {
       name: "Adidas Predator Edge",
       price: 12999.0,
       discountPrice: null,
-      gender: "men",
+      gender: Gender.men,
       brandId: adidas.id,
       category: "Football",
       image:
@@ -193,7 +193,7 @@ async function productSeed() {
       name: "Reebok Classic Leather",
       price: 6499.0,
       discountPrice: 5499.0,
-      gender: "women",
+      gender: Gender.women,
       brandId: reebok.id,
       category: "Lifestyle",
       image:
@@ -210,7 +210,7 @@ async function productSeed() {
       name: "Nike Pegasus 40",
       price: 8999.0,
       discountPrice: null,
-      gender: "kids",
+      gender: Gender.kids,
       brandId: nike.id,
       category: "Running",
       image:
@@ -227,7 +227,7 @@ async function productSeed() {
       name: "Puma RS-X Reinvention",
       price: 7499.0,
       discountPrice: 6299.0,
-      gender: "women",
+      gender: Gender.women,
       brandId: puma.id,
       category: "Lifestyle",
       image:
@@ -244,7 +244,7 @@ async function productSeed() {
       name: "Adidas Samba OG",
       price: 6999.0,
       discountPrice: null,
-      gender: "men",
+      gender: Gender.men,
       brandId: adidas.id,
       category: "Lifestyle",
       image:
@@ -273,7 +273,7 @@ async function productSeed() {
       name: "Nike Air Force 1 Low",
       price: 7999.0,
       discountPrice: 6999.0,
-      gender: "kids",
+      gender: Gender.kids,
       brandId: nike.id,
       category: "Lifestyle",
       image:
@@ -290,7 +290,7 @@ async function productSeed() {
       name: "Reebok Nano X3",
       price: 9499.0,
       discountPrice: null,
-      gender: "women",
+      gender: Gender.women,
       brandId: reebok.id,
       category: "Training",
       image:
@@ -324,7 +324,6 @@ async function main() {
 main()
   .catch((e) => {
     console.error("❌ Seed failed:", e);
-    process.exit(1);
   })
   .finally(async () => {
     await pool.end();

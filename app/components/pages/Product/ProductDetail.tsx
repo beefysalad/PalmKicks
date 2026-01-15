@@ -1,5 +1,5 @@
 "use client";
-import { Product } from "@/lib/products/products";
+import { Product } from "@/lib/products/api";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useCart } from "../../shared/CartProvider";
@@ -23,7 +23,10 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
   const { items, addItem, removeItem } = useCart();
   const router = useRouter();
 
-  const allImages = [product.image, ...product.images];
+  const allImages = [
+    product.image,
+    ...product.images.map((img) => img.url),
+  ];
 
   // Check if this product with selected size and color is already in cart
   const isInCart =
@@ -64,7 +67,7 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
     addItem({
       id: product.id,
       name: product.name,
-      price: product.price,
+      price: Number(product.price),
       image: product.image,
       size: selectedSize,
       color: selectedColor,
@@ -150,7 +153,9 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
                 <h1 className='mb-2 text-2xl font-bold tracking-tight sm:text-3xl md:text-4xl'>
                   {product.name}
                 </h1>
-                <p className='text-lg text-muted-foreground'>{product.brand}</p>
+                <p className='text-lg text-muted-foreground'>
+                  {product.brand.name}
+                </p>
               </div>
               <Badge variant='outline' className='shrink-0'>
                 {product.category}
@@ -161,11 +166,11 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
           {/* Price */}
           <div className='flex items-baseline gap-3'>
             <p className='text-3xl font-bold text-primary sm:text-4xl'>
-              ₱{product.price}
+              ₱{Number(product.price)}
             </p>
             {product.discountPrice && (
               <p className='text-xl text-muted-foreground line-through'>
-                ₱{product.discountPrice}
+                ₱{Number(product.discountPrice)}
               </p>
             )}
           </div>

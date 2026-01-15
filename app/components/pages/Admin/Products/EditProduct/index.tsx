@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { getProductById, updateProduct } from "@/lib/admin-products";
+import { useProduct, useUpdateProduct } from "@/lib/products/hooks";
 import { useBrands } from "@/lib/brands/hooks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import Image from "next/image";
 import { X } from "lucide-react";
-import type { Product } from "@/lib/products/products";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { productFormSchema, TProductFormSchema } from "../productZod";
 
 const EditProductPage = () => {
   const router = useRouter();
@@ -19,52 +21,82 @@ const EditProductPage = () => {
   const productId = params.id as string;
 
   const { data: brands = [] } = useBrands();
-  const [product, setProduct] = useState<Product | null>(null);
+  const { data: product, isLoading } = useProduct(productId);
+  const updateProductMutation = useUpdateProduct();
   const [uploading, setUploading] = useState(false);
   const [mainImagePreview, setMainImagePreview] = useState<string>("");
   const [additionalImages, setAdditionalImages] = useState<string[]>([]);
-  const [formData, setFormData] = useState({
-    name: "",
-    brand: "",
-    category: "",
-    gender: "men" as "men" | "women" | "kids",
-    price: "",
-    discountPrice: "",
-    description: "",
-    image: "",
-    images: "",
-    sizes: "",
-    colors: "",
-    inStock: true,
+
+  const form = useForm<TProductFormSchema>({
+    // @ts-expect-error - React Hook Form type inference issue with default values
+    resolver: zodResolver(productFormSchema),
+    defaultValues: {
+      name: "",
+      brandId: "",
+      category: "",
+      gender: "men",
+      price: "",
+      discountPrice: undefined,
+      description: "",
+      image: "",
+      additionalImages: [],
+      sizes: [],
+      colors: [],
+      inStock: true,
+    },
   });
 
+  // Populate form when product loads
   useEffect(() => {
-
-    const foundProduct = getProductById(productId);
-    if (!foundProduct) {
-      toast.error("Product not found");
-      router.push("/admin/products");
-      return;
+    if (product) {
+      form.reset({
+        name: product.name,
+        brandId: product.brandId,
+        category: product.category,
+        gender: product.gender,
+        price: Number(product.price).toString(),
+        discountPrice: product.discountPrice
+          ? Number(product.discountPrice).toString()
+          : undefined,
+        description: product.description,
+        image: product.image,
+        additionalImages: product.images.map((img) => img.url),
+        sizes: product.sizes,
+        colors: product.colors,
+        inStock: product.inStock,
+      });
+      setMainImagePreview(product.image);
+      setAdditionalImages(product.images.map((img) => img.url));
     }
+  }, [product, form]);
 
-    setProduct(foundProduct);
-    setMainImagePreview(foundProduct.image);
-    setAdditionalImages(foundProduct.images);
-    setFormData({
-      name: foundProduct.name,
-      brand: foundProduct.brand,
-      category: foundProduct.category,
-      gender: foundProduct.gender,
-      price: foundProduct.price.toString(),
-      discountPrice: foundProduct.discountPrice?.toString() || "",
-      description: foundProduct.description,
-      image: foundProduct.image,
-      images: foundProduct.images.join(", "),
-      sizes: foundProduct.sizes.join(", "),
-      colors: foundProduct.colors.join(", "),
-      inStock: foundProduct.inStock,
-    });
-  }, [productId, router]);
+  if (isLoading) {
+    return (
+      <div className='space-y-6'>
+        <div>
+          <h1 className='text-3xl font-bold'>Edit Product</h1>
+          <p className='text-muted-foreground'>Update product information</p>
+        </div>
+        <div className='py-12 text-center text-muted-foreground'>
+          Loading product...
+        </div>
+      </div>
+    );
+  }
+
+  if (!product) {
+    return (
+      <div className='space-y-6'>
+        <div>
+          <h1 className='text-3xl font-bold'>Edit Product</h1>
+          <p className='text-muted-foreground'>Update product information</p>
+        </div>
+        <div className='py-12 text-center text-muted-foreground'>
+          Product not found
+        </div>
+      </div>
+    );
+  }
 
   const handleFileUpload = async (file: File, isMain: boolean = false) => {
     if (!file.type.startsWith("image/")) {
@@ -90,17 +122,12 @@ const EditProductPage = () => {
       const imageUrl = data.url;
 
       if (isMain) {
-        setFormData((prev) => ({ ...prev, image: imageUrl }));
+        form.setValue("image", imageUrl);
         setMainImagePreview(imageUrl);
       } else {
-        setAdditionalImages((prev) => {
-          const newImages = [...prev, imageUrl];
-          setFormData((prevForm) => ({
-            ...prevForm,
-            images: newImages.join(", "),
-          }));
-          return newImages;
-        });
+        const newImages = [...additionalImages, imageUrl];
+        setAdditionalImages(newImages);
+        form.setValue("additionalImages", newImages);
       }
 
       toast.success("Image uploaded successfully");
@@ -113,75 +140,32 @@ const EditProductPage = () => {
   };
 
   const removeAdditionalImage = (index: number) => {
-    setAdditionalImages((prev) => {
-      const newImages = prev.filter((_, i) => i !== index);
-      setFormData((prevForm) => ({
-        ...prevForm,
-        images: newImages.join(", "),
-      }));
-      return newImages;
-    });
+    const newImages = additionalImages.filter((_, i) => i !== index);
+    setAdditionalImages(newImages);
+    form.setValue("additionalImages", newImages);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (
-      !formData.name ||
-      !formData.brand ||
-      !formData.price ||
-      !formData.image
-    ) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
-
-    const updates = {
-      name: formData.name,
-      brand: formData.brand,
-      category: formData.category,
-      gender: formData.gender,
-      price: parseFloat(formData.price),
-      discountPrice: formData.discountPrice
-        ? parseFloat(formData.discountPrice)
-        : undefined,
-      description: formData.description,
-      image: formData.image,
-      images:
-        additionalImages.length > 0
-          ? additionalImages
-          : formData.images
-          ? formData.images
-              .split(",")
-              .map((url) => url.trim())
-              .filter(Boolean)
-          : [],
-      sizes: formData.sizes
-        ? formData.sizes
-            .split(",")
-            .map((size) => size.trim())
-            .filter(Boolean)
-        : [],
-      colors: formData.colors
-        ? formData.colors
-            .split(",")
-            .map((color) => color.trim())
-            .filter(Boolean)
-        : [],
-      inStock: formData.inStock,
+  const onSubmit = async (values: TProductFormSchema) => {
+    // Transform price and discountPrice from string to number
+    const payload = {
+      ...values,
+      price:
+        typeof values.price === "string"
+          ? parseFloat(values.price)
+          : values.price,
+      discountPrice:
+        values.discountPrice === undefined || values.discountPrice === ""
+          ? undefined
+          : typeof values.discountPrice === "string"
+          ? parseFloat(values.discountPrice)
+          : values.discountPrice,
     };
 
-    if (updateProduct(productId, updates)) {
-      toast.success("Product updated successfully");
-      router.push("/admin/products");
-    } else {
-      toast.error("Failed to update product");
-    }
+    await updateProductMutation.mutateAsync({
+      id: productId,
+      payload,
+    });
   };
-
-  if (!product) {
-    return <div>Loading...</div>;
-  }
 
   return (
     <div className='space-y-6'>
@@ -190,7 +174,12 @@ const EditProductPage = () => {
         <p className='text-muted-foreground'>Update product information</p>
       </div>
 
-      <form onSubmit={handleSubmit}>
+      <form
+        onSubmit={form.handleSubmit(
+          // @ts-expect-error - React Hook Form type inference issue
+          onSubmit
+        )}
+      >
         <div className='grid gap-6 md:grid-cols-2'>
           <Card>
             <CardHeader>
@@ -201,47 +190,44 @@ const EditProductPage = () => {
                 <Label htmlFor='name'>
                   Product Name <span className='text-destructive'>*</span>
                 </Label>
-                <Input
-                  id='name'
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
-                  }
-                  required
-                />
+                <Input id='name' {...form.register("name")} required />
+                {form.formState.errors.name && (
+                  <p className='text-sm text-destructive'>
+                    {form.formState.errors.name.message}
+                  </p>
+                )}
               </div>
 
               <div className='space-y-2'>
-                <Label htmlFor='brand'>
+                <Label htmlFor='brandId'>
                   Brand <span className='text-destructive'>*</span>
                 </Label>
                 {brands.length > 0 ? (
                   <select
-                    id='brand'
-                    value={formData.brand}
-                    onChange={(e) =>
-                      setFormData({ ...formData, brand: e.target.value })
-                    }
+                    id='brandId'
+                    {...form.register("brandId")}
                     className='w-full rounded-md border border-input bg-background px-3 py-2 text-sm'
                     required
                   >
                     <option value=''>Select a brand</option>
                     {brands.map((brand) => (
-                      <option key={brand.id} value={brand.name}>
+                      <option key={brand.id} value={brand.id}>
                         {brand.name}
                       </option>
                     ))}
                   </select>
                 ) : (
                   <Input
-                    id='brand'
-                    value={formData.brand}
-                    onChange={(e) =>
-                      setFormData({ ...formData, brand: e.target.value })
-                    }
-                    placeholder='Enter brand name'
+                    id='brandId'
+                    {...form.register("brandId")}
+                    placeholder='Enter brand ID'
                     required
                   />
+                )}
+                {form.formState.errors.brandId && (
+                  <p className='text-sm text-destructive'>
+                    {form.formState.errors.brandId.message}
+                  </p>
                 )}
               </div>
 
@@ -249,44 +235,47 @@ const EditProductPage = () => {
                 <Label htmlFor='category'>Category</Label>
                 <Input
                   id='category'
-                  value={formData.category}
-                  onChange={(e) =>
-                    setFormData({ ...formData, category: e.target.value })
-                  }
+                  {...form.register("category")}
                   placeholder='e.g., Basketball, Lifestyle'
                 />
+                {form.formState.errors.category && (
+                  <p className='text-sm text-destructive'>
+                    {form.formState.errors.category.message}
+                  </p>
+                )}
               </div>
 
               <div className='space-y-2'>
                 <Label htmlFor='gender'>Gender</Label>
                 <select
                   id='gender'
-                  value={formData.gender}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      gender: e.target.value as "men" | "women" | "kids",
-                    })
-                  }
+                  {...form.register("gender")}
                   className='w-full rounded-md border border-input bg-background px-3 py-2 text-sm'
                 >
                   <option value='men'>Men</option>
                   <option value='women'>Women</option>
                   <option value='kids'>Kids</option>
                 </select>
+                {form.formState.errors.gender && (
+                  <p className='text-sm text-destructive'>
+                    {form.formState.errors.gender.message}
+                  </p>
+                )}
               </div>
 
               <div className='space-y-2'>
                 <Label htmlFor='description'>Description</Label>
                 <textarea
                   id='description'
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
-                  }
+                  {...form.register("description")}
                   rows={4}
                   className='w-full rounded-md border border-input bg-background px-3 py-2 text-sm'
                 />
+                {form.formState.errors.description && (
+                  <p className='text-sm text-destructive'>
+                    {form.formState.errors.description.message}
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -305,12 +294,14 @@ const EditProductPage = () => {
                   type='number'
                   step='0.01'
                   min='0'
-                  value={formData.price}
-                  onChange={(e) =>
-                    setFormData({ ...formData, price: e.target.value })
-                  }
+                  {...form.register("price", { valueAsNumber: false })}
                   required
                 />
+                {form.formState.errors.price && (
+                  <p className='text-sm text-destructive'>
+                    {form.formState.errors.price.message}
+                  </p>
+                )}
               </div>
 
               <div className='space-y-2'>
@@ -320,11 +311,13 @@ const EditProductPage = () => {
                   type='number'
                   step='0.01'
                   min='0'
-                  value={formData.discountPrice}
-                  onChange={(e) =>
-                    setFormData({ ...formData, discountPrice: e.target.value })
-                  }
+                  {...form.register("discountPrice", { valueAsNumber: false })}
                 />
+                {form.formState.errors.discountPrice && (
+                  <p className='text-sm text-destructive'>
+                    {form.formState.errors.discountPrice.message}
+                  </p>
+                )}
               </div>
 
               <div className='space-y-2'>
@@ -357,7 +350,7 @@ const EditProductPage = () => {
                         type='button'
                         onClick={() => {
                           setMainImagePreview("");
-                          setFormData({ ...formData, image: "" });
+                          form.setValue("image", "");
                         }}
                         className='absolute right-1 top-1 rounded-full bg-destructive p-1 text-white hover:bg-destructive/80'
                       >
@@ -366,6 +359,11 @@ const EditProductPage = () => {
                     </div>
                   )}
                 </div>
+                {form.formState.errors.image && (
+                  <p className='text-sm text-destructive'>
+                    {form.formState.errors.image.message}
+                  </p>
+                )}
               </div>
 
               <div className='space-y-2'>
@@ -422,11 +420,18 @@ const EditProductPage = () => {
                 <Label htmlFor='sizes'>Sizes (comma-separated)</Label>
                 <Input
                   id='sizes'
-                  value={formData.sizes}
-                  onChange={(e) =>
-                    setFormData({ ...formData, sizes: e.target.value })
-                  }
                   placeholder='7, 7.5, 8, 8.5, 9, 9.5, 10, 10.5, 11, 11.5, 12'
+                  defaultValue={product.sizes.join(", ")}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    const sizesArray = value
+                      ? value
+                          .split(",")
+                          .map((s) => s.trim())
+                          .filter(Boolean)
+                      : [];
+                    form.setValue("sizes", sizesArray);
+                  }}
                 />
               </div>
 
@@ -434,11 +439,18 @@ const EditProductPage = () => {
                 <Label htmlFor='colors'>Colors (comma-separated)</Label>
                 <Input
                   id='colors'
-                  value={formData.colors}
-                  onChange={(e) =>
-                    setFormData({ ...formData, colors: e.target.value })
-                  }
                   placeholder='Black/Red, White/Black'
+                  defaultValue={product.colors.join(", ")}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    const colorsArray = value
+                      ? value
+                          .split(",")
+                          .map((c) => c.trim())
+                          .filter(Boolean)
+                      : [];
+                    form.setValue("colors", colorsArray);
+                  }}
                 />
               </div>
 
@@ -446,10 +458,7 @@ const EditProductPage = () => {
                 <input
                   type='checkbox'
                   id='inStock'
-                  checked={formData.inStock}
-                  onChange={(e) =>
-                    setFormData({ ...formData, inStock: e.target.checked })
-                  }
+                  {...form.register("inStock")}
                   className='h-4 w-4 rounded border-gray-300'
                 />
                 <Label htmlFor='inStock'>In Stock</Label>
@@ -459,8 +468,15 @@ const EditProductPage = () => {
         </div>
 
         <div className='mt-6 flex gap-4'>
-          <Button type='submit'>Update Product</Button>
-          <Button type='button' variant='outline' onClick={() => router.back()}>
+          <Button type='submit' disabled={updateProductMutation.isPending}>
+            {updateProductMutation.isPending ? "Updating..." : "Update Product"}
+          </Button>
+          <Button
+            type='button'
+            variant='outline'
+            onClick={() => router.back()}
+            disabled={updateProductMutation.isPending}
+          >
             Cancel
           </Button>
         </div>

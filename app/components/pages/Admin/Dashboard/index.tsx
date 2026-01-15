@@ -1,17 +1,17 @@
 "use client";
 
-import { useState } from "react";
-import { getAllProducts } from "@/lib/admin-products";
+import { useProducts } from "@/lib/products/hooks";
 import { getOrders } from "@/lib/orders/orders";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Package, ShoppingBag, DollarSign, Clock } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import type { Order } from "@/lib/orders/orders";
+import { useMemo, useState } from "react";
 
 const DashboardPage = () => {
-  const [stats] = useState(() => {
-    const products = getAllProducts();
+  const { data: products = [] } = useProducts();
+  const stats = useMemo(() => {
     const orders = getOrders();
     const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
     const pendingOrders = orders.filter(
@@ -24,7 +24,7 @@ const DashboardPage = () => {
       totalRevenue,
       pendingOrders,
     };
-  });
+  }, [products]);
   const [recentOrders] = useState<Order[]>(() => {
     const orders = getOrders();
     const sorted = [...orders].sort(

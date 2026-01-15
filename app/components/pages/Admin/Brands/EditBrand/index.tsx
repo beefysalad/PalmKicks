@@ -1,16 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
-import { useBrand, useUpdateBrand } from "@/lib/brands/hooks";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
-import { useForm } from "react-hook-form";
-import { brandsSchema, TBrandsSchema } from "../brandsZod";
+import { useBrand, useUpdateBrand } from "@/lib/brands/hooks";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { toast } from "sonner";
+import { brandsSchema, TBrandsSchema } from "../brandsZod";
 
 const EditBrandPage = () => {
   const router = useRouter();

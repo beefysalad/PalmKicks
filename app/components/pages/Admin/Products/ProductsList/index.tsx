@@ -9,12 +9,19 @@ import {
   useProducts,
   useToggleFeatured,
 } from "@/lib/products/hooks";
-import { Edit, Plus, Search, Star, Trash2 } from "lucide-react";
+import {
+  Edit,
+  Plus,
+  Search,
+  Star,
+  Trash2,
+  SlidersHorizontal,
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 7;
 
 const ProductsListPage = () => {
   const { data: products = [], isLoading } = useProducts();
@@ -25,6 +32,7 @@ const ProductsListPage = () => {
   const [filterGender, setFilterGender] = useState<string>("all");
   const [filterStock, setFilterStock] = useState<string>("all");
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
 
   const handleDelete = async (id: string) => {
     try {
@@ -82,12 +90,12 @@ const ProductsListPage = () => {
 
   if (isLoading) {
     return (
-      <div className='space-y-6'>
-        <div className='flex items-center justify-between'>
-          <div>
-            <h1 className='text-3xl font-bold'>Products</h1>
-            <p className='text-muted-foreground'>Manage your product catalog</p>
-          </div>
+      <div className='space-y-4 p-4'>
+        <div>
+          <h1 className='text-2xl font-bold'>Products</h1>
+          <p className='text-sm text-muted-foreground'>
+            Manage your product catalog
+          </p>
         </div>
         <div className='py-12 text-center text-muted-foreground'>
           Loading products...
@@ -97,146 +105,158 @@ const ProductsListPage = () => {
   }
 
   return (
-    <div className='space-y-6'>
-      <div className='flex items-center justify-between'>
-        <div>
-          <h1 className='text-3xl font-bold'>Products</h1>
-          <p className='text-muted-foreground'>Manage your product catalog</p>
+    <div className='min-h-screen bg-background pb-4'>
+      {/* Header */}
+      <div className='sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60'>
+        <div className='flex items-center justify-between p-4'>
+          <div>
+            <h1 className='text-2xl font-bold'>Products</h1>
+            <p className='text-sm text-muted-foreground'>
+              {filteredProducts.length}{" "}
+              {filteredProducts.length === 1 ? "product" : "products"}
+            </p>
+          </div>
+          <Button size='sm' asChild className='h-9'>
+            <Link href='/admin/products/new'>
+              <Plus className='mr-1 h-4 w-4' />
+              Add
+            </Link>
+          </Button>
         </div>
-        <Button asChild>
-          <Link href='/admin/products/new'>
-            <Plus className='mr-2 h-4 w-4' />
-            Add Product
-          </Link>
-        </Button>
+
+        {/* Search Bar */}
+        <div className='px-4 pb-3'>
+          <div className='relative'>
+            <Search className='absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground' />
+            <Input
+              placeholder='Search products...'
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className='pl-9 pr-12'
+            />
+            <Button
+              variant='ghost'
+              size='sm'
+              className='absolute right-1 top-1/2 h-7 -translate-y-1/2'
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              <SlidersHorizontal className='h-4 w-4' />
+            </Button>
+          </div>
+        </div>
+
+        {showFilters && (
+          <div className='border-t bg-muted/30 p-4'>
+            <div className='space-y-3'>
+              <div>
+                <label className='mb-1.5 block text-xs font-medium text-muted-foreground'>
+                  Category
+                </label>
+                <select
+                  value={filterCategory}
+                  onChange={(e) => setFilterCategory(e.target.value)}
+                  className='w-full rounded-md border border-input bg-background px-3 py-2 text-sm'
+                >
+                  <option value='all'>All Categories</option>
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {cat}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className='grid grid-cols-2 gap-3'>
+                <div>
+                  <label className='mb-1.5 block text-xs font-medium text-muted-foreground'>
+                    Gender
+                  </label>
+                  <select
+                    value={filterGender}
+                    onChange={(e) => setFilterGender(e.target.value)}
+                    className='w-full rounded-md border border-input bg-background px-3 py-2 text-sm'
+                  >
+                    <option value='all'>All</option>
+                    <option value='men'>Men</option>
+                    <option value='women'>Women</option>
+                    <option value='kids'>Kids</option>
+                  </select>
+                </div>
+                <div>
+                  <label className='mb-1.5 block text-xs font-medium text-muted-foreground'>
+                    Stock
+                  </label>
+                  <select
+                    value={filterStock}
+                    onChange={(e) => setFilterStock(e.target.value)}
+                    className='w-full rounded-md border border-input bg-background px-3 py-2 text-sm'
+                  >
+                    <option value='all'>All</option>
+                    <option value='in'>In Stock</option>
+                    <option value='out'>Out of Stock</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      <div className='space-y-4 rounded-lg border bg-card p-4'>
-        <div className='relative'>
-          <Search className='absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground' />
-          <Input
-            placeholder='Search by name or brand...'
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-            }}
-            className='pl-9'
-          />
-        </div>
-        <div className='flex flex-wrap gap-4'>
-          <div>
-            <label className='mb-1 block text-sm font-medium'>Category</label>
-            <select
-              value={filterCategory}
-              onChange={(e) => {
-                setFilterCategory(e.target.value);
-              }}
-              className='rounded-md border border-input bg-background px-3 py-2 text-sm'
-            >
-              <option value='all'>All Categories</option>
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
+      {/* Products List */}
+      <div className='space-y-3 p-4'>
+        {paginatedProducts.length === 0 ? (
+          <div className='py-12 text-center'>
+            <p className='text-muted-foreground'>No products found</p>
           </div>
-          <div>
-            <label className='mb-1 block text-sm font-medium'>Gender</label>
-            <select
-              value={filterGender}
-              onChange={(e) => {
-                setFilterGender(e.target.value);
-              }}
-              className='rounded-md border border-input bg-background px-3 py-2 text-sm'
+        ) : (
+          paginatedProducts.map((product) => (
+            <div
+              key={product.id}
+              className='rounded-lg border bg-card overflow-hidden'
             >
-              <option value='all'>All</option>
-              <option value='men'>Men</option>
-              <option value='women'>Women</option>
-              <option value='kids'>Kids</option>
-            </select>
-          </div>
-          <div>
-            <label className='mb-1 block text-sm font-medium'>Stock</label>
-            <select
-              value={filterStock}
-              onChange={(e) => {
-                setFilterStock(e.target.value);
-              }}
-              className='rounded-md border border-input bg-background px-3 py-2 text-sm'
-            >
-              <option value='all'>All</option>
-              <option value='in'>In Stock</option>
-              <option value='out'>Out of Stock</option>
-            </select>
-          </div>
-        </div>
-      </div>
+              <div className='flex gap-3 p-3'>
+                {/* Product Image */}
+                <div className='relative h-24 w-24 flex-shrink-0 overflow-hidden rounded-md bg-muted'>
+                  <Image
+                    src={product.image || "/placeholder.svg"}
+                    alt={product.name}
+                    fill
+                    className='object-cover'
+                  />
+                </div>
 
-      <div className='rounded-lg border bg-card'>
-        <div className='overflow-x-auto'>
-          <table className='w-full'>
-            <thead>
-              <tr className='border-b'>
-                <th className='px-4 py-3 text-left text-sm font-medium'>
-                  Image
-                </th>
-                <th className='px-4 py-3 text-left text-sm font-medium'>
-                  Name
-                </th>
-                <th className='px-4 py-3 text-left text-sm font-medium'>
-                  Brand
-                </th>
-                <th className='px-4 py-3 text-left text-sm font-medium'>
-                  Price
-                </th>
-                <th className='px-4 py-3 text-left text-sm font-medium'>
-                  Stock
-                </th>
-                <th className='px-4 py-3 text-left text-sm font-medium'>
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedProducts.map((product) => (
-                <tr key={product.id} className='border-b'>
-                  <td className='px-4 py-3'>
-                    <div className='relative h-16 w-16 overflow-hidden rounded'>
-                      <Image
-                        src={product.image || "/placeholder.svg"}
-                        alt={product.name}
-                        fill
-                        className='object-cover'
+                {/* Product Info */}
+                <div className='flex-1 min-w-0'>
+                  <div className='flex items-start justify-between gap-2 mb-1'>
+                    <div className='flex-1 min-w-0'>
+                      <h3 className='font-semibold text-sm leading-tight truncate'>
+                        {product.name}
+                      </h3>
+                      <p className='text-xs text-muted-foreground mt-0.5'>
+                        {product.brand.name}
+                      </p>
+                    </div>
+                    <Button
+                      variant='ghost'
+                      size='icon'
+                      className='h-8 w-8 flex-shrink-0'
+                      onClick={() => handleToggleFeatured(product.id)}
+                    >
+                      <Star
+                        className={`h-4 w-4 ${
+                          product.featured
+                            ? "fill-yellow-500 text-yellow-500"
+                            : "text-muted-foreground"
+                        }`}
                       />
-                    </div>
-                  </td>
-                  <td className='px-4 py-3'>
-                    <div className='font-medium'>{product.name}</div>
-                    <div className='text-sm text-muted-foreground'>
+                    </Button>
+                  </div>
+
+                  <div className='flex items-center gap-2 mb-2'>
+                    <span className='text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded'>
                       {product.category}
-                    </div>
-                  </td>
-                  <td className='px-4 py-3'>{product.brand.name}</td>
-                  <td className='px-4 py-3'>
-                    {product.discountPrice ? (
-                      <div>
-                        <span className='font-medium text-primary'>
-                          ₱{Number(product.discountPrice)}
-                        </span>
-                        <span className='ml-2 text-sm text-muted-foreground line-through'>
-                          ₱{Number(product.price)}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className='font-medium'>
-                        ₱{Number(product.price)}
-                      </span>
-                    )}
-                  </td>
-                  <td className='px-4 py-3'>
+                    </span>
                     <span
-                      className={`rounded-full px-2 py-1 text-xs font-medium ${
+                      className={`text-xs font-medium px-2 py-0.5 rounded ${
                         product.inStock
                           ? "bg-green-500/10 text-green-600"
                           : "bg-red-500/10 text-red-600"
@@ -244,28 +264,33 @@ const ProductsListPage = () => {
                     >
                       {product.inStock ? "In Stock" : "Out of Stock"}
                     </span>
-                  </td>
-                  <td className='px-4 py-3'>
-                    <div className='flex items-center gap-2'>
+                  </div>
+
+                  <div className='flex items-center justify-between'>
+                    <div>
+                      {product.discountPrice ? (
+                        <div className='flex items-baseline gap-1.5'>
+                          <span className='font-bold text-primary'>
+                            ₱{Number(product.discountPrice).toLocaleString()}
+                          </span>
+                          <span className='text-xs text-muted-foreground line-through'>
+                            ₱{Number(product.price).toLocaleString()}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className='font-bold'>
+                          ₱{Number(product.price).toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className='flex items-center gap-1'>
                       <Button
                         variant='ghost'
                         size='icon'
-                        onClick={() => handleToggleFeatured(product.id)}
-                        title={
-                          product.featured
-                            ? "Remove from featured"
-                            : "Add to featured"
-                        }
+                        className='h-8 w-8'
+                        asChild
                       >
-                        <Star
-                          className={`h-4 w-4 ${
-                            product.featured
-                              ? "fill-yellow-500 text-yellow-500"
-                              : ""
-                          }`}
-                        />
-                      </Button>
-                      <Button variant='ghost' size='icon' asChild>
                         <Link href={`/admin/products/${product.id}`}>
                           <Edit className='h-4 w-4' />
                         </Link>
@@ -273,56 +298,61 @@ const ProductsListPage = () => {
                       <Button
                         variant='ghost'
                         size='icon'
+                        className='h-8 w-8'
                         onClick={() => setDeleteConfirm(product.id)}
                       >
                         <Trash2 className='h-4 w-4 text-destructive' />
                       </Button>
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {filteredProducts.length === 0 && (
-          <div className='py-12 text-center text-muted-foreground'>
-            No products found
-          </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))
         )}
       </div>
 
-      {filteredProducts.length > 0 && (
-        <div className='flex items-center justify-between'>
-          <p className='text-sm text-muted-foreground'>
-            Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1} to{" "}
-            {Math.min(currentPage * ITEMS_PER_PAGE, filteredProducts.length)} of{" "}
-            {filteredProducts.length} products
-          </p>
+      {/* Pagination */}
+      {filteredProducts.length > 0 && totalPages > 1 && (
+        <div className='px-4 pb-4'>
           <Pagination
             currentPage={currentPage}
             totalPages={totalPages}
             onPageChange={handlePageChange}
           />
+          <p className='text-center text-xs text-muted-foreground mt-2'>
+            Page {currentPage} of {totalPages}
+          </p>
         </div>
       )}
 
+      {/* Delete Confirmation Modal */}
       {deleteConfirm && (
-        <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50'>
-          <div className='rounded-lg border bg-card p-6 shadow-lg'>
-            <h3 className='mb-2 text-lg font-semibold'>Confirm Delete</h3>
-            <p className='mb-4 text-sm text-muted-foreground'>
-              Are you sure you want to delete this product? This action cannot
-              be undone.
+        <div className='fixed inset-0 z-50 flex items-end justify-center sm:items-center'>
+          <div
+            className='absolute inset-0 bg-black/50'
+            onClick={() => setDeleteConfirm(null)}
+          />
+          <div className='relative w-full max-w-md rounded-t-2xl sm:rounded-lg border bg-card p-6 shadow-lg mx-4 mb-0 sm:mb-4'>
+            <h3 className='mb-2 text-lg font-semibold'>Delete Product?</h3>
+            <p className='mb-6 text-sm text-muted-foreground'>
+              This action cannot be undone. The product will be permanently
+              removed.
             </p>
-            <div className='flex gap-2'>
+            <div className='flex gap-3'>
               <Button
                 variant='destructive'
+                className='flex-1'
                 onClick={() => handleDelete(deleteConfirm)}
                 disabled={deleteProductMutation.isPending}
               >
                 {deleteProductMutation.isPending ? "Deleting..." : "Delete"}
               </Button>
-              <Button variant='outline' onClick={() => setDeleteConfirm(null)}>
+              <Button
+                variant='outline'
+                className='flex-1'
+                onClick={() => setDeleteConfirm(null)}
+              >
                 Cancel
               </Button>
             </div>

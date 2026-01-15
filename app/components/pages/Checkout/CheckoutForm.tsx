@@ -62,11 +62,6 @@ const CheckoutForm = () => {
         clearCart,
       }),
     onSuccess: (orderId) => {
-      toast.success("Order Placed!", {
-        description: `Your order #${orderId} has been placed successfully`,
-        duration: 3000,
-      });
-
       setTimeout(() => {
         router.push(`/order/${orderId}`);
       }, 500);

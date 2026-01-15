@@ -147,3 +147,20 @@
 .animate-pulse {
   animation-duration: 1.5s;
 }
+
+/*
+Source - https://stackoverflow.com/a
+Posted by Josh Crozier, modified by community. See post 'Timeline' for change history
+Retrieved 2026-01-16, License - CC BY-SA 3.
+remove the up and down arrows for the input bar 
+
+*/
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+}

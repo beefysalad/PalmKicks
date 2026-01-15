@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Product } from "@/lib/products/api";
 import { motion } from "framer-motion";
-import { ArrowLeft, Check, ShoppingCart, Trash2 } from "lucide-react";
+import { ArrowLeft, Check, ShoppingCart, Trash2, Tag } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -59,7 +59,9 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
       });
       return;
     }
-    const price = product.discountPrice ? Number(product.discountPrice) : Number(product.price);
+    const price = product.discountPrice
+      ? Number(product.discountPrice)
+      : Number(product.price);
     addItem({
       id: product.id,
       name: product.name,
@@ -85,6 +87,11 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
       duration: 3000,
     });
   };
+
+  const getDiscountPercentage = () => {
+    if (!product.discountPrice) return;
+    return ((product.price - product.discountPrice) / product.price) * 100;
+  };
   return (
     <div className='mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8'>
       <Button variant='ghost' onClick={() => router.back()} className='mb-6'>
@@ -100,6 +107,12 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
           className='space-y-3'
         >
           <div className='relative flex items-center justify-center overflow-hidden rounded-lg border-2 border-border bg-secondary/20 p-4'>
+            {product.discountPrice && (
+              <Badge className='absolute left-4 top-4 z-10 bg-destructive text-destructive-foreground shadow-lg'>
+                <Tag className='mr-1 h-3 w-3' />
+                {getDiscountPercentage()?.toFixed(1)}% OFF
+              </Badge>
+            )}
             <div className='relative max-h-[400px] w-full md:max-h-[500px]'>
               <Image
                 src={allImages[selectedImage] || "/placeholder.svg"}
@@ -167,6 +180,9 @@ const ProductDetail = ({ product }: ProductDetailProps) => {
                 <p className='text-xl text-muted-foreground line-through'>
                   ₱{Number(product.price)}
                 </p>
+                <Badge variant='destructive' className='ml-1'>
+                  {getDiscountPercentage()?.toFixed(1)}% OFF
+                </Badge>
               </>
             ) : (
               <p className='text-3xl font-bold text-primary sm:text-4xl'>

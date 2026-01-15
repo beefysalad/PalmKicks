@@ -5,6 +5,7 @@ export interface Product {
   name: string;
   price: number;
   discountPrice: number | null;
+  sale: boolean;
   gender: "men" | "women" | "kids";
   brandId: string;
   category: string;
@@ -36,6 +37,7 @@ export interface CreateProductPayload {
   gender: "men" | "women" | "kids";
   price: number | string;
   discountPrice?: number | string;
+  sale: boolean;
   description: string;
   image: string;
   additionalImages?: string[];
@@ -58,6 +60,7 @@ export interface UpdateProductPayload {
   sizes?: string[];
   colors?: string[];
   inStock?: boolean;
+  sale?: boolean;
 }
 
 export interface ApiResponse<T> {

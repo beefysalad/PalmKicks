@@ -1,3 +1,4 @@
+import { deleteOrderById } from "@/app/api/orders/orders-service";
 import axios from "axios";
 
 export interface Order {
@@ -110,5 +111,8 @@ export const ordersApi = {
       return response.data.data;
     }
     throw new Error(response.data.error || "Failed to update order status");
+  },
+  deleteOrderById: async (id: string): Promise<void> => {
+    await api.delete<ApiResponse<Order>>(`/orders/${id}`);
   },
 };

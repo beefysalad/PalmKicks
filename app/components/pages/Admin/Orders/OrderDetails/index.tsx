@@ -2,13 +2,24 @@
 
 import { useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useOrder, useUpdateOrderStatus } from "@/lib/orders/hooks";
+import {
+  useDeleteOrder,
+  useOrder,
+  useUpdateOrderStatus,
+} from "@/lib/orders/hooks";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import Image from "next/image";
 import { toast } from "sonner";
 import type { Order } from "@/lib/orders/api";
-import { ArrowLeft, Package, User, MapPin, Calendar } from "lucide-react";
+import {
+  ArrowLeft,
+  Package,
+  User,
+  MapPin,
+  Calendar,
+  Trash2,
+} from "lucide-react";
 
 const OrderDetailsPage = () => {
   const params = useParams();
@@ -17,6 +28,8 @@ const OrderDetailsPage = () => {
 
   const { data: order, isLoading } = useOrder(orderId);
   const updateStatusMutation = useUpdateOrderStatus();
+  const deleteOrderMutation = useDeleteOrder();
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const [status, setStatus] = useState<Order["status"]>(
     order?.status ?? "pending"
@@ -38,6 +51,18 @@ const OrderDetailsPage = () => {
       });
     } catch (error) {
       // Error is handled by the hook
+    }
+  };
+
+  const handleDeleteOrder = async () => {
+    if (!order) return;
+
+    try {
+      await deleteOrderMutation.mutateAsync(order.id);
+    } catch (error) {
+      // Error is handled by the hook
+    } finally {
+      setShowDeleteDialog(false);
     }
   };
 
@@ -279,7 +304,7 @@ const OrderDetailsPage = () => {
 
             {/* Order Status Update */}
             <Card>
-              <CardContent className='space-y-4'>
+              <CardContent className='pt-6 space-y-4'>
                 <div>
                   <label className='text-sm font-medium mb-2 block'>
                     Update Order Status
@@ -310,10 +335,61 @@ const OrderDetailsPage = () => {
                     ? "Updating..."
                     : "Update Status"}
                 </Button>
+
+                <div className='pt-2 border-t'>
+                  <Button
+                    onClick={() => setShowDeleteDialog(true)}
+                    variant='destructive'
+                    className='w-full'
+                    size='lg'
+                  >
+                    <Trash2 className='h-4 w-4 mr-2' />
+                    Delete Order
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </div>
         </div>
+
+        {/* Delete Confirmation Dialog */}
+        {showDeleteDialog && (
+          <div className='fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4'>
+            <Card className='w-full max-w-md'>
+              <CardHeader>
+                <CardTitle className='flex items-center gap-2 text-destructive'>
+                  <Trash2 className='h-5 w-5' />
+                  Delete Order
+                </CardTitle>
+              </CardHeader>
+              <CardContent className='space-y-4'>
+                <p className='text-sm text-muted-foreground'>
+                  Are you sure you want to delete order{" "}
+                  <span className='font-semibold text-foreground'>
+                    #{order.id}
+                  </span>
+                  ? This action cannot be undone.
+                </p>
+                <div className='flex gap-3'>
+                  <Button
+                    variant='outline'
+                    onClick={() => setShowDeleteDialog(false)}
+                    className='flex-1'
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    variant='destructive'
+                    onClick={handleDeleteOrder}
+                    className='flex-1'
+                  >
+                    Delete
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );

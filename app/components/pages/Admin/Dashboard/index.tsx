@@ -14,7 +14,9 @@ const DashboardPage = () => {
   const { data: orders = [], isLoading: isLoadingOrders } = useOrders();
 
   const stats = useMemo(() => {
-    const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
+    const totalRevenue = orders
+      .filter((order) => order.status !== "pending")
+      .reduce((sum, order) => sum + order.total, 0);
     const pendingOrders = orders.filter(
       (order) => order.status === "pending"
     ).length;

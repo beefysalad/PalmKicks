@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 
 import { motion } from "framer-motion";
 import { useCart } from "./CartProvider";
+import { getDevelopmentEnvironment } from "@/helpers";
 
 const Navbar = () => {
   const { items } = useCart();
@@ -29,24 +30,39 @@ const Navbar = () => {
             className='h-10 w-10 rounded-full'
           />
           <span className='ml-2 text-xl font-bold'>
-            Palm Kicks
+            Palm Kicks ({getDevelopmentEnvironment()})
           </span>
         </Link>
 
         <nav className='flex items-center gap-1'>
-          <Button variant='ghost' size='icon' asChild className='sm:w-auto sm:px-4'>
+          <Button
+            variant='ghost'
+            size='icon'
+            asChild
+            className='sm:w-auto sm:px-4'
+          >
             <Link href='/shop'>
               <ShoppingBag className='h-5 w-5' />
               <span className='ml-2 hidden sm:inline'>Shop</span>
             </Link>
           </Button>
-          <Button variant='ghost' size='icon' asChild className='sm:w-auto sm:px-4'>
+          <Button
+            variant='ghost'
+            size='icon'
+            asChild
+            className='sm:w-auto sm:px-4'
+          >
             <Link href='/track'>
               <Package className='h-5 w-5' />
               <span className='ml-2 hidden sm:inline'>Track Order</span>
             </Link>
           </Button>
-          <Button variant='ghost' size='icon' asChild className='relative sm:w-auto sm:px-4'>
+          <Button
+            variant='ghost'
+            size='icon'
+            asChild
+            className='relative sm:w-auto sm:px-4'
+          >
             <Link href='/cart'>
               <ShoppingCart className='h-5 w-5' />
               <span className='ml-2 hidden sm:inline'>Cart</span>

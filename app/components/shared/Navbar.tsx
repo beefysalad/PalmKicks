@@ -30,7 +30,7 @@ const Navbar = () => {
             className='h-10 w-10 rounded-full'
           />
           <span className='ml-2 text-xl font-bold'>
-            Palm Kicks ({getDevelopmentEnvironment()})
+            Palm Kicks {getDevelopmentEnvironment()}
           </span>
         </Link>
 

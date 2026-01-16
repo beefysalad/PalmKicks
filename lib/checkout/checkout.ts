@@ -1,8 +1,11 @@
 import { CartItem } from "../../app/components/shared/CartProvider";
 import { TCheckoutSchema } from "../../app/shared/zod/checkout-zod";
 import { DeliveryMethod } from "../../app/components/pages/Checkout/CheckoutForm";
-import { ordersApi, type CreateOrderPayload } from "../../lib/orders/api";
+
 import axios from "axios";
+import { CreateOrderPayload } from "@/app/shared/types/order";
+import { ordersApi } from "../orders/api";
+import { api, ApiResponse } from "../axios";
 
 export interface CheckoutParams {
   values: TCheckoutSchema;
@@ -10,6 +13,10 @@ export interface CheckoutParams {
   total: number;
   deliveryMethod: DeliveryMethod;
   clearCart: () => void;
+}
+interface Email {
+  emailSent: boolean;
+  messageId: string;
 }
 
 export const checkoutFn = async ({
@@ -56,17 +63,16 @@ export const checkoutFn = async ({
   const order = await ordersApi.createOrder(orderPayload);
   clearCart();
 
-  // Send confirmation email
+  //fire and forget para di ma stop ang process if email sending encounters an error
   try {
-    const emailResponse = await axios.post("/api/orders/confirm", {
-      orderId: order.id,
-    });
-    const emailResult = emailResponse.data;
+    const emailResponse = await api.post<ApiResponse<Email>>(
+      "/orders/confirm",
+      { orderId: order.id }
+    );
 
-    if (!emailResult.emailSent) {
+    if (!emailResponse.data.data?.emailSent) {
       console.warn(
-        "Order confirmation email was not sent or API indicated an issue:",
-        emailResult.error
+        "Order confirmation email was not sent or API indicated an issue"
       );
     }
   } catch (error) {

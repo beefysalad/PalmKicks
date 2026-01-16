@@ -1,3 +1,7 @@
+import {
+  changePasswordFormSchema,
+  TChangePasswordFormSchema,
+} from "@/app/shared/zod/change-password.zod";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -8,65 +12,29 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useChangePassword } from "@/lib/settings/hook";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { AnimatePresence, motion } from "framer-motion";
 import { Key, Loader2 } from "lucide-react";
 import { useSession } from "next-auth/react";
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useForm } from "react-hook-form";
 
 const ProfileTab = () => {
   const { data: session } = useSession();
-  const [isLoading, setIsLoading] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
-
-  const handlePasswordChange = async () => {
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      alert("New passwords do not match!");
-      return;
-    }
-
-    if (passwordForm.newPassword.length < 6) {
-      alert("Password must be at least 6 characters long!");
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      // Add your API call here
-      // const response = await fetch('/api/admin/change-password', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     currentPassword: passwordForm.currentPassword,
-      //     newPassword: passwordForm.newPassword,
-      //   }),
-      // });
-
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      setShowSuccess(true);
-      setPasswordForm({
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: "",
-      });
-
-      // Hide success message after 3 seconds
-      setTimeout(() => setShowSuccess(false), 3000);
-    } catch (error) {
-      alert("Failed to change password. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Password change state
-  const [passwordForm, setPasswordForm] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: "",
+  const changePasswordMutation = useChangePassword();
+  const form = useForm({
+    resolver: zodResolver(changePasswordFormSchema),
+    defaultValues: {
+      confirmPassword: "",
+      currentPassword: "",
+      newPassword: "",
+    },
   });
+  const onSubmit = async (values: TChangePasswordFormSchema) => {
+    if (!session?.user) return;
+    await changePasswordMutation.mutateAsync(values);
+    form.reset();
+  };
 
   return (
     <div className='grid gap-6'>
@@ -105,7 +73,7 @@ const ProfileTab = () => {
         <Card className='relative overflow-hidden'>
           {/* Loading Overlay */}
           <AnimatePresence>
-            {isLoading && (
+            {changePasswordMutation.isPending && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -141,44 +109,6 @@ const ProfileTab = () => {
               </motion.div>
             )}
           </AnimatePresence>
-
-          {/* Success Message */}
-          <AnimatePresence>
-            {showSuccess && (
-              <motion.div
-                initial={{ opacity: 0, y: -50 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -50 }}
-                transition={{ type: "spring", stiffness: 200, damping: 20 }}
-                className='absolute left-1/2 top-4 z-20 -translate-x-1/2'
-              >
-                <motion.div
-                  initial={{ scale: 0.8 }}
-                  animate={{ scale: 1 }}
-                  className='flex items-center gap-2 rounded-lg bg-green-500 px-4 py-2 text-sm font-medium text-white shadow-lg'
-                >
-                  <motion.svg
-                    initial={{ pathLength: 0 }}
-                    animate={{ pathLength: 1 }}
-                    transition={{ duration: 0.5 }}
-                    className='h-5 w-5'
-                    viewBox='0 0 24 24'
-                    fill='none'
-                    stroke='currentColor'
-                    strokeWidth='2'
-                  >
-                    <motion.path
-                      d='M20 6L9 17l-5-5'
-                      strokeLinecap='round'
-                      strokeLinejoin='round'
-                    />
-                  </motion.svg>
-                  Password changed successfully!
-                </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
           <CardHeader>
             <CardTitle>Change Password</CardTitle>
             <CardDescription>
@@ -186,7 +116,7 @@ const ProfileTab = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className='space-y-4'>
+            <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-4'>
               <motion.div
                 className='space-y-2'
                 initial={{ opacity: 0, x: -20 }}
@@ -197,15 +127,17 @@ const ProfileTab = () => {
                 <Input
                   id='current-password'
                   type='password'
-                  value={passwordForm.currentPassword}
-                  onChange={(e) =>
-                    setPasswordForm({
-                      ...passwordForm,
-                      currentPassword: e.target.value,
-                    })
+                  {...form.register("currentPassword")}
+                  disabled={changePasswordMutation.isPending}
+                  className={
+                    form.formState.errors.newPassword ? "border-red-500" : ""
                   }
-                  disabled={isLoading}
                 />
+                {form.formState.errors.currentPassword && (
+                  <p className='text-xs text-red-500'>
+                    {form.formState.errors.currentPassword.message}
+                  </p>
+                )}
               </motion.div>
 
               <motion.div
@@ -218,18 +150,17 @@ const ProfileTab = () => {
                 <Input
                   id='new-password'
                   type='password'
-                  value={passwordForm.newPassword}
-                  onChange={(e) =>
-                    setPasswordForm({
-                      ...passwordForm,
-                      newPassword: e.target.value,
-                    })
+                  {...form.register("newPassword")}
+                  disabled={changePasswordMutation.isPending}
+                  className={
+                    form.formState.errors.newPassword ? "border-red-500" : ""
                   }
-                  disabled={isLoading}
                 />
-                <p className='text-xs text-muted-foreground'>
-                  Must be at least 6 characters long
-                </p>
+                {form.formState.errors.newPassword && (
+                  <p className='text-xs text-red-500'>
+                    {form.formState.errors.newPassword.message}
+                  </p>
+                )}
               </motion.div>
 
               <motion.div
@@ -242,15 +173,19 @@ const ProfileTab = () => {
                 <Input
                   id='confirm-password'
                   type='password'
-                  value={passwordForm.confirmPassword}
-                  onChange={(e) =>
-                    setPasswordForm({
-                      ...passwordForm,
-                      confirmPassword: e.target.value,
-                    })
+                  {...form.register("confirmPassword")}
+                  disabled={changePasswordMutation.isPending}
+                  className={
+                    form.formState.errors.confirmPassword
+                      ? "border-red-500"
+                      : ""
                   }
-                  disabled={isLoading}
                 />
+                {form.formState.errors.confirmPassword && (
+                  <p className='text-xs text-red-500'>
+                    {form.formState.errors.confirmPassword.message}{" "}
+                  </p>
+                )}
               </motion.div>
 
               <motion.div
@@ -259,12 +194,11 @@ const ProfileTab = () => {
                 transition={{ delay: 0.5 }}
               >
                 <Button
-                  onClick={handlePasswordChange}
-                  disabled={isLoading}
+                  disabled={changePasswordMutation.isPending}
                   className='relative overflow-hidden'
                 >
                   <AnimatePresence mode='wait'>
-                    {isLoading ? (
+                    {changePasswordMutation.isPaused ? (
                       <motion.div
                         key='loading'
                         initial={{ opacity: 0, y: 10 }}
@@ -290,7 +224,7 @@ const ProfileTab = () => {
                   </AnimatePresence>
                 </Button>
               </motion.div>
-            </div>
+            </form>
           </CardContent>
         </Card>
       </motion.div>

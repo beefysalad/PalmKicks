@@ -1,29 +1,9 @@
-import axios from "axios";
-
-export interface Brand {
-  id: string;
-  name: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface CreateBrandPayload {
-  name: string;
-}
-
-export interface UpdateBrandPayload {
-  name: string;
-}
-
-export interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
-}
-
-const api = axios.create({
-  baseURL: "/api",
-});
+import {
+  Brand,
+  CreateBrandPayload,
+  UpdateBrandPayload,
+} from "@/app/shared/types/brand";
+import { api, ApiResponse } from "../axios";
 
 export const brandsApi = {
   fetchBrands: async (): Promise<Brand[]> => {

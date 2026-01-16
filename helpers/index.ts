@@ -9,7 +9,5 @@ export const getInitials = (username: string) => {
 };
 
 export const getDevelopmentEnvironment = () => {
-  return process.env.NEXT_PUBLIC_ENVIRONMENT === "DEV"
-    ? "Development"
-    : "Production";
+  return process.env.NEXT_PUBLIC_ENVIRONMENT === "DEV" ? "Development" : "";
 };

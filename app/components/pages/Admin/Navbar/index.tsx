@@ -68,7 +68,7 @@ const AdminNavbar = () => {
                 href='/admin/dashboard'
                 className='text-xl font-bold text-foreground'
               >
-                Admin Panel ({getDevelopmentEnvironment()})
+                Admin Panel {getDevelopmentEnvironment()}
               </Link>
 
               {/* Desktop Navigation */}

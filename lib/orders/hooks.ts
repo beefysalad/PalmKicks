@@ -2,9 +2,10 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { ordersApi, type CreateOrderPayload, type Order } from "./api";
+import { ordersApi } from "./api";
 import { useRouter } from "next/navigation";
 import { orderKeys } from "./order-keys";
+import { CreateOrderPayload, Order } from "@/app/shared/types/order";
 
 export type OrderStatus =
   | "pending"
@@ -94,7 +95,6 @@ export const useUpdateOrderStatus = () => {
         orderKeys.detail(id)
       );
 
-      // Optimistically update the cache
       if (previousOrder) {
         queryClient.setQueryData<Order>(orderKeys.detail(id), (old) => {
           if (!old) return old;

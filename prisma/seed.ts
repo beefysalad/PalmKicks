@@ -17,29 +17,52 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 async function adminSeed() {
-  const username = process.env.ADMIN_SEED_USERNAME;
-  const password = process.env.ADMIN_SEED_PASSWORD;
-  if (!username || !password) {
-    throw new Error("ADMIN_SEED_USERNAME and ADMIN_SEED_PASSWORD are not set");
+  const {
+    ADMIN_SEED_USERNAME,
+    ADMIN_SEED_PASSWORD,
+    ADMIN_SEED_SUPERUSER,
+    ADMIN_SEED_SUPERPASSWORD,
+  } = process.env;
+
+  if (
+    !ADMIN_SEED_USERNAME ||
+    !ADMIN_SEED_PASSWORD ||
+    !ADMIN_SEED_SUPERUSER ||
+    !ADMIN_SEED_SUPERPASSWORD
+  ) {
+    throw new Error("Admin seed environment variables are not set");
   }
 
-  const existingAdmin = await prisma.admin.findUnique({
-    where: { username: username },
-  });
-
-  if (existingAdmin) {
-    console.log("Admin user already exists. Skipping seed.");
-    return;
-  }
-
-  const hashedPassword = await bcrypt.hash(password, 10);
-
-  await prisma.admin.create({
-    data: {
-      username: username,
-      password: hashedPassword,
+  const accountToCreate = [
+    {
+      username: ADMIN_SEED_USERNAME,
+      password: ADMIN_SEED_PASSWORD,
     },
-  });
+    {
+      username: ADMIN_SEED_SUPERUSER,
+      password: ADMIN_SEED_SUPERPASSWORD,
+    },
+  ];
+
+  for (const account of accountToCreate) {
+    const existing = await prisma.admin.findUnique({
+      where: { username: account.username },
+    });
+
+    if (existing) {
+      console.log(`Admin ${account.username} already exists! Skipping`);
+      continue;
+    }
+
+    await prisma.admin.create({
+      data: {
+        username: account.username,
+        password: await bcrypt.hash(account.password, 10),
+      },
+    });
+
+    console.log(`Admin ${account.username} created`);
+  }
 }
 
 async function brandSeed() {

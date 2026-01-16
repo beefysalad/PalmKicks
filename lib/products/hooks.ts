@@ -1,15 +1,16 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  productsApi,
-  type CreateProductPayload,
-  type UpdateProductPayload,
-  type Product,
-} from "./api";
+
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { productKeys } from "./product-keys";
+import { productsApi } from "./api";
+import {
+  CreateProductPayload,
+  Product,
+  UpdateProductPayload,
+} from "@/app/shared/types/product";
 
 export const useProducts = () => {
   return useQuery({

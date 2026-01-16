@@ -6,8 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Package, ShoppingBag, DollarSign, Clock } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import type { Order } from "@/lib/orders/api";
+
 import { useMemo } from "react";
+import { Order } from "@/app/shared/types/order";
 
 const DashboardPage = () => {
   const { data: products = [] } = useProducts();

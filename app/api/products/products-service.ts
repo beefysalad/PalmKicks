@@ -91,6 +91,7 @@ export async function getProducts(filters?: {
       },
     },
     orderBy: { createdAt: "desc" },
+    take: filters?.latest ? 6 : undefined,
   });
 
   return products.map((product) => ({

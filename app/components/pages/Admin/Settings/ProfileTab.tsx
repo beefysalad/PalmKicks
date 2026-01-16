@@ -12,12 +12,14 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useChangePassword } from "@/lib/settings/hook";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AnimatePresence, motion } from "framer-motion";
-import { Key, Loader2 } from "lucide-react";
+import { Key, Loader2, AlertTriangle } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
+import { signOut } from "@/lib/auth";
 
 const ProfileTab = () => {
   const { data: session } = useSession();
@@ -36,8 +38,35 @@ const ProfileTab = () => {
     form.reset();
   };
 
+  const isFirstTimeLogin = session?.user?.firstTimeLogin;
+
   return (
     <div className='grid gap-6'>
+      <AnimatePresence>
+        {isFirstTimeLogin && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: "auto" }}
+            exit={{ opacity: 0, y: -20, height: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <Alert
+              variant='destructive'
+              className='border-orange-500 bg-orange-50 dark:bg-orange-950/20'
+            >
+              <AlertTriangle className='h-5 w-5 text-orange-600 dark:text-orange-400' />
+              <AlertTitle className='text-orange-900 dark:text-orange-200 font-semibold'>
+                Security Notice: Change Your Default Password
+              </AlertTitle>
+              <AlertDescription className='text-orange-800 dark:text-orange-300'>
+                You are currently using the default password. For security
+                reasons, please change your password.
+              </AlertDescription>
+            </Alert>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -70,7 +99,11 @@ const ProfileTab = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.1 }}
       >
-        <Card className='relative overflow-hidden'>
+        <Card
+          className={`relative overflow-hidden ${
+            isFirstTimeLogin ? "ring-2 ring-orange-500 ring-offset-2" : ""
+          }`}
+        >
           {/* Loading Overlay */}
           <AnimatePresence>
             {changePasswordMutation.isPending && (
@@ -110,9 +143,18 @@ const ProfileTab = () => {
             )}
           </AnimatePresence>
           <CardHeader>
-            <CardTitle>Change Password</CardTitle>
+            <CardTitle className='flex items-center gap-2'>
+              Change Password
+              {isFirstTimeLogin && (
+                <span className='inline-flex items-center rounded-full bg-orange-100 dark:bg-orange-900/30 px-2.5 py-0.5 text-xs font-medium text-orange-800 dark:text-orange-200'>
+                  Required
+                </span>
+              )}
+            </CardTitle>
             <CardDescription>
-              Update your password to keep your account secure
+              {isFirstTimeLogin
+                ? "Please change your default password to secure your account"
+                : "Update your password to keep your account secure"}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -130,7 +172,9 @@ const ProfileTab = () => {
                   {...form.register("currentPassword")}
                   disabled={changePasswordMutation.isPending}
                   className={
-                    form.formState.errors.newPassword ? "border-red-500" : ""
+                    form.formState.errors.currentPassword
+                      ? "border-red-500"
+                      : ""
                   }
                 />
                 {form.formState.errors.currentPassword && (
@@ -195,10 +239,14 @@ const ProfileTab = () => {
               >
                 <Button
                   disabled={changePasswordMutation.isPending}
-                  className='relative overflow-hidden'
+                  className={`relative overflow-hidden ${
+                    isFirstTimeLogin
+                      ? "bg-red-500 hover:bg-5ed-400 text-white"
+                      : ""
+                  }`}
                 >
                   <AnimatePresence mode='wait'>
-                    {changePasswordMutation.isPaused ? (
+                    {changePasswordMutation.isPending ? (
                       <motion.div
                         key='loading'
                         initial={{ opacity: 0, y: 10 }}
@@ -218,7 +266,9 @@ const ProfileTab = () => {
                         className='flex items-center'
                       >
                         <Key className='mr-2 h-4 w-4' />
-                        Change Password
+                        {isFirstTimeLogin
+                          ? "Change Password Now"
+                          : "Change Password"}
                       </motion.div>
                     )}
                   </AnimatePresence>

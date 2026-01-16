@@ -33,6 +33,7 @@ export async function changePassword(
     },
     data: {
       password: hashedPassword,
+      firstTimeLogin: false,
     },
   });
 }

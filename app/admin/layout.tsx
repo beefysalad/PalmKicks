@@ -4,6 +4,7 @@ import { useSession } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import AdminNavbar from "../components/pages/Admin/Navbar";
+import { toast } from "sonner";
 
 export default function AdminLayout({
   children,
@@ -12,13 +13,16 @@ export default function AdminLayout({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { status } = useSession();
+  const { status, data: session } = useSession();
 
   useEffect(() => {
     if (status === "unauthenticated" && pathname !== "/admin/login") {
       router.push("/admin/login");
     }
-  }, [status, pathname, router]);
+    if (session?.user.firstTimeLogin) {
+      router.push("/admin/settings");
+    }
+  }, [status, pathname, router, session]);
 
   if (pathname === "/admin/login") {
     return <>{children}</>;

@@ -27,13 +27,12 @@ export const checkoutFn = async ({
     throw new Error("Please select a delivery method");
   }
 
-  // Prepare order payload based on delivery method
   const orderPayload: CreateOrderPayload = {
     customerName: values.name,
     customerEmail: values.email,
     customerPhone: values.phone,
     items: items.map((item) => ({
-      productId: item.id, // Product ID from cart
+      productId: item.id,
       name: item.name,
       price: item.price,
       image: item.image,

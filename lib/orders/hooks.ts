@@ -4,19 +4,28 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ordersApi, type CreateOrderPayload, type Order } from "./api";
 import { useRouter } from "next/navigation";
+import { orderKeys } from "./order-keys";
 
-export const useOrders = (filters?: {
-  status?: "pending" | "confirmed" | "processing" | "shipped" | "delivered";
-}) => {
+export type OrderStatus =
+  | "pending"
+  | "confirmed"
+  | "processing"
+  | "shipped"
+  | "delivered";
+export interface OrderFilters {
+  status?: OrderStatus;
+}
+
+export const useOrders = (filters?: OrderFilters) => {
   return useQuery({
-    queryKey: ["orders", filters],
+    queryKey: orderKeys.list(filters),
     queryFn: () => ordersApi.fetchOrders(filters),
   });
 };
 
 export const useOrder = (id: string) => {
   return useQuery({
-    queryKey: ["orders", id],
+    queryKey: orderKeys.detail(id),
     queryFn: () => ordersApi.fetchOrderById(id),
     enabled: !!id,
   });
@@ -28,7 +37,7 @@ export const useCreateOrder = () => {
   return useMutation({
     mutationFn: (payload: CreateOrderPayload) => ordersApi.createOrder(payload),
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
       toast.success("Order placed successfully!", {
         description: `Order #${data.id} has been created`,
       });
@@ -49,7 +58,7 @@ export const useDeleteOrder = () => {
       return ordersApi.deleteOrderById(id);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: orderKeys.all });
       toast.success("Order deleted successfully");
       router.push("/admin/orders");
     },
@@ -74,23 +83,27 @@ export const useUpdateOrderStatus = () => {
     }) => ordersApi.updateOrderStatus(id, { status }),
     onMutate: async ({ id, status }) => {
       // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["orders"] });
-      await queryClient.cancelQueries({ queryKey: ["orders", id] });
+      await queryClient.cancelQueries({ queryKey: orderKeys.all });
+      await queryClient.cancelQueries({ queryKey: orderKeys.detail(id) });
 
       // Snapshot the previous values
-      const previousOrders = queryClient.getQueryData<Order[]>(["orders"]);
-      const previousOrder = queryClient.getQueryData<Order>(["orders", id]);
+      const previousOrders = queryClient.getQueryData<Order[]>(
+        orderKeys.lists()
+      );
+      const previousOrder = queryClient.getQueryData<Order>(
+        orderKeys.detail(id)
+      );
 
       // Optimistically update the cache
       if (previousOrder) {
-        queryClient.setQueryData<Order>(["orders", id], (old) => {
+        queryClient.setQueryData<Order>(orderKeys.detail(id), (old) => {
           if (!old) return old;
           return { ...old, status };
         });
       }
 
       if (previousOrders) {
-        queryClient.setQueryData<Order[]>(["orders"], (old) => {
+        queryClient.setQueryData<Order[]>(orderKeys.lists(), (old) => {
           if (!old) return old;
           return old.map((order) =>
             order.id === id ? { ...order, status } : order
@@ -100,24 +113,22 @@ export const useUpdateOrderStatus = () => {
 
       return { previousOrders, previousOrder };
     },
-    onError: (error: Error, variables, context) => {
-      // Rollback on error
+    onError: (error, variables, context) => {
       if (context?.previousOrder) {
         queryClient.setQueryData(
-          ["orders", variables.id],
+          orderKeys.detail(variables.id),
           context.previousOrder
         );
       }
+
       if (context?.previousOrders) {
-        queryClient.setQueryData(["orders"], context.previousOrders);
+        queryClient.setQueryData(orderKeys.list(), context.previousOrders);
       }
-      toast.error(
-        error instanceof Error ? error.message : "Failed to update order status"
-      );
+
+      toast.error(error.message);
     },
     onSuccess: () => {
-      // Invalidate to refetch and ensure consistency
-      queryClient.invalidateQueries({ queryKey: ["orders"] });
+      queryClient.invalidateQueries({ queryKey: orderKeys.all });
       toast.success("Order status updated successfully");
     },
   });

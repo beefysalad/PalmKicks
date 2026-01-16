@@ -9,19 +9,27 @@ import {
 } from "./api";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { productKeys } from "./product-keys";
 
 export const useProducts = () => {
   return useQuery({
-    queryKey: ["products"],
+    queryKey: productKeys.all,
     queryFn: () => productsApi.fetchProducts(),
+    staleTime: 1000 * 60 * 5,
   });
 };
 
 export const useProduct = (id: string) => {
+  const queryClient = useQueryClient();
+
   return useQuery({
-    queryKey: ["products", id],
+    queryKey: productKeys.detail(id),
     queryFn: () => productsApi.fetchProductById(id),
     enabled: !!id,
+    initialData: () => {
+      const products = queryClient.getQueryData<Product[]>(productKeys.all);
+      return products?.find((p) => p.id === id);
+    },
   });
 };
 
@@ -32,7 +40,7 @@ export const useCreateProduct = () => {
     mutationFn: (payload: CreateProductPayload) =>
       productsApi.createProduct(payload),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: productKeys.all });
       toast.success("Product created successfully");
       router.push("/admin/products");
     },
@@ -56,8 +64,10 @@ export const useUpdateProduct = () => {
       payload: UpdateProductPayload;
     }) => productsApi.updateProduct(id, payload),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: ["products", variables.id] });
+      queryClient.invalidateQueries({ queryKey: productKeys.all });
+      queryClient.invalidateQueries({
+        queryKey: productKeys.detail(variables.id),
+      });
       toast.success("Product updated successfully");
       router.push("/admin/products");
     },
@@ -75,7 +85,7 @@ export const useDeleteProduct = () => {
   return useMutation({
     mutationFn: (id: string) => productsApi.deleteProduct(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: productKeys.all });
       toast.success("Product deleted successfully");
     },
     onError: (error: Error) => {
@@ -94,16 +104,16 @@ export const useToggleFeatured = () => {
       productsApi.toggleFeatured(id, featured),
     onMutate: async ({ id, featured }) => {
       // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["products"] });
+      await queryClient.cancelQueries({ queryKey: productKeys.all });
 
       // Snapshot the previous value
-      const previousProducts = queryClient.getQueryData<Product[]>([
-        "products",
-      ]);
+      const previousProducts = queryClient.getQueryData<Product[]>(
+        productKeys.all
+      );
 
       // Optimistically update the cache
       if (previousProducts) {
-        queryClient.setQueryData<Product[]>(["products"], (old) => {
+        queryClient.setQueryData<Product[]>(productKeys.all, (old) => {
           if (!old) return old;
           return old.map((product) =>
             product.id === id ? { ...product, featured } : product
@@ -116,7 +126,7 @@ export const useToggleFeatured = () => {
     onError: (error: Error, _, context) => {
       // Rollback on error
       if (context?.previousProducts) {
-        queryClient.setQueryData(["products"], context.previousProducts);
+        queryClient.setQueryData(productKeys.all, context.previousProducts);
       }
       toast.error(
         error instanceof Error ? error.message : "Failed to toggle featured"
@@ -124,8 +134,8 @@ export const useToggleFeatured = () => {
     },
     onSuccess: () => {
       // Invalidate to refetch and ensure consistency
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: ["products", "featured"] });
+      queryClient.invalidateQueries({ queryKey: productKeys.all });
+      queryClient.invalidateQueries({ queryKey: productKeys.featured });
     },
   });
 };
@@ -138,16 +148,16 @@ export const useToggleLatest = () => {
       productsApi.toggleLatest(id, latest),
     onMutate: async ({ id, latest }) => {
       // Cancel any outgoing refetches
-      await queryClient.cancelQueries({ queryKey: ["products"] });
+      await queryClient.cancelQueries({ queryKey: productKeys.all });
 
       // Snapshot the previous value
-      const previousProducts = queryClient.getQueryData<Product[]>([
-        "products",
-      ]);
+      const previousProducts = queryClient.getQueryData<Product[]>(
+        productKeys.all
+      );
 
       // Optimistically update the cache
       if (previousProducts) {
-        queryClient.setQueryData<Product[]>(["products"], (old) => {
+        queryClient.setQueryData<Product[]>(productKeys.all, (old) => {
           if (!old) return old;
           return old.map((product) =>
             product.id === id ? { ...product, latest } : product
@@ -160,7 +170,7 @@ export const useToggleLatest = () => {
     onError: (error: Error, _, context) => {
       // Rollback on error
       if (context?.previousProducts) {
-        queryClient.setQueryData(["products"], context.previousProducts);
+        queryClient.setQueryData(productKeys.all, context.previousProducts);
       }
       toast.error(
         error instanceof Error ? error.message : "Failed to toggle latest"
@@ -168,22 +178,22 @@ export const useToggleLatest = () => {
     },
     onSuccess: () => {
       // Invalidate to refetch and ensure consistency
-      queryClient.invalidateQueries({ queryKey: ["products"] });
-      queryClient.invalidateQueries({ queryKey: ["products", "latest"] });
+      queryClient.invalidateQueries({ queryKey: productKeys.all });
+      queryClient.invalidateQueries({ queryKey: productKeys.latest });
     },
   });
 };
 
 export const useFeaturedProducts = () => {
   return useQuery({
-    queryKey: ["products", "featured"],
+    queryKey: productKeys.featured,
     queryFn: () => productsApi.fetchFeaturedProducts(),
   });
 };
 
 export const useLatestProducts = () => {
   return useQuery({
-    queryKey: ["products", "latest"],
+    queryKey: productKeys.latest,
     queryFn: () => productsApi.fetchLatestProducts(),
   });
 };

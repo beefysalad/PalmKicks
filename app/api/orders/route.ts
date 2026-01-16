@@ -1,5 +1,5 @@
 import { addOrder, getOrders } from "@/app/api/orders/orders-service";
-import { orderSchema } from "@/app/components/pages/Checkout/orderZod";
+import { orderSchema } from "@/app/shared/zod/order-zod";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {

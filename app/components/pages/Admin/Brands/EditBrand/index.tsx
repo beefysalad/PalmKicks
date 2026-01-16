@@ -10,7 +10,10 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { brandsSchema, TBrandsSchema } from "../brandsZod";
+import {
+  brandsSchema,
+  TBrandsSchema,
+} from "../../../../../shared/zod/brands-zod";
 
 const EditBrandPage = () => {
   const router = useRouter();

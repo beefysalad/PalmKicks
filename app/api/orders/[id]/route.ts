@@ -3,9 +3,7 @@ import {
   getOrderById,
   updateOrderStatus,
 } from "@/app/api/orders/orders-service";
-import {
-  updateOrderStatusSchema
-} from "@/app/components/pages/Checkout/orderZod";
+import { updateOrderStatusSchema } from "@/app/shared/zod/order-zod";
 import { NextRequest, NextResponse } from "next/server";
 
 interface RouteParams {

@@ -1,5 +1,5 @@
 import { CartItem } from "../../app/components/shared/CartProvider";
-import { TCheckoutSchema } from "../../app/components/pages/Checkout/checkoutZod";
+import { TCheckoutSchema } from "../../app/shared/zod/checkout-zod";
 import { DeliveryMethod } from "../../app/components/pages/Checkout/CheckoutForm";
 import { ordersApi, type CreateOrderPayload } from "../../lib/orders/api";
 import axios from "axios";

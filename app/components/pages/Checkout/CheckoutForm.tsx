@@ -20,7 +20,10 @@ import { toast } from "sonner";
 import { useCart } from "../../shared/CartProvider";
 import ProgressIndicator from "./ProgressIndicator";
 import { useForm } from "react-hook-form";
-import { checkoutSchema, TCheckoutSchema } from "./checkoutZod";
+import {
+  checkoutSchema,
+  TCheckoutSchema,
+} from "../../../shared/zod/checkout-zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { checkoutFn } from "../../../../lib/checkout/checkout";

@@ -7,3 +7,9 @@ export const getInitials = (username: string) => {
     .toUpperCase()
     .slice(0, 2);
 };
+
+export const getDevelopmentEnvironment = () => {
+  return process.env.NEXT_PUBLIC_ENVIRONMENT === "DEV"
+    ? "Development"
+    : "Production";
+};

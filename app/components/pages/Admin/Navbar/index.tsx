@@ -1,14 +1,4 @@
-import {
-  LayoutDashboard,
-  Package,
-  Tag,
-  Star,
-  Sparkles,
-  ShoppingBag,
-  LogOut,
-  User,
-  Menu,
-} from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -18,17 +8,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { getDevelopmentEnvironment, getInitials } from "@/helpers";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import { getInitials } from "@/helpers";
-import Link from "next/link";
+  LayoutDashboard,
+  LogOut,
+  Package,
+  ShoppingBag,
+  Sparkles,
+  Star,
+  Tag,
+} from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 const navItems = [
@@ -39,6 +30,7 @@ const navItems = [
   { href: "/admin/latest", label: "Latest", icon: Sparkles },
   { href: "/admin/orders", label: "Orders", icon: ShoppingBag },
 ];
+
 const AdminNavbar = () => {
   const router = useRouter();
   const pathname = usePathname();
@@ -65,39 +57,42 @@ const AdminNavbar = () => {
   const username = session.user?.username || "Admin";
 
   return (
-    <nav className='border-b border-border bg-card shadow-sm'>
-      <div className='container mx-auto px-4'>
-        <div className='flex h-16 items-center justify-between'>
-          <div className='flex items-center gap-8'>
-            <Link
-              href='/admin/dashboard'
-              className='text-xl font-bold text-foreground'
-            >
-              Admin Panel
-            </Link>
+    <div className='sticky top-0 z-50 w-full border-b border-border bg-card shadow-sm'>
+      {/* Main Navbar */}
+      <nav className='border-b border-border/40 lg:border-b-0'>
+        <div className='container mx-auto px-4'>
+          <div className='flex h-16 items-center justify-between'>
+            {/* Left Section - Logo & Desktop Nav */}
+            <div className='flex items-center gap-6'>
+              <Link
+                href='/admin/dashboard'
+                className='text-xl font-bold text-foreground'
+              >
+                Admin Panel ({getDevelopmentEnvironment()})
+              </Link>
 
-            {/* Desktop Navigation */}
-            <div className='hidden gap-1 lg:flex'>
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = pathname === item.href;
-                return (
-                  <Link key={item.href} href={item.href}>
-                    <Button
-                      variant={isActive ? "default" : "ghost"}
-                      className='gap-2'
-                    >
-                      <Icon className='h-4 w-4' />
-                      {item.label}
-                    </Button>
-                  </Link>
-                );
-              })}
+              {/* Desktop Navigation */}
+              <div className='hidden gap-1 lg:flex'>
+                {navItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = pathname === item.href;
+                  return (
+                    <Link key={item.href} href={item.href}>
+                      <Button
+                        variant={isActive ? "default" : "ghost"}
+                        size='sm'
+                        className='gap-2'
+                      >
+                        <Icon className='h-4 w-4' />
+                        {item.label}
+                      </Button>
+                    </Link>
+                  );
+                })}
+              </div>
             </div>
-          </div>
 
-          <div className='flex items-center gap-3'>
-            {/* Profile Dropdown */}
+            {/* Right Section - Profile */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -141,55 +136,43 @@ const AdminNavbar = () => {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-
-            {/* Mobile Menu */}
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant='ghost' size='icon' className='lg:hidden'>
-                  <Menu className='h-5 w-5' />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side='right' className='w-64'>
-                <SheetHeader>
-                  <SheetTitle>Menu</SheetTitle>
-                </SheetHeader>
-                <div className='mt-6 flex flex-col gap-2'>
-                  {navItems.map((item) => {
-                    const Icon = item.icon;
-                    const isActive = pathname === item.href;
-                    return (
-                      <Link key={item.href} href={item.href}>
-                        <Button
-                          variant={isActive ? "default" : "ghost"}
-                          className='w-full justify-start gap-2'
-                        >
-                          <Icon className='h-4 w-4' />
-                          {item.label}
-                        </Button>
-                      </Link>
-                    );
-                  })}
-                  <DropdownMenuSeparator className='my-2' />
-                  <Link href='/'>
-                    <Button variant='ghost' className='w-full justify-start'>
-                      View Site
-                    </Button>
-                  </Link>
-                  <Button
-                    variant='ghost'
-                    className='w-full justify-start gap-2 text-destructive hover:text-destructive'
-                    onClick={handleLogout}
-                  >
-                    <LogOut className='h-4 w-4' />
-                    Logout
-                  </Button>
-                </div>
-              </SheetContent>
-            </Sheet>
           </div>
         </div>
+      </nav>
+
+      {/* Mobile Horizontal Scroll Menu */}
+      <div className='scrollbar-hide overflow-x-auto bg-muted/30 lg:hidden'>
+        <div className='flex gap-1.5 px-4 py-2.5'>
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = pathname === item.href;
+            return (
+              <Link key={item.href} href={item.href} className='flex-shrink-0'>
+                <Button
+                  variant={isActive ? "default" : "ghost"}
+                  size='sm'
+                  className='gap-2 whitespace-nowrap px-4'
+                >
+                  <Icon className='h-4 w-4' />
+                  <span className='text-sm font-medium'>{item.label}</span>
+                </Button>
+              </Link>
+            );
+          })}
+        </div>
       </div>
-    </nav>
+
+      {/* Add this style tag to hide scrollbar */}
+      <style jsx global>{`
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
+    </div>
   );
 };
 

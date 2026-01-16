@@ -1,3 +1,4 @@
+import { getDevelopmentEnvironment } from "@/helpers";
 import { Order } from "./orders";
 
 export interface OrderConfirmationEmailContent {
@@ -69,7 +70,7 @@ export function buildOrderConfirmationEmail(
               <img src=${
                 process.env.NEXT_PUBLIC_LOGO_URL
               } alt="PalmKicks Logo" style="width: 80px; height: 80px; border-radius: 50%; margin-bottom: 20px; border: 3px solid rgba(255, 255, 255, 0.3);" />
-              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">Order Confirmed!</h1>
+              <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 700;">Order Confirmed! (${getDevelopmentEnvironment()})</h1>
               <p style="margin: 8px 0 0; color: rgba(255, 255, 255, 0.9); font-size: 16px;">Thank you for your purchase</p>
             </td>
           </tr>

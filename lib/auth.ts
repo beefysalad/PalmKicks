@@ -36,6 +36,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         return {
           id: admin.id,
           username: admin.username,
+          firstTimeLogin: admin.firstTimeLogin,
         };
       },
     }),
@@ -45,14 +46,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user) {
         token.id = user.id;
         token.username = user.username;
+        token.firstTimeLogin = user.firstTimeLogin;
       }
+
       return token;
     },
     async session({ session, token }) {
       if (token && session.user) {
         session.user.id = token.id as string;
         session.user.username = token.username as string;
+        if (token.firstTimeLogin !== undefined) {
+          session.user.firstTimeLogin = token.firstTimeLogin;
+        }
       }
+
       return session;
     },
   },

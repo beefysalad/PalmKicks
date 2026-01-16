@@ -13,6 +13,7 @@ import {
   LayoutDashboard,
   LogOut,
   Package,
+  Settings,
   ShoppingBag,
   Sparkles,
   Star,
@@ -29,6 +30,7 @@ const navItems = [
   { href: "/admin/featured", label: "Featured", icon: Star },
   { href: "/admin/latest", label: "Latest", icon: Sparkles },
   { href: "/admin/orders", label: "Orders", icon: ShoppingBag },
+  { href: "/admin/settings", label: "Settings", icon: Settings },
 ];
 
 const AdminNavbar = () => {

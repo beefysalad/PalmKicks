@@ -13,7 +13,10 @@ import Image from "next/image";
 import { X } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { productFormSchema, TProductFormSchema } from "../productZod";
+import {
+  productFormSchema,
+  TProductFormSchema,
+} from "../../../../../shared/zod/product-zod";
 import axios from "axios";
 
 const EditProductPage = () => {

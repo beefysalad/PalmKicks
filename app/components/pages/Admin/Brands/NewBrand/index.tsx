@@ -8,7 +8,10 @@ import { useCreateBrand } from "@/lib/brands/hooks";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
-import { brandsSchema, TBrandsSchema } from "../brandsZod";
+import {
+  brandsSchema,
+  TBrandsSchema,
+} from "../../../../../shared/zod/brands-zod";
 
 const NewBrandPage = () => {
   const router = useRouter();

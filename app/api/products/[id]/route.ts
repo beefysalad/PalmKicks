@@ -5,7 +5,7 @@ import {
   deleteProduct,
   type UpdateProductData,
 } from "@/app/api/products/products-service";
-import { productSchema } from "@/app/components/pages/Admin/Products/productZod";
+import { productSchema } from "@/app/shared/zod/product-zod";
 import prisma from "@/lib/prisma";
 
 interface RouteParams {

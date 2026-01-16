@@ -14,7 +14,10 @@ import { X } from "lucide-react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { productFormSchema, TProductFormSchema } from "../productZod";
+import {
+  productFormSchema,
+  TProductFormSchema,
+} from "../../../../../shared/zod/product-zod";
 import axios from "axios";
 const NewProductPage = () => {
   const router = useRouter();

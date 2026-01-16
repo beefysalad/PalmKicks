@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getProducts, addProduct } from "@/app/api/products/products-service";
-import { productSchema } from "@/app/components/pages/Admin/Products/productZod";
+import { productSchema } from "@/app/shared/zod/product-zod";
 import prisma from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {

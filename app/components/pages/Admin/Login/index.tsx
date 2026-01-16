@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ShieldCheck, Loader2, AlertCircle, Eye, EyeOff } from "lucide-react";
-import { loginSchema, TLoginSchema } from "./loginZod";
+import { loginSchema, TLoginSchema } from "../../../../shared/zod/login-zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 

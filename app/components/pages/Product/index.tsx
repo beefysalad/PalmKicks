@@ -1,4 +1,4 @@
-import { Product } from "@/lib/products/api";
+import { Product } from "@/app/shared/types/product";
 import ProductDetail from "./ProductDetail";
 
 interface ProductProps {

@@ -23,7 +23,6 @@ import {
 import Image from "next/image";
 import { useState } from "react";
 import { useOrder } from "@/lib/orders/hooks";
-import type { Order } from "@/lib/orders/api";
 
 const statusSteps = [
   {

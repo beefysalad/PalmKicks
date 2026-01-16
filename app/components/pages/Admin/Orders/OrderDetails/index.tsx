@@ -9,7 +9,7 @@ import {
 } from "@/lib/orders/hooks";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import type { Order } from "@/lib/orders/api";
+
 import {
   ArrowLeft,
   Package,
@@ -20,6 +20,7 @@ import {
   Mail,
   Phone,
 } from "lucide-react";
+import { Order } from "@/app/shared/types/order";
 
 const OrderDetailsPage = () => {
   const params = useParams();

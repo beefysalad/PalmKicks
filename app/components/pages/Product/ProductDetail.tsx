@@ -2,7 +2,7 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Product } from "@/lib/products/api";
+
 import { motion } from "framer-motion";
 import { ArrowLeft, Check, ShoppingCart, Trash2, Tag } from "lucide-react";
 import Image from "next/image";
@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useCart } from "../../shared/CartProvider";
+import { Product } from "@/app/shared/types/product";
 
 interface ProductDetailProps {
   product: Product;

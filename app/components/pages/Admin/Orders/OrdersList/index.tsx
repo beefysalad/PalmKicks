@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Pagination } from "@/components/ui/pagination";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import type { Order } from "@/lib/orders/api";
+import { Order } from "@/app/shared/types/order";
 
 const ITEMS_PER_PAGE = 10;
 

@@ -1,7 +1,7 @@
 import {
   changePasswordFormSchema,
   TChangePasswordFormSchema,
-} from "@/app/shared/zod/change-password.zod";
+} from "@/app/shared/zod/settings-zod";
 import { Button } from "@/components/ui/button";
 import {
   Card,

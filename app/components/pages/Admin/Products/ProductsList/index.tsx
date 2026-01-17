@@ -326,7 +326,6 @@ const ProductsListPage = () => {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
       {deleteConfirm && (
         <div className='fixed inset-0 z-50 flex items-end justify-center sm:items-center'>
           <div

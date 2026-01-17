@@ -1,4 +1,4 @@
-import { changePasswordSchema } from "@/app/shared/zod/change-password.zod";
+import { changePasswordSchema } from "@/app/shared/zod/settings-zod";
 import { NextRequest, NextResponse } from "next/server";
 import { changePassword } from "../settings-service";
 import { auth } from "@/lib/auth";

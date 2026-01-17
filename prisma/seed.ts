@@ -64,7 +64,61 @@ async function adminSeed() {
     console.log(`Admin ${account.username} created`);
   }
 }
+async function configSeed() {
+  const {
+    NEXT_PUBLIC_FACEBOOK_URL,
+    NEXT_PUBLIC_INSTAGRAM_URL,
+    NEXT_PUBLIC_CONTACT_EMAIL,
+    NEXT_PUBLIC_TIKTOK_URL,
+  } = process.env;
 
+  if (
+    !NEXT_PUBLIC_FACEBOOK_URL ||
+    !NEXT_PUBLIC_INSTAGRAM_URL ||
+    !NEXT_PUBLIC_CONTACT_EMAIL ||
+    !NEXT_PUBLIC_TIKTOK_URL
+  ) {
+    throw new Error("Config seed environment variables are not set");
+  }
+  const configsToCreate = [
+    {
+      key: "FACEBOOK_URL",
+      value: NEXT_PUBLIC_FACEBOOK_URL,
+    },
+    {
+      key: "INSTAGRAM_URL",
+      value: NEXT_PUBLIC_INSTAGRAM_URL,
+    },
+    {
+      key: "CONTACT_EMAIL",
+      value: NEXT_PUBLIC_CONTACT_EMAIL,
+    },
+    {
+      key: "TIKTOK_URL",
+      value: NEXT_PUBLIC_TIKTOK_URL,
+    },
+  ];
+
+  for (const config of configsToCreate) {
+    const existing = await prisma.configurations.findUnique({
+      where: { key: config.key },
+    });
+
+    if (existing) {
+      console.log(`Config ${config.key} already exists! Skipping`);
+      continue;
+    }
+
+    await prisma.configurations.create({
+      data: {
+        key: config.key,
+        value: config.value,
+      },
+    });
+
+    console.log(`Config ${config.key} created`);
+  }
+}
 async function brandSeed() {
   const brands = [
     {
@@ -342,6 +396,7 @@ async function main() {
   await adminSeed();
   await brandSeed();
   await productSeed();
+  await configSeed();
 }
 
 main()

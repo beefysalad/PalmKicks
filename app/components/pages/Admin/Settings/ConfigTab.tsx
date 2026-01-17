@@ -1,3 +1,8 @@
+import {
+  AddConfigDataPayload,
+  UpdateConfigPayload,
+} from "@/app/shared/types/settings";
+import { addConfigSchema } from "@/app/shared/zod/settings-zod";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -8,75 +13,60 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Save, Trash2 } from "lucide-react";
+import {
+  useAddConfig,
+  useDeleteConfig,
+  useGetAllConfigs,
+  useUpdateConfig,
+} from "@/lib/settings/hook";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Plus, Save, Trash2, X, Edit } from "lucide-react";
 import { useState } from "react";
+import { useForm } from "react-hook-form";
 
 const ConfigTab = () => {
-  const [isLoading, setIsLoading] = useState(false);
+  const { data: configs, isLoading } = useGetAllConfigs();
+  const createConfigMutation = useAddConfig();
+  const deleteConfigMutation = useDeleteConfig();
+  const updateConfigMutation = useUpdateConfig();
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState<Record<string, string>>({});
 
-  const [configs, setConfigs] = useState([
-    { id: 1, key: "STORE_NAME", value: "My Store" },
-    { id: 2, key: "CONTACT_EMAIL", value: "contact@store.com" },
-    { id: 3, key: "MAINTENANCE_MODE", value: "false" },
-  ]);
+  const form = useForm({
+    resolver: zodResolver(addConfigSchema),
+    defaultValues: {
+      key: "",
+      value: "",
+    },
+  });
 
-  const [newConfig, setNewConfig] = useState({ key: "", value: "" });
-
-  // Config handlers
-  const handleAddConfig = () => {
-    if (!newConfig.key.trim() || !newConfig.value.trim()) {
-      alert("Please enter both key and value!");
-      return;
-    }
-
-    const exists = configs.some((c) => c.key === newConfig.key);
-    if (exists) {
-      alert("A configuration with this key already exists!");
-      return;
-    }
-
-    setConfigs([
-      ...configs,
-      {
-        id: Date.now(),
-        key: newConfig.key.toUpperCase(),
-        value: newConfig.value,
-      },
-    ]);
-    setNewConfig({ key: "", value: "" });
+  const onSubmit = (values: AddConfigDataPayload) => {
+    createConfigMutation.mutateAsync(values);
+    form.reset();
   };
 
-  const handleUpdateConfig = (id: number, value: string) => {
-    setConfigs(configs.map((c) => (c.id === id ? { ...c, value } : c)));
+  const onHandleDelete = (id: string) => deleteConfigMutation.mutateAsync(id);
+
+  const handleEditStart = (id: string, value: string) => {
+    setEditingId(id);
+    setEditValues({ ...editValues, [id]: value });
   };
 
-  const handleDeleteConfig = (id: number) => {
-    if (confirm("Are you sure you want to delete this configuration?")) {
-      setConfigs(configs.filter((c) => c.id !== id));
-    }
+  const handleEditCancel = () => {
+    setEditingId(null);
+    setEditValues({});
   };
 
-  const handleSaveConfigs = async () => {
-    setIsLoading(true);
-
-    try {
-      // Add your API call here
-      // const response = await fetch('/api/admin/configs', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ configs }),
-      // });
-
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      alert("Configurations saved successfully!");
-    } catch (error) {
-      alert("Failed to save configurations. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
+  const handleEditSave = (id: string) => {
+    const payload: UpdateConfigPayload = {
+      id,
+      value: editValues[id],
+    };
+    updateConfigMutation.mutateAsync(payload);
+    setEditingId(null);
+    setEditValues({});
   };
+
   return (
     <div className='space-y-6'>
       <Card>
@@ -87,42 +77,38 @@ const ConfigTab = () => {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className='flex gap-4'>
-            <div className='flex-1 space-y-2'>
-              <Label htmlFor='config-key'>Key</Label>
-              <Input
-                id='config-key'
-                placeholder='e.g., STORE_NAME'
-                value={newConfig.key}
-                onChange={(e) =>
-                  setNewConfig({
-                    ...newConfig,
-                    key: e.target.value,
-                  })
-                }
-              />
+          <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-4'>
+            <div className='flex gap-4'>
+              <div className='flex-1 space-y-2'>
+                <Label htmlFor='config-key'>Key</Label>
+                <Input
+                  id='config-key'
+                  placeholder='FACEBOOK_URL'
+                  {...form.register("key")}
+                  className={form.formState.errors.key ? "border-red-500" : ""}
+                />
+                {form.formState.errors.key && (
+                  <p className='text-red-500 text-sm'>
+                    {form.formState.errors.key.message}
+                  </p>
+                )}
+              </div>
+              <div className='flex-1 space-y-2'>
+                <Label htmlFor='config-value'>Value</Label>
+                <Input
+                  id='config-value'
+                  placeholder='fb.com/palmkicks'
+                  {...form.register("value")}
+                />
+              </div>
+              <div className='flex items-end'>
+                <Button disabled={createConfigMutation.isPending}>
+                  <Plus className='mr-2 h-4 w-4' />
+                  {createConfigMutation.isPending ? "Adding..." : "Add"}
+                </Button>
+              </div>
             </div>
-            <div className='flex-1 space-y-2'>
-              <Label htmlFor='config-value'>Value</Label>
-              <Input
-                id='config-value'
-                placeholder='e.g., My Awesome Store'
-                value={newConfig.value}
-                onChange={(e) =>
-                  setNewConfig({
-                    ...newConfig,
-                    value: e.target.value,
-                  })
-                }
-              />
-            </div>
-            <div className='flex items-end'>
-              <Button onClick={handleAddConfig}>
-                <Plus className='mr-2 h-4 w-4' />
-                Add
-              </Button>
-            </div>
-          </div>
+          </form>
         </CardContent>
       </Card>
 
@@ -135,14 +121,10 @@ const ConfigTab = () => {
                 Manage your store settings and configurations
               </CardDescription>
             </div>
-            <Button onClick={handleSaveConfigs} disabled={isLoading}>
-              <Save className='mr-2 h-4 w-4' />
-              {isLoading ? "Saving..." : "Save All"}
-            </Button>
           </div>
         </CardHeader>
         <CardContent>
-          {configs.length > 0 ? (
+          {configs && configs.length > 0 ? (
             <div className='space-y-4'>
               {configs.map((config) => (
                 <div
@@ -153,21 +135,61 @@ const ConfigTab = () => {
                     <Label className='font-mono text-xs text-muted-foreground'>
                       {config.key}
                     </Label>
-                    <Input
-                      value={config.value}
-                      onChange={(e) =>
-                        handleUpdateConfig(config.id, e.target.value)
-                      }
-                      className='font-medium'
-                    />
+                    {editingId === config.id ? (
+                      <Input
+                        value={editValues[config.id] || ""}
+                        onChange={(e) =>
+                          setEditValues({
+                            ...editValues,
+                            [config.id]: e.target.value,
+                          })
+                        }
+                        className='font-medium'
+                        autoFocus
+                      />
+                    ) : (
+                      <Input
+                        value={config.value}
+                        readOnly
+                        className='font-medium'
+                      />
+                    )}
                   </div>
-                  <Button
-                    variant='destructive'
-                    size='icon'
-                    onClick={() => handleDeleteConfig(config.id)}
-                  >
-                    <Trash2 className='h-4 w-4' />
-                  </Button>
+                  {editingId === config.id ? (
+                    <>
+                      <Button
+                        size='icon'
+                        onClick={() => handleEditSave(config.id)}
+                        disabled={updateConfigMutation.isPending}
+                      >
+                        <Save className='h-4 w-4' />
+                      </Button>
+                      <Button
+                        variant='outline'
+                        size='icon'
+                        onClick={handleEditCancel}
+                      >
+                        <X className='h-4 w-4' />
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        variant='outline'
+                        size='icon'
+                        onClick={() => handleEditStart(config.id, config.value)}
+                      >
+                        <Edit className='h-4 w-4' />
+                      </Button>
+                      <Button
+                        variant='destructive'
+                        size='icon'
+                        onClick={() => onHandleDelete(config.id)}
+                      >
+                        <Trash2 className='h-4 w-4' />
+                      </Button>
+                    </>
+                  )}
                 </div>
               ))}
             </div>

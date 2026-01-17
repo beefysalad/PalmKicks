@@ -1,7 +1,16 @@
+"use client";
 import Link from "next/link";
 import Image from "next/image";
+import { useConfig } from "../ConfigProvider";
+import { useEffect } from "react";
+import { getConfigValue } from "@/helpers";
 
 const Footer = () => {
+  const configs = useConfig();
+  const facebookUrl = getConfigValue(configs, "FACEBOOK_URL");
+  const instagramUrl = getConfigValue(configs, "INSTAGRAM_URL");
+  const tiktokUrl = getConfigValue(configs, "TIKTOK_URL");
+
   return (
     <footer className='border-t border-border/40 bg-secondary/20'>
       <div className='w-full max-w-7xl mx-auto px-4 py-12'>
@@ -91,7 +100,7 @@ const Footer = () => {
             <h3 className='mb-4 text-base font-semibold'>Follow Us</h3>
             <div className='flex gap-4 justify-center md:justify-start'>
               <a
-                href={process.env.NEXT_PUBLIC_INSTAGRAM_URL || "#"}
+                href={instagramUrl || "#"}
                 target='_blank'
                 rel='noopener noreferrer'
                 className="
@@ -102,7 +111,7 @@ const Footer = () => {
                 "
               />
               <a
-                href={process.env.NEXT_PUBLIC_FACEBOOK_URL || "#"}
+                href={facebookUrl || "#"}
                 target='_blank'
                 rel='noopener noreferrer'
                 className="
@@ -113,7 +122,7 @@ const Footer = () => {
                 "
               />
               <a
-                href={process.env.NEXT_PUBLIC_TIKTOK_URL || "#"}
+                href={tiktokUrl || "#"}
                 target='_blank'
                 rel='noopener noreferrer'
                 className="

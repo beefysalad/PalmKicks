@@ -29,3 +29,10 @@ export const changePasswordSchema = z
   });
 
 export type TChangePasswordSchema = z.infer<typeof changePasswordSchema>;
+
+export const addConfigSchema = z.object({
+  key: z.string().min(1, "Key is required"),
+  value: z.string().min(1, "Value is required"),
+});
+
+export type TAddConfigSchema = z.infer<typeof addConfigSchema>;

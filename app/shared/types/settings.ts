@@ -12,3 +12,19 @@ export interface ChangePasswordResponse {
     message: string;
   }[];
 }
+
+export interface ChangePasswordData {
+  username: string;
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface AddConfigDataPayload {
+  key: string;
+  value: string;
+}
+
+export interface UpdateConfigPayload {
+  id: string;
+  value: string;
+}

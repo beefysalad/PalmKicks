@@ -3,7 +3,7 @@ import { useState, useMemo } from "react";
 interface UsePaginationOptions<T> {
   items: T[];
   itemsPerPage: number;
-  resetDeps?: any[];
+  resetDeps?: unknown[];
 }
 
 export function usePagination<T>({ items, itemsPerPage, resetDeps = [] }: UsePaginationOptions<T>) {
@@ -26,8 +26,10 @@ export function usePagination<T>({ items, itemsPerPage, resetDeps = [] }: UsePag
     setCurrentPage(1);
   };
 
+  // Intentional: caller-supplied dependency list that resets the page.
   useMemo(() => {
     setCurrentPage(1);
+    // eslint-disable-next-line react-hooks/use-memo, react-hooks/exhaustive-deps
   }, resetDeps);
 
   return {

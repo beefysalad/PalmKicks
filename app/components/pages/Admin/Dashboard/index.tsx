@@ -1,42 +1,29 @@
 "use client";
 
 import { useProducts } from "@/lib/products/hooks";
-import { useOrders } from "@/lib/orders/hooks";
+import { useOrders, useOrderStats } from "@/lib/orders/hooks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Package, ShoppingBag, DollarSign, Clock } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
-import { useMemo } from "react";
 import { Order } from "@/app/shared/types/order";
 
 const DashboardPage = () => {
   const { data: products = [] } = useProducts();
-  const { data: orders = [], isLoading: isLoadingOrders } = useOrders();
+  const { data: recentPage, isLoading: isLoadingOrders } = useOrders({
+    page: 1,
+    pageSize: 10,
+  });
+  const { data: orderStats } = useOrderStats();
+  const recentOrders = recentPage?.items ?? [];
 
-  const stats = useMemo(() => {
-    const totalRevenue = orders
-      .filter((order) => order.status !== "pending")
-      .reduce((sum, order) => sum + order.total, 0);
-    const pendingOrders = orders.filter(
-      (order) => order.status === "pending"
-    ).length;
-
-    return {
-      totalProducts: products.length,
-      totalOrders: orders.length,
-      totalRevenue,
-      pendingOrders,
-    };
-  }, [products, orders]);
-
-  const recentOrders = useMemo(() => {
-    const sorted = [...orders].sort(
-      (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-    return sorted.slice(0, 10);
-  }, [orders]);
+  const stats = {
+    totalProducts: products.length,
+    totalOrders: orderStats?.total ?? 0,
+    totalRevenue: orderStats?.revenue ?? 0,
+    pendingOrders: orderStats?.byStatus.pending ?? 0,
+  };
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {

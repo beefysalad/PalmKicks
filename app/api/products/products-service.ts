@@ -1,4 +1,6 @@
 import prisma from "../../../lib/prisma";
+import { DomainError } from "@/lib/api-errors";
+import type { Prisma } from "@/app/generated/prisma/client";
 
 export interface Product {
   id: string;
@@ -66,8 +68,7 @@ export async function getProducts(filters?: {
   featured?: boolean;
   latest?: boolean;
 }): Promise<Product[]> {
-  //eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const where: any = {};
+  const where: Prisma.ProductWhereInput = {};
   if (filters?.featured !== undefined) {
     where.featured = filters.featured;
   }
@@ -132,173 +133,171 @@ export async function getProductById(id: string): Promise<Product | null> {
   };
 }
 
+const PRODUCT_INCLUDE = {
+  brand: { select: { id: true, name: true } },
+  images: { orderBy: { order: "asc" } },
+} as const;
+
+type ProductRow = Prisma.ProductGetPayload<{ include: typeof PRODUCT_INCLUDE }>;
+
+function toProduct(row: ProductRow): Product {
+  return {
+    ...row,
+    price: Number(row.price),
+    discountPrice: row.discountPrice ? Number(row.discountPrice) : null,
+    sizes: row.sizes as string[],
+    colors: row.colors as string[],
+  };
+}
+
 export async function addProduct(data: CreateProductData): Promise<Product> {
   const { additionalImages = [], ...productData } = data;
 
-  // Create product with main image
-  const product = await prisma.product.create({
-    data: {
-      name: productData.name,
-      brandId: productData.brandId,
-      category: productData.category,
-      gender: productData.gender,
-      price: productData.price,
-      discountPrice: productData.discountPrice,
-      description: productData.description,
-      image: productData.image,
-      sizes: productData.sizes || [],
-      colors: productData.colors || [],
-      inStock: productData.inStock ?? true,
-      featured: false, // Explicitly set to false - products must be manually featured
-      latest: false, // Explicitly set to false - products must be manually added to latest
-      sale: productData.sale,
-    },
-    include: {
-      brand: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-      images: true,
-    },
-  });
+  if (productData.sale) {
+    if (productData.discountPrice === undefined) {
+      throw new DomainError(
+        "Discount price is required when the product is on sale",
+        400
+      );
+    }
+    if (productData.discountPrice > productData.price) {
+      throw new DomainError("Discount price cannot exceed price", 400);
+    }
+  }
+  const discountPrice = productData.sale
+    ? productData.discountPrice
+    : undefined;
 
-  // Create additional images if provided
-  if (additionalImages.length > 0) {
-    await prisma.productImage.createMany({
-      data: additionalImages.map((url, index) => ({
-        productId: product.id,
-        url,
-        order: index,
-      })),
+  // Product and gallery images are written atomically.
+  const completeProduct = await prisma.$transaction(async (tx) => {
+    const product = await tx.product.create({
+      data: {
+        name: productData.name,
+        brandId: productData.brandId,
+        category: productData.category,
+        gender: productData.gender,
+        price: productData.price,
+        discountPrice,
+        description: productData.description,
+        image: productData.image,
+        sizes: productData.sizes || [],
+        colors: productData.colors || [],
+        inStock: productData.inStock ?? true,
+        featured: false, // products must be manually featured
+        latest: false, // products must be manually added to latest
+        sale: productData.sale,
+      },
     });
-  }
 
-  // Fetch the complete product with images
-  const completeProduct = await prisma.product.findUnique({
-    where: { id: product.id },
-    include: {
-      brand: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-      images: {
-        orderBy: {
-          order: "asc",
-        },
-      },
-    },
+    if (additionalImages.length > 0) {
+      await tx.productImage.createMany({
+        data: additionalImages.map((url, index) => ({
+          productId: product.id,
+          url,
+          order: index,
+        })),
+      });
+    }
+
+    const full = await tx.product.findUnique({
+      where: { id: product.id },
+      include: PRODUCT_INCLUDE,
+    });
+    if (!full) throw new Error("Failed to create product");
+    return full;
   });
 
-  if (!completeProduct) {
-    throw new Error("Failed to create product");
-  }
-
-  return {
-    ...completeProduct,
-    price: Number(completeProduct.price),
-    discountPrice: completeProduct.discountPrice
-      ? Number(completeProduct.discountPrice)
-      : null,
-    sizes: completeProduct.sizes as string[],
-    colors: completeProduct.colors as string[],
-  };
+  return toProduct(completeProduct);
 }
 
 export async function updateProduct(
   id: string,
   updates: UpdateProductData
 ): Promise<Product> {
-  const { additionalImages, ...productUpdates } = updates;
+  const { additionalImages, brandId, ...rest } = updates;
 
-  // Prepare update data - use a flexible type that includes all possible fields
-  //eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const updateData: any = {};
-  if (productUpdates.name !== undefined) updateData.name = productUpdates.name;
-  if (productUpdates.brandId !== undefined)
-    updateData.brandId = productUpdates.brandId;
-  if (productUpdates.category !== undefined)
-    updateData.category = productUpdates.category;
-  if (productUpdates.gender !== undefined)
-    updateData.gender = productUpdates.gender;
-  if (productUpdates.price !== undefined)
-    updateData.price = productUpdates.price;
-  if (productUpdates.discountPrice !== undefined)
-    updateData.discountPrice = productUpdates.discountPrice;
-  if (productUpdates.description !== undefined)
-    updateData.description = productUpdates.description;
-  if (productUpdates.image !== undefined)
-    updateData.image = productUpdates.image;
-  if (productUpdates.sizes !== undefined)
-    updateData.sizes = productUpdates.sizes;
-  if (productUpdates.colors !== undefined)
-    updateData.colors = productUpdates.colors;
-  if (productUpdates.inStock !== undefined)
-    updateData.inStock = productUpdates.inStock;
-  if (productUpdates.featured !== undefined)
-    updateData.featured = productUpdates.featured;
-  if (productUpdates.latest !== undefined)
-    updateData.latest = productUpdates.latest;
-  if (productUpdates.sale !== undefined) updateData.sale = productUpdates.sale;
+  const updateData: Prisma.ProductUpdateInput = {};
+  if (rest.name !== undefined) updateData.name = rest.name;
+  if (brandId !== undefined) updateData.brand = { connect: { id: brandId } };
+  if (rest.category !== undefined) updateData.category = rest.category;
+  if (rest.gender !== undefined) updateData.gender = rest.gender;
+  if (rest.price !== undefined) updateData.price = rest.price;
+  if (rest.discountPrice !== undefined)
+    updateData.discountPrice = rest.discountPrice;
+  if (rest.description !== undefined) updateData.description = rest.description;
+  if (rest.image !== undefined) updateData.image = rest.image;
+  if (rest.sizes !== undefined) updateData.sizes = rest.sizes;
+  if (rest.colors !== undefined) updateData.colors = rest.colors;
+  if (rest.inStock !== undefined) updateData.inStock = rest.inStock;
+  if (rest.featured !== undefined) updateData.featured = rest.featured;
+  if (rest.latest !== undefined) updateData.latest = rest.latest;
+  if (rest.sale !== undefined) updateData.sale = rest.sale;
 
-  await prisma.product.update({
-    where: { id },
-    data: updateData,
-  });
-
-  // Update additional images if provided
-  if (additionalImages !== undefined) {
-    // Delete existing images
-    await prisma.productImage.deleteMany({
-      where: { productId: id },
-    });
-
-    // Create new images
-    if (additionalImages.length > 0) {
-      await prisma.productImage.createMany({
-        data: additionalImages.map((url, index) => ({
-          productId: id,
-          url,
-          order: index,
-        })),
+  // Field update and image replacement commit together or not at all.
+  const updatedProduct = await prisma.$transaction(async (tx) => {
+    // Validate the MERGED product so partial updates cannot break the
+    // price/discount/sale invariant against the stored row.
+    if (
+      rest.price !== undefined ||
+      rest.discountPrice !== undefined ||
+      rest.sale !== undefined
+    ) {
+      // Lock the row first so a concurrent update cannot change price/sale
+      // between this read and the write below (read-merge-validate-write).
+      const locked = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM products WHERE id = ${id} FOR UPDATE`;
+      if (locked.length === 0) throw new DomainError("Product not found", 404);
+      const current = await tx.product.findUnique({
+        where: { id },
+        select: { price: true, discountPrice: true, sale: true },
       });
+      if (!current) throw new DomainError("Product not found", 404);
+      const price = rest.price ?? Number(current.price);
+      const sale = rest.sale ?? current.sale;
+      const discount =
+        rest.discountPrice !== undefined
+          ? rest.discountPrice
+          : current.discountPrice === null ||
+              current.discountPrice === undefined
+            ? null
+            : Number(current.discountPrice);
+      if (sale) {
+        if (discount === null) {
+          throw new DomainError(
+            "Discount price is required when the product is on sale",
+            400
+          );
+        }
+        if (discount > price) {
+          throw new DomainError("Discount price cannot exceed price", 400);
+        }
+        updateData.discountPrice = discount;
+      } else {
+        updateData.discountPrice = null;
+      }
     }
-  }
 
-  // Fetch updated product
-  const updatedProduct = await prisma.product.findUnique({
-    where: { id },
-    include: {
-      brand: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-      images: {
-        orderBy: {
-          order: "asc",
-        },
-      },
-    },
+    await tx.product.update({ where: { id }, data: updateData });
+
+    if (additionalImages !== undefined) {
+      await tx.productImage.deleteMany({ where: { productId: id } });
+      if (additionalImages.length > 0) {
+        await tx.productImage.createMany({
+          data: additionalImages.map((url, index) => ({
+            productId: id,
+            url,
+            order: index,
+          })),
+        });
+      }
+    }
+
+    return tx.product.findUnique({ where: { id }, include: PRODUCT_INCLUDE });
   });
 
   if (!updatedProduct) {
     throw new Error("Product not found");
   }
-
-  return {
-    ...updatedProduct,
-    price: Number(updatedProduct.price),
-    discountPrice: updatedProduct.discountPrice
-      ? Number(updatedProduct.discountPrice)
-      : null,
-    sizes: updatedProduct.sizes as string[],
-    colors: updatedProduct.colors as string[],
-  };
+  return toProduct(updatedProduct);
 }
 
 export async function deleteProduct(id: string): Promise<void> {

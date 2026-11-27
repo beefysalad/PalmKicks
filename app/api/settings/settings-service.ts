@@ -1,11 +1,21 @@
 import bcrypt from "bcryptjs";
+import { refreshAdminVerification } from "@/lib/auth";
 import prisma from "../../../lib/prisma";
 import {
   AddConfigDataPayload,
   ChangePasswordData,
 } from "@/app/shared/types/settings";
 import { Configurations } from "@/app/generated/prisma/client";
+import { DomainError } from "@/lib/api-errors";
 import { configKeyFormat } from "@/helpers";
+
+/** A password change the user can fix (e.g. wrong current password): 400. */
+export class PasswordChangeError extends DomainError {
+  constructor(message: string) {
+    super(message, 400);
+    this.name = "PasswordChangeError";
+  }
+}
 
 export async function changePassword(
   values: ChangePasswordData
@@ -23,10 +33,11 @@ export async function changePassword(
     user.password
   );
   if (!passwordMatch) {
-    throw new Error("Invalid username or password!");
+    throw new PasswordChangeError("Current password is incorrect");
   }
   const hashedPassword = await bcrypt.hash(values.newPassword, 10);
 
+  const passwordChangedAt = new Date();
   await prisma.admin.update({
     where: {
       username: values.username,
@@ -34,7 +45,14 @@ export async function changePassword(
     data: {
       password: hashedPassword,
       firstTimeLogin: false,
+      // Revokes every session issued before now (see lib/auth.ts).
+      passwordChangedAt,
     },
+  });
+  refreshAdminVerification({
+    id: user.id,
+    passwordChangedAt,
+    firstTimeLogin: false,
   });
 }
 
@@ -52,7 +70,7 @@ export async function addConfig(
      //eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     if (error.code === "P2002") {
-      throw new Error("Configuration with this key already exists!");
+      throw new DomainError("Configuration with this key already exists", 409);
     }
     throw error;
   }
@@ -74,7 +92,7 @@ export async function getAllConfigs(
 
 export async function updateConfig(
   id: string,
-  values: AddConfigDataPayload
+  values: { value: string }
 ): Promise<Configurations> {
   const config = await prisma.configurations.update({
     where: {

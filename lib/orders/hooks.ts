@@ -1,11 +1,12 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ordersApi } from "./api";
 import { useRouter } from "next/navigation";
+import type { AxiosError } from "axios";
 import { orderKeys } from "./order-keys";
-import { CreateOrderPayload, Order } from "@/app/shared/types/order";
+import { Order, OrderFilters } from "@/app/shared/types/order";
 
 export type OrderStatus =
   | "pending"
@@ -13,14 +14,20 @@ export type OrderStatus =
   | "processing"
   | "shipped"
   | "delivered";
-export interface OrderFilters {
-  status?: OrderStatus;
-}
+export type { OrderFilters };
 
 export const useOrders = (filters?: OrderFilters) => {
   return useQuery({
     queryKey: orderKeys.list(filters),
     queryFn: () => ordersApi.fetchOrders(filters),
+    placeholderData: keepPreviousData,
+  });
+};
+
+export const useOrderStats = () => {
+  return useQuery({
+    queryKey: orderKeys.stats(),
+    queryFn: () => ordersApi.fetchOrderStats(),
   });
 };
 
@@ -32,22 +39,11 @@ export const useOrder = (id: string) => {
   });
 };
 
-export const useCreateOrder = () => {
-  const queryClient = useQueryClient();
-
-  return useMutation({
-    mutationFn: (payload: CreateOrderPayload) => ordersApi.createOrder(payload),
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: orderKeys.lists() });
-      toast.success("Order placed successfully!", {
-        description: `Order #${data.id} has been created`,
-      });
-    },
-    onError: (error: Error) => {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to create order"
-      );
-    },
+export const usePublicOrder = (id: string) => {
+  return useQuery({
+    queryKey: [...orderKeys.detail(id), "public"],
+    queryFn: () => ordersApi.fetchPublicOrderById(id),
+    enabled: !!id,
   });
 };
 
@@ -78,19 +74,18 @@ export const useUpdateOrderStatus = () => {
     mutationFn: ({
       id,
       status,
+      expectedStatus,
     }: {
       id: string;
       status: "pending" | "confirmed" | "processing" | "shipped" | "delivered";
-    }) => ordersApi.updateOrderStatus(id, { status }),
+      expectedStatus?: OrderStatus;
+    }) => ordersApi.updateOrderStatus(id, { status, expectedStatus }),
     onMutate: async ({ id, status }) => {
       // Cancel any outgoing refetches
       await queryClient.cancelQueries({ queryKey: orderKeys.all });
       await queryClient.cancelQueries({ queryKey: orderKeys.detail(id) });
 
       // Snapshot the previous values
-      const previousOrders = queryClient.getQueryData<Order[]>(
-        orderKeys.lists()
-      );
       const previousOrder = queryClient.getQueryData<Order>(
         orderKeys.detail(id)
       );
@@ -102,16 +97,7 @@ export const useUpdateOrderStatus = () => {
         });
       }
 
-      if (previousOrders) {
-        queryClient.setQueryData<Order[]>(orderKeys.lists(), (old) => {
-          if (!old) return old;
-          return old.map((order) =>
-            order.id === id ? { ...order, status } : order
-          );
-        });
-      }
-
-      return { previousOrders, previousOrder };
+      return { previousOrder };
     },
     onError: (error, variables, context) => {
       if (context?.previousOrder) {
@@ -121,11 +107,15 @@ export const useUpdateOrderStatus = () => {
         );
       }
 
-      if (context?.previousOrders) {
-        queryClient.setQueryData(orderKeys.list(), context.previousOrders);
+      const axiosError = error as AxiosError<{ error?: string }>;
+      if (axiosError.response?.status === 409) {
+        // Stale status: refetch so the next attempt sends a fresh expectedStatus.
+        queryClient.invalidateQueries({
+          queryKey: orderKeys.detail(variables.id),
+        });
+        queryClient.invalidateQueries({ queryKey: orderKeys.all });
       }
-
-      toast.error(error.message);
+      toast.error(axiosError.response?.data?.error ?? error.message);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: orderKeys.all });

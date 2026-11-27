@@ -1,5 +1,6 @@
 "use client";
 import { Product } from "@/app/shared/types/product";
+import { isOnSale } from "@/lib/pricing";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -39,7 +40,7 @@ const ProductCard = ({ product, index }: ProductCardProps) => {
                   className='h-full w-full object-cover'
                 />
               </motion.div>
-              {product.discountPrice && (
+              {isOnSale(product) && (
                 <Badge className='absolute right-2 top-2 bg-primary text-primary-foreground'>
                   SALE
                 </Badge>
@@ -61,7 +62,7 @@ const ProductCard = ({ product, index }: ProductCardProps) => {
               </p>
               <div className='flex items-center justify-between'>
                 <div className='flex items-center gap-2'>
-                  {product.discountPrice ? (
+                  {isOnSale(product) ? (
                     <>
                       <p className='text-lg font-bold text-primary'>
                         ₱{Number(product.discountPrice)}

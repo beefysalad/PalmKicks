@@ -5,26 +5,29 @@ import {
 } from "@/app/shared/types/settings";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AxiosError } from "axios";
-import { signOut, useSession } from "next-auth/react";
+import { signOut } from "next-auth/react";
 import { toast } from "sonner";
 import { settingsApi } from "./api";
 import { settingKeys } from "./settings-keys";
 
 export const useChangePassword = () => {
-  const { data: session } = useSession();
   return useMutation({
     mutationFn: (payload: ChangePassword) =>
       settingsApi.changePassword(payload),
     onSuccess: async (data) => {
-      toast.success(data.message);
-      if (session?.user?.firstTimeLogin) {
-        await signOut({ callbackUrl: "/admin/login" });
-      }
+      // Changing the password revokes every session, including this one.
+      toast.success(`${data.message}. Please sign in again.`);
+      await signOut({ callbackUrl: "/admin/login" });
     },
     onError: (error: unknown) => {
-      const axiosError = error as AxiosError<{ message: string }>;
+      // The route answers { success: false, error }; for validation failures
+      // `error` is the field message (e.g. the password policy).
+      const axiosError = error as AxiosError<{ error?: string }>;
       const message =
-        axiosError.response?.data?.message ?? "Failed to change password";
+        axiosError.response?.data?.error ??
+        (error instanceof Error && !axiosError.isAxiosError
+          ? error.message
+          : "Failed to change password");
       toast.error(message);
     },
   });

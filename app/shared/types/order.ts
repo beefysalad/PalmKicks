@@ -29,26 +29,78 @@ export interface Order {
   }[];
 }
 
-export interface CreateOrderPayload {
+/**
+ * Order creation request. Prices, totals, names and images are intentionally
+ * absent: the server computes them from the product records.
+ */
+export interface CreateOrderItemPayload {
+  productId: string;
+  size: string;
+  color: string;
+  quantity: number;
+}
+
+interface CreateOrderPayloadBase {
   customerName: string;
   customerEmail: string;
   customerPhone: string;
-  shippingAddress?: string;
-  shippingCity?: string;
-  shippingZipCode?: string;
-  meetupLocation?: string;
-  items: Array<{
-    productId?: string;
+  items: CreateOrderItemPayload[];
+}
+
+export type CreateOrderPayload =
+  | (CreateOrderPayloadBase & {
+      deliveryMethod: "shipping";
+      shippingAddress: string;
+      shippingCity: string;
+      shippingZipCode: string;
+    })
+  | (CreateOrderPayloadBase & {
+      deliveryMethod: "meetup";
+      meetupLocation: string;
+    });
+
+export interface UpdateOrderStatusPayload {
+  status: "pending" | "confirmed" | "processing" | "shipped" | "delivered";
+  /** Server rejects (409) if the order is no longer in this status. */
+  expectedStatus?: "pending" | "confirmed" | "processing" | "shipped" | "delivered";
+}
+
+export interface PublicOrder {
+  id: string;
+  status: Order["status"];
+  total: number;
+  createdAt: string;
+  meetupLocation: string | null;
+  shippingCity: string | null;
+  customerFirstName: string;
+  items: {
     name: string;
     price: number;
     image: string;
     size: string;
     color: string;
     quantity: number;
-  }>;
-  total: number;
+  }[];
 }
 
-export interface UpdateOrderStatusPayload {
-  status: "pending" | "confirmed" | "processing" | "shipped" | "delivered";
+export type OrderStatusValue = Order["status"];
+
+export interface OrderFilters {
+  status?: OrderStatusValue;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface PagedOrders<T = Order> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface OrderStats {
+  total: number;
+  /** Sum of totals of all non-pending orders. */
+  revenue: number;
+  byStatus: Record<Order["status"], number>;
 }

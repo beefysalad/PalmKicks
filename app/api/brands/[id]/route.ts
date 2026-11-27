@@ -1,3 +1,5 @@
+import { requireAdmin } from "@/lib/require-admin";
+import { handleRouteError, parseJsonBody } from "@/lib/api-errors";
 import { NextRequest, NextResponse } from "next/server";
 import {
   getBrandById,
@@ -34,10 +36,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 }
 
 export async function PUT(request: NextRequest, { params }: RouteParams) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   try {
     const { id } = await params;
-    const body = await request.json();
-    const { name } = body;
+    const body = await parseJsonBody(request);
+    const { name } = (body ?? {}) as { name?: unknown };
 
     if (!name || typeof name !== "string" || name.trim().length === 0) {
       return NextResponse.json(
@@ -49,56 +54,19 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const brand = await updateBrand(id, { name: name.trim() });
     return NextResponse.json({ success: true, data: brand });
   } catch (error) {
-    console.error("Error updating brand:", error);
-
-    // Handle not found
-    if (
-      error instanceof Error &&
-      error.message.includes("Record to update not found")
-    ) {
-      return NextResponse.json(
-        { success: false, error: "Brand not found" },
-        { status: 404 }
-      );
-    }
-
-    // Handle unique constraint violation
-    if (error instanceof Error && error.message.includes("Unique constraint")) {
-      return NextResponse.json(
-        { success: false, error: "A brand with this name already exists" },
-        { status: 409 }
-      );
-    }
-
-    return NextResponse.json(
-      { success: false, error: "Failed to update brand" },
-      { status: 500 }
-    );
+    return handleRouteError(error, "Failed to update brand");
   }
 }
 
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   try {
     const { id } = await params;
     await deleteBrand(id);
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error deleting brand:", error);
-
-    // Handle not found
-    if (
-      error instanceof Error &&
-      error.message.includes("Record to delete does not exist")
-    ) {
-      return NextResponse.json(
-        { success: false, error: "Brand not found" },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json(
-      { success: false, error: "Failed to delete brand" },
-      { status: 500 }
-    );
+    return handleRouteError(error, "Failed to delete brand");
   }
 }

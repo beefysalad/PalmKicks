@@ -1,4 +1,6 @@
+import { requireAdmin } from "@/lib/require-admin";
 import { addConfigSchema } from "@/app/shared/zod/settings-zod";
+import { handleRouteError, parseJsonBody } from "@/lib/api-errors";
 import { NextRequest, NextResponse } from "next/server";
 import { addConfig, getAllConfigs } from "./settings-service";
 
@@ -20,8 +22,11 @@ export async function GET() {
   }
 }
 export async function POST(request: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   try {
-    const body = await request.json();
+    const body = await parseJsonBody(request);
     const validatedData = addConfigSchema.parse(body);
 
     const config = await addConfig(validatedData);
@@ -36,15 +41,6 @@ export async function POST(request: NextRequest) {
       }
     );
   } catch (error) {
-    console.error("Error on adding a system config", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Internal Server Error",
-      },
-      {
-        status: 400,
-      }
-    );
+    return handleRouteError(error, "Failed to add configuration");
   }
 }

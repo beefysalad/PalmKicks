@@ -19,7 +19,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Key, Loader2, AlertTriangle } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { useForm } from "react-hook-form";
-import { signOut } from "@/lib/auth";
 
 const ProfileTab = () => {
   const { data: session } = useSession();

@@ -28,7 +28,7 @@ jobs:
             This PR deploys changes from `main` to `prod` branch.
             
             ###  Pre-Deployment Checklist
-            - [ ] All tests are passing
+            - [ ] CI checks (lint, type-check, tests) are passing
             - [ ] Code has been reviewed
             - [ ] No breaking changes or migrations needed
             - [ ] Environment variables are up to date

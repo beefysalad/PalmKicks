@@ -10,6 +10,11 @@ const Footer = () => {
   const facebookUrl = getConfigValue(configs, "FACEBOOK_URL");
   const instagramUrl = getConfigValue(configs, "INSTAGRAM_URL");
   const tiktokUrl = getConfigValue(configs, "TIKTOK_URL");
+  const contactEmail = getConfigValue(configs, "CONTACT_EMAIL");
+  // Orders are coordinated over email or Instagram; no placeholder links.
+  const contactHref = contactEmail
+    ? `mailto:${contactEmail}`
+    : instagramUrl || null;
 
   return (
     <footer className='border-t border-border/40 bg-secondary/20'>
@@ -79,21 +84,16 @@ const Footer = () => {
                   Track Order
                 </Link>
               </li>
-              <li>
-                <Link href='#' className='transition-colors hover:text-primary'>
-                  Shipping Info
-                </Link>
-              </li>
-              <li>
-                <Link href='#' className='transition-colors hover:text-primary'>
-                  Returns
-                </Link>
-              </li>
-              <li>
-                <Link href='#' className='transition-colors hover:text-primary'>
-                  Contact Us
-                </Link>
-              </li>
+              {contactHref && (
+                <li>
+                  <a
+                    href={contactHref}
+                    className='transition-colors hover:text-primary'
+                  >
+                    Contact Us
+                  </a>
+                </li>
+              )}
             </ul>
           </div>
           <div className='text-center md:text-left'>

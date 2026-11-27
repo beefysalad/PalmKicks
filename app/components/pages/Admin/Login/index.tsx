@@ -19,6 +19,7 @@ import { ShieldCheck, Loader2, AlertCircle, Eye, EyeOff } from "lucide-react";
 import { loginSchema, TLoginSchema } from "../../../../shared/zod/login-zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
+import Link from "next/link";
 
 const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -152,7 +153,12 @@ const LoginPage = () => {
               )}
             </Button>
           </form>
-
+          <Link
+            href='/'
+            className='flex items-center justify-center mt-4 text-sm text-primary hover:underline'
+          >
+            Back to Store
+          </Link>
           <div className='mt-6 border-t border-border/50 pt-6'>
             <p className='text-center text-xs text-muted-foreground'>
               Authorized personnel only

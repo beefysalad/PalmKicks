@@ -1,4 +1,6 @@
 "use client";
+
+import { DeliveryMethod } from "@/app/shared/types/delivery";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -15,35 +17,70 @@ import { motion } from "framer-motion";
 import { CheckCircle2, MapPin, Truck } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useCart } from "../../shared/CartProvider";
 import ProgressIndicator from "./ProgressIndicator";
-import { useForm } from "react-hook-form";
+import { useForm, type Resolver } from "react-hook-form";
 import {
-  checkoutSchema,
+  checkoutSchemaFor,
   TCheckoutSchema,
 } from "../../../shared/zod/checkout-zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
 import { checkoutFn } from "../../../../lib/checkout/checkout";
+import {
+  repriceCart,
+  type UnavailableReason,
+} from "../../../../lib/checkout/reprice";
+import { useCurrentProducts } from "../../../../lib/products/hooks";
 
-export enum DeliveryMethod {
-  Shipping = "shipping",
-  Meetup = "meetup",
+const UNAVAILABLE_LABEL: Record<UnavailableReason, string> = {
+  removed: "no longer available",
+  out_of_stock: "out of stock",
+  size: "size no longer available",
+  color: "color no longer available",
+};
+
+export { DeliveryMethod };
+
+type CheckoutFormContext = { deliveryMethod: DeliveryMethod };
+
+// Requires the fulfillment fields of the currently selected delivery method.
+const checkoutResolver: Resolver<TCheckoutSchema, CheckoutFormContext> = (
+  values,
+  context,
+  options
+) =>
+  (
+    zodResolver(
+      checkoutSchemaFor(context?.deliveryMethod ?? DeliveryMethod.Shipping)
+    ) as Resolver<TCheckoutSchema, CheckoutFormContext>
+  )(values, context, options);
+
+function newIdempotencyKey(): string {
+  if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  // randomUUID needs a secure context; fall back to random hex.
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 const CheckoutForm = () => {
-  const { items, total, clearCart } = useCart();
+  const { items, clearCart, updatePrices, removeItem } = useCart();
   const router = useRouter();
 
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>(
     DeliveryMethod.Shipping
   );
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  // One Idempotency-Key per checkout attempt: retries after a network error
+  // reuse it so the server returns the same order instead of a duplicate.
+  const idempotencyKeyRef = useRef<string | null>(null);
 
-  const form = useForm<TCheckoutSchema>({
-    resolver: zodResolver(checkoutSchema),
+  const form = useForm<TCheckoutSchema, CheckoutFormContext>({
+    resolver: checkoutResolver,
+    // RHF passes the latest context to the resolver on every validation.
+    context: { deliveryMethod },
     defaultValues: {
       name: "",
       email: "",
@@ -55,13 +92,56 @@ const CheckoutForm = () => {
     },
   });
 
+  // Re-price against current product data: the server charges current
+  // prices, so the summary must show them rather than prices saved at add time.
+  const current = useCurrentProducts(items.map((i) => i.id));
+  const repriced = useMemo(
+    () => repriceCart(items, current.products),
+    [items, current.products]
+  );
+  const total = repriced.total;
+  const hasUnavailable = repriced.unavailable.length > 0;
+  const pricesVerified =
+    !current.isLoading && repriced.unverified.length === 0;
+  const notifiedRef = useRef<string>("");
+
+  useEffect(() => {
+    if (repriced.changed.length === 0) return;
+    updatePrices(
+      repriced.changed.map(({ id, size, color, to }) => ({
+        id,
+        size,
+        color,
+        price: to,
+      }))
+    );
+    const signature = JSON.stringify(repriced.changed);
+    if (notifiedRef.current === signature) return;
+    notifiedRef.current = signature;
+    toast.info("Prices updated", {
+      description: repriced.changed
+        .map((c) => `${c.name}: ₱${c.from.toFixed(2)} → ₱${c.to.toFixed(2)}`)
+        .join("; "),
+      duration: 6000,
+    });
+    // updatePrices is recreated each render; the change list drives this.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [repriced.changed]);
+
+  const getIdempotencyKey = () => {
+    if (!idempotencyKeyRef.current) {
+      idempotencyKeyRef.current = newIdempotencyKey();
+    }
+    return idempotencyKeyRef.current;
+  };
+
   const checkoutMutation = useMutation({
     mutationFn: (values: TCheckoutSchema) =>
       checkoutFn({
         values,
         items,
-        total,
         deliveryMethod,
+        idempotencyKey: getIdempotencyKey(),
         clearCart,
       }),
     onSuccess: (orderId) => {
@@ -79,6 +159,12 @@ const CheckoutForm = () => {
   });
 
   const onSubmit = (values: TCheckoutSchema) => {
+    if (hasUnavailable) {
+      toast.error("Some items are unavailable", {
+        description: "Remove them from your cart to continue.",
+      });
+      return;
+    }
     setIsPlacingOrder(true);
     checkoutMutation.mutate(values);
   };
@@ -498,6 +584,37 @@ const CheckoutForm = () => {
                       </div>
                     ))}
                   </div>
+                  {hasUnavailable && (
+                    <div
+                      role='alert'
+                      className='space-y-2 rounded-lg border border-destructive/40 bg-destructive/5 p-3 text-xs sm:text-sm'
+                    >
+                      <p className='font-semibold text-destructive'>
+                        Some items can&apos;t be ordered
+                      </p>
+                      <ul className='space-y-1'>
+                        {repriced.unavailable.map((u) => (
+                          <li
+                            key={`${u.id}-${u.size}-${u.color}`}
+                            className='flex items-center justify-between gap-2'
+                          >
+                            <span className='min-w-0 truncate'>
+                              {u.name} (Size {u.size}, {u.color}):{" "}
+                              {UNAVAILABLE_LABEL[u.reason]}
+                            </span>
+                            <Button
+                              type='button'
+                              variant='outline'
+                              size='sm'
+                              onClick={() => removeItem(u.id, u.size, u.color)}
+                            >
+                              Remove
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                   <Separator />
                   <div className='space-y-2'>
                     <div className='flex justify-between text-xs sm:text-sm'>
@@ -520,12 +637,19 @@ const CheckoutForm = () => {
                   <Separator />
                   <div className='flex items-center justify-between rounded-lg bg-primary/5 p-2.5 sm:p-3'>
                     <span className='text-sm sm:text-base font-semibold'>
-                      Total
+                      {pricesVerified ? "Total (current prices)" : "Estimated total"}
                     </span>
                     <span className='text-lg sm:text-xl font-bold text-primary'>
                       ₱{total.toFixed(2)}
                     </span>
                   </div>
+                  {!pricesVerified && (
+                    <p className='text-[10px] sm:text-xs text-muted-foreground'>
+                      {current.isLoading
+                        ? "Checking current prices…"
+                        : "Couldn't confirm current prices. The final total is calculated when you place the order."}
+                    </p>
+                  )}
 
                   <div className='rounded-lg border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10 p-3 sm:p-4'>
                     <div className='mb-2 flex items-center gap-2'>
@@ -554,7 +678,12 @@ const CheckoutForm = () => {
                     type='submit'
                     size='lg'
                     className='w-full text-sm sm:text-base font-semibold shadow-md'
-                    disabled={checkoutMutation.isPending || !deliveryMethod}
+                    disabled={
+                      checkoutMutation.isPending ||
+                      !deliveryMethod ||
+                      hasUnavailable ||
+                      current.isLoading
+                    }
                   >
                     {checkoutMutation.isPending ? (
                       <span className='flex items-center gap-2'>

@@ -1,3 +1,6 @@
+import { requireAdmin } from "@/lib/require-admin";
+import { apiError } from "@/lib/api-response";
+import { MAX_UPLOAD_BYTES, validateImageFile } from "@/lib/upload-validation";
 import { NextRequest, NextResponse } from "next/server";
 import { v2 as cloudinary } from "cloudinary";
 
@@ -7,32 +10,43 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
+// Multipart framing/field overhead allowed on top of the file cap.
+const MULTIPART_OVERHEAD_BYTES = 64 * 1024;
+
 export async function POST(request: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   try {
-    const formData = await request.formData();
-    const file = formData.get("file") as File;
-
-    if (!file) {
-      return NextResponse.json({ error: "No file provided" }, { status: 400 });
-    }
-
     if (
       !process.env.CLOUDINARY_CLOUD_NAME ||
       !process.env.CLOUDINARY_API_KEY ||
       !process.env.CLOUDINARY_API_SECRET
     ) {
       console.error("Cloudinary environment variables are not set");
-      return NextResponse.json(
-        { error: "Cloudinary configuration missing" },
-        { status: 500 }
-      );
+      return apiError(500, "Cloudinary configuration missing");
     }
 
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    const declared = Number(request.headers.get("content-length"));
+    if (!request.headers.get("content-length") || !Number.isFinite(declared) || declared < 0) {
+      return apiError(411, "Content-Length required");
+    }
+    if (declared > MAX_UPLOAD_BYTES + MULTIPART_OVERHEAD_BYTES) {
+      return apiError(413, "File too large (max 5 MB)");
+    }
 
-    const base64 = buffer.toString("base64");
-    const dataURI = `data:${file.type};base64,${base64}`;
+    let formData: FormData;
+    try {
+      formData = await request.formData();
+    } catch {
+      return apiError(400, "Invalid form data");
+    }
+    const result = await validateImageFile(formData.get("file"));
+    if (!result.ok) {
+      return apiError(result.status, result.error);
+    }
+
+    const dataURI = `data:${result.mime};base64,${result.buffer.toString("base64")}`;
 
     const uploadResult = await cloudinary.uploader.upload(dataURI, {
       folder: "products",
@@ -45,9 +59,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Upload error:", error);
-    return NextResponse.json(
-      { error: "Failed to upload file" },
-      { status: 500 }
-    );
+    return apiError(500, "Failed to upload file");
   }
 }

@@ -6,6 +6,7 @@ import { usePagination } from "@/lib/hooks/usePagination";
 import { useProducts } from "@/lib/products/hooks";
 import { motion } from "framer-motion";
 import { Search } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import ProductCard from "./ProductCard";
 
@@ -18,10 +19,23 @@ enum Filter {
 
 const ITEMS_PER_PAGE = 12;
 
+const FILTER_VALUES = Object.values(Filter) as string[];
+
+function parseFilter(value: string | null): Filter {
+  return value && FILTER_VALUES.includes(value) ? (value as Filter) : Filter.ALL;
+}
+
+// Reads the initial gender filter from `?filter=` (e.g. /shop?filter=men).
+// Keyed on the param so following another filter link re-initialises it.
 const Shop = () => {
+  const initialFilter = parseFilter(useSearchParams().get("filter"));
+  return <ShopContent key={initialFilter} initialFilter={initialFilter} />;
+};
+
+const ShopContent = ({ initialFilter }: { initialFilter: Filter }) => {
   const { data: products = [], isLoading } = useProducts();
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [filter, setFilter] = useState<Filter>(Filter.ALL);
+  const [filter, setFilter] = useState<Filter>(initialFilter);
 
   const filteredProducts = useMemo(() => {
     return products.filter((p) => {

@@ -40,12 +40,24 @@ const ConfigTab = () => {
     },
   });
 
-  const onSubmit = (values: AddConfigDataPayload) => {
-    createConfigMutation.mutateAsync(values);
-    form.reset();
+  // The hooks toast errors; on failure the form/edit state is kept so the
+  // admin can correct the input and retry.
+  const onSubmit = async (values: AddConfigDataPayload) => {
+    try {
+      await createConfigMutation.mutateAsync(values);
+      form.reset();
+    } catch {
+      // keep the entered key/value
+    }
   };
 
-  const onHandleDelete = (id: string) => deleteConfigMutation.mutateAsync(id);
+  const onHandleDelete = async (id: string) => {
+    try {
+      await deleteConfigMutation.mutateAsync(id);
+    } catch {
+      // error already shown by the hook
+    }
+  };
 
   const handleEditStart = (id: string, value: string) => {
     setEditingId(id);
@@ -57,14 +69,18 @@ const ConfigTab = () => {
     setEditValues({});
   };
 
-  const handleEditSave = (id: string) => {
+  const handleEditSave = async (id: string) => {
     const payload: UpdateConfigPayload = {
       id,
       value: editValues[id],
     };
-    updateConfigMutation.mutateAsync(payload);
-    setEditingId(null);
-    setEditValues({});
+    try {
+      await updateConfigMutation.mutateAsync(payload);
+      setEditingId(null);
+      setEditValues({});
+    } catch {
+      // stay in edit mode with the typed value
+    }
   };
 
   return (
@@ -78,7 +94,7 @@ const ConfigTab = () => {
         </CardHeader>
         <CardContent>
           <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-4'>
-            <div className='flex gap-4'>
+            <div className='flex gap-4 flex-col md:flex-row'>
               <div className='flex-1 space-y-2'>
                 <Label htmlFor='config-key'>Key</Label>
                 <Input

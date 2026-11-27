@@ -8,6 +8,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCart } from "../../shared/CartProvider";
 import EmptyCart from "./EmptyCart";
+import { MAX_ITEM_QUANTITY } from "@/lib/cart-limits";
 
 const Cart = () => {
   const { items, updateQuantity, removeItem, total } = useCart();
@@ -86,6 +87,7 @@ const Cart = () => {
                                     item.quantity + 1
                                   )
                                 }
+                                disabled={item.quantity >= MAX_ITEM_QUANTITY}
                                 className='h-8 w-8'
                               >
                                 <Plus className='h-3 w-3' />

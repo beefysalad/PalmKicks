@@ -1,9 +1,15 @@
 import nodemailer from "nodemailer";
+import type { Order as DbOrder } from "@/app/api/orders/orders-service";
+import { DeliveryMethod } from "@/app/shared/types/delivery";
+import { buildOrderConfirmationEmail } from "./orders/order-confirmation-template";
 
 export {
   buildOrderConfirmationEmail,
   type OrderConfirmationEmailContent,
 } from "./orders/order-confirmation-template";
+
+const SMTP_TIMEOUT_MS = 10_000;
+const ORDER_EMAIL_OVERALL_TIMEOUT_MS = 15_000;
 
 // Initialize transporter only if email credentials are configured
 const getTransporter = () => {
@@ -15,12 +21,12 @@ const getTransporter = () => {
     service: "gmail",
     port: 587,
     secure: false,
+    connectionTimeout: SMTP_TIMEOUT_MS,
+    greetingTimeout: SMTP_TIMEOUT_MS,
+    socketTimeout: SMTP_TIMEOUT_MS,
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
-    },
-    tls: {
-      rejectUnauthorized: false,
     },
   });
 };
@@ -91,5 +97,66 @@ export async function sendMail({
       error instanceof Error ? error.message : "Unknown error";
     console.error("Failed to send email:", errorMessage);
     return { success: false, error: errorMessage };
+  }
+}
+
+export async function sendOrderConfirmation(
+  order: DbOrder
+): Promise<{ sent: boolean }> {
+  try {
+    const content = buildOrderConfirmationEmail({
+      id: order.id,
+      items: order.items.map((item) => ({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        image: item.image,
+        size: item.size,
+        color: item.color,
+        quantity: item.quantity,
+      })),
+      customer: {
+        name: order.customerName,
+        email: order.customerEmail,
+        phone: order.customerPhone,
+        address: order.shippingAddress || undefined,
+        city: order.shippingCity || undefined,
+        zipCode: order.shippingZipCode || undefined,
+        meetupLocation: order.meetupLocation || undefined,
+      },
+      total: order.total,
+      status: order.status,
+      createdAt: new Date(order.createdAt).toISOString(),
+      deliveryMethod: order.meetupLocation
+        ? DeliveryMethod.Meetup
+        : DeliveryMethod.Shipping,
+    });
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<{ success: false }>((resolve) => {
+      timer = setTimeout(() => {
+        console.error("Order confirmation email timed out");
+        resolve({ success: false });
+      }, ORDER_EMAIL_OVERALL_TIMEOUT_MS);
+    });
+    try {
+      const result = await Promise.race([
+        sendMail({
+          sendTo: order.customerEmail,
+          subject: content.subject,
+          html: content.html,
+          text: content.text,
+        }),
+        timeout,
+      ]);
+      return { sent: result.success };
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (error) {
+    console.error(
+      "Failed to send order confirmation:",
+      error instanceof Error ? error.message : "Unknown error"
+    );
+    return { sent: false };
   }
 }

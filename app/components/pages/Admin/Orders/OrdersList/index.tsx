@@ -2,7 +2,6 @@
 
 import { useState, useMemo } from "react";
 import { useOrders } from "@/lib/orders/hooks";
-import { usePagination } from "@/lib/hooks/usePagination";
 import { Search, SlidersHorizontal, Package } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Pagination } from "@/components/ui/pagination";
@@ -17,11 +16,24 @@ const OrdersListPage = () => {
   const [filterStatus, setFilterStatus] = useState<string>("all");
   const [showFilters, setShowFilters] = useState(false);
 
-  const { data: orders = [], isLoading } = useOrders(
-    filterStatus !== "all"
+  const [currentPage, setCurrentPage] = useState(1);
+
+  const { data, isLoading } = useOrders({
+    page: currentPage,
+    pageSize: ITEMS_PER_PAGE,
+    ...(filterStatus !== "all"
       ? { status: filterStatus as Order["status"] }
-      : undefined
-  );
+      : {}),
+  });
+  const orders = useMemo(() => data?.items ?? [], [data]);
+  const totalOrders = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalOrders / ITEMS_PER_PAGE));
+  const handlePageChange = (page: number) =>
+    setCurrentPage(Math.min(Math.max(1, page), totalPages));
+
+  // Total can shrink (e.g. after a delete): never sit past the last page.
+  // Adjusting state during render is the supported way to derive it.
+  if (data && currentPage > totalPages) setCurrentPage(totalPages);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
@@ -67,17 +79,6 @@ const OrdersListPage = () => {
     });
   }, [orders, searchQuery]);
 
-  const {
-    currentPage,
-    totalPages,
-    paginatedItems: paginatedOrders,
-    handlePageChange,
-  } = usePagination({
-    items: filteredOrders,
-    itemsPerPage: ITEMS_PER_PAGE,
-    resetDeps: [searchQuery, filterStatus],
-  });
-
   if (isLoading) {
     return (
       <div className='space-y-4 p-4'>
@@ -101,8 +102,7 @@ const OrdersListPage = () => {
         <div className='p-4'>
           <h1 className='text-2xl font-bold'>Orders</h1>
           <p className='text-sm text-muted-foreground'>
-            {filteredOrders.length}{" "}
-            {filteredOrders.length === 1 ? "order" : "orders"}
+            {totalOrders} {totalOrders === 1 ? "order" : "orders"}
           </p>
         </div>
 
@@ -111,7 +111,7 @@ const OrdersListPage = () => {
           <div className='relative'>
             <Search className='absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground' />
             <Input
-              placeholder='Search orders...'
+              placeholder='Search orders on this page...'
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className='pl-9 pr-12'
@@ -136,7 +136,10 @@ const OrdersListPage = () => {
               </label>
               <select
                 value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
+                onChange={(e) => {
+                  setFilterStatus(e.target.value);
+                  setCurrentPage(1);
+                }}
                 className='w-full rounded-md border border-input bg-background px-3 py-2 text-sm'
               >
                 <option value='all'>All Statuses</option>
@@ -153,13 +156,13 @@ const OrdersListPage = () => {
 
       {/* Orders List */}
       <div className='space-y-3 p-4'>
-        {paginatedOrders.length === 0 ? (
+        {filteredOrders.length === 0 ? (
           <div className='py-12 text-center'>
             <Package className='mx-auto h-12 w-12 text-muted-foreground/50 mb-4' />
             <p className='text-muted-foreground'>No orders found</p>
           </div>
         ) : (
-          paginatedOrders.map((order) => (
+          filteredOrders.map((order) => (
             <Link
               key={order.id}
               href={`/admin/orders/${order.id}`}
@@ -223,7 +226,7 @@ const OrdersListPage = () => {
       </div>
 
       {/* Pagination */}
-      {filteredOrders.length > 0 && totalPages > 1 && (
+      {totalOrders > 0 && totalPages > 1 && (
         <div className='px-4 pb-4'>
           <Pagination
             currentPage={currentPage}

@@ -1,4 +1,7 @@
+import { requireAdmin } from "@/lib/require-admin";
 import { NextRequest, NextResponse } from "next/server";
+import { apiError, apiOk } from "@/lib/api-response";
+import { handleRouteError, parseJsonBody } from "@/lib/api-errors";
 import { getProducts, addProduct } from "@/app/api/products/products-service";
 import { productSchema } from "@/app/shared/zod/product-zod";
 import prisma from "@/lib/prisma";
@@ -29,69 +32,47 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   try {
-    const body = await request.json();
-    let brandId = body.brandId;
-    if (!brandId && body.brand) {
+    const body = await parseJsonBody(request);
+    const { brand: brandName, ...rest } = (body ?? {}) as {
+      brand?: unknown;
+      brandId?: unknown;
+      [key: string]: unknown;
+    };
+    let brandId = rest.brandId;
+    if (!brandId && typeof brandName === "string") {
       const brand = await prisma.brand.findFirst({
-        where: { name: body.brand },
+        where: { name: brandName },
       });
-      if (!brand) {
-        return NextResponse.json(
-          { success: false, error: "Brand not found" },
-          { status: 404 }
-        );
-      }
+      if (!brand) return apiError(404, "Brand not found");
       brandId = brand.id;
     }
 
-    const dataToValidate = {
-      ...body,
-      brandId,
-    };
-
-    const validatedData = productSchema.parse(dataToValidate);
-
-    const productData = {
-      ...validatedData,
-      price:
-        typeof validatedData.price === "string"
-          ? parseFloat(validatedData.price)
-          : validatedData.price,
-      discountPrice:
-        validatedData.sale === true
-          ? typeof validatedData.discountPrice === "string"
-            ? parseFloat(validatedData.discountPrice)
-            : validatedData.discountPrice
-          : undefined,
-    };
-
-    const product = await addProduct(productData);
-    return NextResponse.json({ success: true, data: product }, { status: 201 });
+    const validated = productSchema.parse({ ...rest, brandId });
+    // A discount only applies to products that are on sale.
+    const product = await addProduct({
+      name: validated.name,
+      brandId: validated.brandId,
+      category: validated.category,
+      gender: validated.gender,
+      price: validated.price,
+      description: validated.description,
+      image: validated.image,
+      additionalImages: validated.additionalImages,
+      sizes: validated.sizes,
+      colors: validated.colors,
+      inStock: validated.inStock,
+      sale: validated.sale,
+      discountPrice: validated.sale ? validated.discountPrice : undefined,
+    });
+    return apiOk(product, 201);
   } catch (error) {
-    console.error("Error creating product:", error);
-
-    if (error instanceof Error && error.name === "ZodError") {
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: 400 }
-      );
+    if ((error as { code?: unknown })?.code === "P2003") {
+      return apiError(400, "Brand not found");
     }
-
-    if (
-      error instanceof Error &&
-      (error.message.includes("Foreign key constraint") ||
-        error.message.includes("brandId"))
-    ) {
-      return NextResponse.json(
-        { success: false, error: "Brand not found" },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json(
-      { success: false, error: "Failed to create product" },
-      { status: 500 }
-    );
+    return handleRouteError(error, "Failed to create product");
   }
 }

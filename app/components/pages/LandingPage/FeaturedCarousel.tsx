@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Product } from "@/app/shared/types/product";
+import { isOnSale } from "@/lib/pricing";
 
 interface FeaturedCarouselProps {
   products: Product[];
@@ -89,7 +90,7 @@ const FeaturedCarousel = ({ products }: FeaturedCarouselProps) => {
                   </p>
 
                   <div className='flex items-baseline gap-3 pt-1'>
-                    {currentProduct.discountPrice ? (
+                    {isOnSale(currentProduct) ? (
                       <>
                         <span className='text-3xl font-bold text-primary sm:text-4xl md:text-5xl'>
                           ₱{Number(currentProduct.discountPrice)}

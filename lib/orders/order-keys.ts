@@ -8,6 +8,8 @@ export const orderKeys = {
   list: (filters?: OrderFilters) =>
     [...orderKeys.lists(), { filters }] as const,
 
+  stats: () => [...orderKeys.all, "stats"] as const,
+
   details: () => [...orderKeys.all, "detail"] as const,
 
   detail: (id: string) => [...orderKeys.details(), id] as const,

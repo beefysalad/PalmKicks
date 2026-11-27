@@ -1,6 +1,6 @@
 "use client";
 import { motion } from "framer-motion";
-import { useOrder } from "@/lib/orders/hooks";
+import { usePublicOrder } from "@/lib/orders/hooks";
 import { CheckCircle2, Copy, Instagram, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -19,7 +19,7 @@ interface OrderConfirmationProps {
   orderId: string;
 }
 const OrderConfirmation = ({ orderId }: OrderConfirmationProps) => {
-  const { data: order, isLoading } = useOrder(orderId);
+  const { data: order, isLoading } = usePublicOrder(orderId);
 
   const copyOrderId = async () => {
     try {
@@ -143,7 +143,7 @@ const OrderConfirmation = ({ orderId }: OrderConfirmationProps) => {
           <CardContent className='space-y-4'>
             <div className='space-y-3'>
               {order.items.map((item, index) => (
-                <div key={`${item.id}-${index}`} className='flex gap-3'>
+                <div key={`${item.name}-${index}`} className='flex gap-3'>
                   <div className='relative h-16 w-16 flex-shrink-0 overflow-hidden rounded border border-border'>
                     <Image
                       src={item.image || "/placeholder.svg"}
@@ -175,26 +175,16 @@ const OrderConfirmation = ({ orderId }: OrderConfirmationProps) => {
 
         <Card>
           <CardHeader>
-            <CardTitle>Shipping Address</CardTitle>
+            <CardTitle>
+              {order.meetupLocation ? "Meetup Location" : "Shipping"}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className='font-medium'>{order.customerName}</p>
-            <p className='text-sm text-muted-foreground'>
-              {order.customerEmail}
-            </p>
-            <p className='text-sm text-muted-foreground'>
-              {order.customerPhone}
-            </p>
+            <p className='font-medium'>{order.customerFirstName}</p>
             <p className='mt-2 text-sm text-muted-foreground'>
-              {order.meetupLocation ? (
-                order.meetupLocation
-              ) : (
-                <>
-                  {order.shippingAddress}
-                  <br />
-                  {order.shippingCity}, {order.shippingZipCode}
-                </>
-              )}
+              {order.meetupLocation
+                ? order.meetupLocation
+                : order.shippingCity}
             </p>
           </CardContent>
         </Card>

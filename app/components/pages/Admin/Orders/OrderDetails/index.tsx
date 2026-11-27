@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   useDeleteOrder,
@@ -20,6 +20,7 @@ import {
   Mail,
   Phone,
 } from "lucide-react";
+import { ORDER_STATUS_FLOW } from "@/app/shared/order-status";
 import { Order } from "@/app/shared/types/order";
 
 const OrderDetailsPage = () => {
@@ -35,11 +36,26 @@ const OrderDetailsPage = () => {
   const [status, setStatus] = useState<Order["status"]>(
     order?.status ?? "pending"
   );
+  const loadedStatus = order?.status;
+
+  // Initialise (and re-sync after refetches) from the loaded order.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (loadedStatus) setStatus(loadedStatus);
+  }, [loadedStatus]);
 
   if (!isLoading && !order) {
     router.push("/admin/orders");
     return null;
   }
+
+  // The API only moves an order forward one step at a time.
+  const isAllowed = (s: Order["status"]) => {
+    if (!order) return false;
+    const cur = (ORDER_STATUS_FLOW as readonly string[]).indexOf(order.status);
+    const idx = (ORDER_STATUS_FLOW as readonly string[]).indexOf(s);
+    return idx === cur || idx === cur + 1;
+  };
 
   const handleStatusUpdate = async () => {
     if (!order) return;
@@ -48,6 +64,7 @@ const OrderDetailsPage = () => {
       await updateStatusMutation.mutateAsync({
         id: order.id,
         status,
+        expectedStatus: order.status,
       });
     } catch (error) {
       // Error is handled by the hook
@@ -272,11 +289,11 @@ const OrderDetailsPage = () => {
                 onChange={(e) => setStatus(e.target.value as Order["status"])}
                 className='w-full rounded-lg border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-ring'
               >
-                <option value='pending'>Pending</option>
-                <option value='confirmed'>Confirmed</option>
-                <option value='processing'>Processing</option>
-                <option value='shipped'>Shipped</option>
-                <option value='delivered'>Delivered</option>
+                <option value='pending' disabled={!isAllowed('pending')}>Pending</option>
+                <option value='confirmed' disabled={!isAllowed('confirmed')}>Confirmed</option>
+                <option value='processing' disabled={!isAllowed('processing')}>Processing</option>
+                <option value='shipped' disabled={!isAllowed('shipped')}>Shipped</option>
+                <option value='delivered' disabled={!isAllowed('delivered')}>Delivered</option>
               </select>
             </div>
             <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>

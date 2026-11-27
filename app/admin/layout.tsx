@@ -19,7 +19,11 @@ export default function AdminLayout({
     if (status === "unauthenticated" && pathname !== "/admin/login") {
       router.push("/admin/login");
     }
-    if (session?.user.firstTimeLogin) {
+    if (status === "authenticated" && !session?.user?.id && pathname !== "/admin/login") {
+      // Revoked session (password changed elsewhere): no admin id left.
+      router.push("/admin/login");
+    }
+    if (session?.user?.firstTimeLogin) {
       router.push("/admin/settings");
     }
   }, [status, pathname, router, session]);

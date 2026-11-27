@@ -1,43 +1,29 @@
 import { changePasswordSchema } from "@/app/shared/zod/settings-zod";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { changePassword } from "../settings-service";
+import { requireAdmin } from "@/lib/require-admin";
 import { auth } from "@/lib/auth";
+import { apiError, apiOk } from "@/lib/api-response";
+import { handleRouteError, parseJsonBody } from "@/lib/api-errors";
 
 export async function POST(request: NextRequest) {
+  const denied = await requireAdmin({ allowFirstTimeLogin: true });
+  if (denied) return denied;
   const session = await auth();
   if (!session?.user?.username) {
-    return NextResponse.json(
-      { success: false, message: "Unauthorized" },
-      { status: 401 }
-    );
+    return apiError(401, "Unauthorized");
   }
   try {
-    const body = await request.json();
+    const body = await parseJsonBody(request);
     const validatedData = changePasswordSchema.parse(body);
     await changePassword({ ...validatedData, username: session.user.username });
-
-    return NextResponse.json({
-      success: true,
-      message: "Password changed successfully",
+    return apiOk({ message: "Password changed successfully" });
+  } catch (error) {
+    // Validation (400, first field message), wrong current password (400)
+    // and unexpected errors (500) all answer { success: false, error }.
+    // Unexpected errors are logged by name only: never the request context.
+    return handleRouteError(error, "Failed to change password", {
+      logDetails: false,
     });
-
-    //eslint-disable-next-line @typescript-eslint/no-explicit-any
-  } catch (error: any) {
-    console.error("Error Changing Password", error);
-
-    if (error?.issues) {
-      return NextResponse.json(
-        { success: false, errors: error.issues },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json(
-      {
-        success: false,
-        message: error?.message || "Failed to change password",
-      },
-      { status: 500 }
-    );
   }
 }

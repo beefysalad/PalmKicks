@@ -5,12 +5,7 @@ export interface ChangePassword {
 }
 
 export interface ChangePasswordResponse {
-  success: boolean;
-  message?: string;
-  errors?: {
-    path: string[];
-    message: string;
-  }[];
+  message: string;
 }
 
 export interface ChangePasswordData {

@@ -3,6 +3,7 @@ import {
   Product,
   UpdateProductPayload,
 } from "@/app/shared/types/product";
+import axios from "axios";
 import { api, ApiResponse } from "../axios";
 
 export const productsApi = {
@@ -20,6 +21,18 @@ export const productsApi = {
       return response.data.data;
     }
     throw new Error(response.data.error || "Failed to fetch product");
+  },
+
+  /** Current product data, or null when the product no longer exists (404). */
+  fetchCurrentProduct: async (id: string): Promise<Product | null> => {
+    try {
+      return await productsApi.fetchProductById(id);
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 404) {
+        return null;
+      }
+      throw error;
+    }
   },
 
   createProduct: async (payload: CreateProductPayload): Promise<Product> => {

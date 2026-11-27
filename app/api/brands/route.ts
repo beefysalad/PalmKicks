@@ -1,3 +1,5 @@
+import { requireAdmin } from "@/lib/require-admin";
+import { handleRouteError, parseJsonBody } from "@/lib/api-errors";
 import { NextRequest, NextResponse } from "next/server";
 import { getBrands, addBrand } from "@/app/api/brands/brands-service";
 
@@ -15,9 +17,12 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const denied = await requireAdmin();
+  if (denied) return denied;
+
   try {
-    const body = await request.json();
-    const { name } = body;
+    const body = await parseJsonBody(request);
+    const { name } = (body ?? {}) as { name?: unknown };
 
     if (!name || typeof name !== "string" || name.trim().length === 0) {
       return NextResponse.json(
@@ -29,19 +34,6 @@ export async function POST(request: NextRequest) {
     const brand = await addBrand({ name: name.trim() });
     return NextResponse.json({ success: true, data: brand }, { status: 201 });
   } catch (error) {
-    console.error("Error creating brand:", error);
-
-    // Handle unique constraint violation (duplicate name)
-    if (error instanceof Error && error.message.includes("Unique constraint")) {
-      return NextResponse.json(
-        { success: false, error: "A brand with this name already exists" },
-        { status: 409 }
-      );
-    }
-
-    return NextResponse.json(
-      { success: false, error: "Failed to create brand" },
-      { status: 500 }
-    );
+    return handleRouteError(error, "Failed to create brand");
   }
 }

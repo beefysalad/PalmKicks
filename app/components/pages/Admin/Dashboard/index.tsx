@@ -3,11 +3,13 @@
 import { useProducts } from "@/lib/products/hooks";
 import { useOrders, useOrderStats } from "@/lib/orders/hooks";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Package, ShoppingBag, DollarSign, Clock } from "lucide-react";
+import { Package, ShoppingBag, DollarSign, Clock, CreditCard, CircleX } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
-import { Order } from "@/app/shared/types/order";
+import { OrderStatusBadge, PaymentStatusBadge } from "@/components/ui/order-status-badge";
+import { LOW_STOCK_THRESHOLD } from "@/lib/stock";
+import { formatOrderDate } from "@/lib/orders/date-format";
 
 const DashboardPage = () => {
   const { data: products = [] } = useProducts();
@@ -15,7 +17,7 @@ const DashboardPage = () => {
     page: 1,
     pageSize: 10,
   });
-  const { data: orderStats } = useOrderStats();
+  const { data: orderStats, isLoading: isLoadingStats, isError: statsError } = useOrderStats();
   const recentOrders = recentPage?.items ?? [];
 
   const stats = {
@@ -32,25 +34,6 @@ const DashboardPage = () => {
     }).format(amount);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
-
-  const getStatusColor = (status: Order["status"]) => {
-    const colors = {
-      pending: "bg-yellow-500/10 text-yellow-600",
-      confirmed: "bg-blue-500/10 text-blue-600",
-      processing: "bg-purple-500/10 text-purple-600",
-      shipped: "bg-indigo-500/10 text-indigo-600",
-      delivered: "bg-green-500/10 text-green-600",
-    };
-    return colors[status] || colors.pending;
-  };
-
   return (
     <div className='space-y-8'>
       <div>
@@ -60,7 +43,7 @@ const DashboardPage = () => {
         </p>
       </div>
 
-      <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-4'>
+      <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
             <CardTitle className='text-sm font-medium'>
@@ -89,14 +72,14 @@ const DashboardPage = () => {
 
         <Card>
           <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'>
-            <CardTitle className='text-sm font-medium'>Total Revenue</CardTitle>
+            <CardTitle className='text-sm font-medium'>Paid revenue</CardTitle>
             <DollarSign className='h-4 w-4 text-muted-foreground' />
           </CardHeader>
           <CardContent>
             <div className='text-2xl font-bold'>
               {formatCurrency(stats.totalRevenue)}
             </div>
-            <p className='text-xs text-muted-foreground'>All time revenue</p>
+            <p className='text-xs text-muted-foreground'>Paid orders, excluding cancellations</p>
           </CardContent>
         </Card>
 
@@ -111,6 +94,14 @@ const DashboardPage = () => {
             <div className='text-2xl font-bold'>{stats.pendingOrders}</div>
             <p className='text-xs text-muted-foreground'>Awaiting processing</p>
           </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'><CardTitle className='text-sm font-medium'>Unpaid orders</CardTitle><CreditCard className='h-4 w-4 text-muted-foreground' /></CardHeader>
+          <CardContent><div className='text-2xl font-bold'>{orderStats?.unpaidOrders ?? 0}</div><p className='text-xs text-muted-foreground'>Active orders awaiting payment</p></CardContent>
+        </Card>
+        <Card>
+          <CardHeader className='flex flex-row items-center justify-between space-y-0 pb-2'><CardTitle className='text-sm font-medium'>Cancelled orders</CardTitle><CircleX className='h-4 w-4 text-muted-foreground' /></CardHeader>
+          <CardContent><div className='text-2xl font-bold'>{orderStats?.byStatus.cancelled ?? 0}</div><p className='text-xs text-muted-foreground'>Excluded from paid revenue</p></CardContent>
         </Card>
       </div>
 
@@ -166,16 +157,13 @@ const DashboardPage = () => {
                         {formatCurrency(order.total)}
                       </td>
                       <td className='px-4 py-2'>
-                        <span
-                          className={`rounded-full px-2 py-1 text-xs font-medium ${getStatusColor(
-                            order.status
-                          )}`}
-                        >
-                          {order.status}
-                        </span>
+                        <div className='flex flex-wrap items-center gap-2'>
+                          <OrderStatusBadge status={order.status} />
+                          <PaymentStatusBadge status={order.paymentStatus} />
+                        </div>
                       </td>
                       <td className='px-4 py-2'>
-                        {formatDate(order.createdAt)}
+                        {formatOrderDate(order.createdAt)}
                       </td>
                     </tr>
                   ))}
@@ -187,6 +175,31 @@ const DashboardPage = () => {
               No orders yet
             </p>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Low stock</CardTitle>
+          <p className="text-sm text-muted-foreground">Up to 20 size/color combinations with {LOW_STOCK_THRESHOLD} pairs or fewer, lowest first.</p>
+        </CardHeader>
+        <CardContent>
+          {isLoadingStats ? <p className="text-sm text-muted-foreground">Loading stock…</p>
+            : statsError ? <p className="text-sm text-destructive">Stock could not be loaded. Please refresh.</p>
+            : orderStats?.lowStock.length ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <caption className="sr-only">Low stock by product, size and color</caption>
+                  <thead><tr className="border-b text-left"><th scope="col" className="py-2 pr-4">Product</th><th scope="col" className="p-2">Size</th><th scope="col" className="p-2">Color</th><th scope="col" className="p-2 text-right">Pairs left</th></tr></thead>
+                  <tbody>{orderStats.lowStock.map((v) => (
+                    <tr key={JSON.stringify([v.productId, v.size, v.color])} className="border-b">
+                      <td className="py-3 pr-4"><Link href={`/admin/products/${v.productId}`} className="font-medium text-primary hover:underline">{v.productName}</Link></td>
+                      <td className="p-2">{v.size}</td><td className="p-2">{v.color}</td>
+                      <td className="p-2 text-right font-medium tabular-nums">{v.stock === 0 ? "Sold out" : v.stock}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+            ) : <p className="text-sm text-muted-foreground">No low-stock combinations.</p>}
         </CardContent>
       </Card>
 

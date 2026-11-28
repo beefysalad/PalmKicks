@@ -22,6 +22,7 @@ const product = (over: Partial<CurrentProduct> = {}): CurrentProduct => ({
   inStock: true,
   sizes: ["9", "10"],
   colors: ["Black"],
+  variants: [{ size: "9", color: "Black", stock: 2 }, { size: "10", color: "Black", stock: 0 }],
   ...over,
 });
 
@@ -93,4 +94,12 @@ describe("repriceCart", () => {
     });
     expect(r.items[0].price).toBe(120.5);
   });
+});
+
+it("rejects zero-stock and missing exact combinations even when lists contain both values", () => {
+  for (const variants of [[{ size: "9", color: "Black", stock: 0 }], [{ size: "10", color: "Black", stock: 5 }]]) {
+    const result = repriceCart([item()], { p1: product({ variants }) });
+    expect(result.unavailable).toMatchObject([{ reason: "out_of_stock" }]);
+    expect(result.total).toBe(0);
+  }
 });

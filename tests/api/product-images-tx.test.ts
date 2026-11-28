@@ -25,6 +25,7 @@ const full = {
   sale: false,
   sizes: [],
   colors: [],
+  variants: [],
   brand: { id: "b", name: "B" },
   images: [],
 };
@@ -136,7 +137,7 @@ describe("updateProduct merged discount invariant", () => {
   it("does not touch the invariant for unrelated updates", async () => {
     current({ price: 100, sale: true, discountPrice: null });
     await updateProduct("p1", { featured: true });
-    expect(updateArg()).toEqual({ featured: true });
+    expect(updateArg()).toEqual({ featured: true, inStock: false });
   });
 });
 

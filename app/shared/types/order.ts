@@ -1,3 +1,5 @@
+import type { OrderStatus, PaymentStatus } from "../order-lifecycle";
+
 export interface Order {
   id: string;
   customerName: string;
@@ -8,7 +10,19 @@ export interface Order {
   shippingZipCode: string | null;
   meetupLocation: string | null;
   total: number;
-  status: "pending" | "confirmed" | "processing" | "shipped" | "delivered";
+  status: OrderStatus;
+  paymentStatus: PaymentStatus;
+  paymentMethod: string | null;
+  paymentRef: string | null;
+  paidAt: string | null;
+  adminNote: string | null;
+  courier: string | null;
+  trackingNumber: string | null;
+  shippedAt: string | null;
+  cancelledAt: string | null;
+  restockedAt: string | null;
+  confirmedEmailAt: string | null;
+  shippedEmailAt: string | null;
   createdAt: string;
   updatedAt: string;
   items: {
@@ -59,12 +73,6 @@ export type CreateOrderPayload =
       meetupLocation: string;
     });
 
-export interface UpdateOrderStatusPayload {
-  status: "pending" | "confirmed" | "processing" | "shipped" | "delivered";
-  /** Server rejects (409) if the order is no longer in this status. */
-  expectedStatus?: "pending" | "confirmed" | "processing" | "shipped" | "delivered";
-}
-
 export interface PublicOrder {
   id: string;
   status: Order["status"];
@@ -73,6 +81,10 @@ export interface PublicOrder {
   meetupLocation: string | null;
   shippingCity: string | null;
   customerFirstName: string;
+  courier: string | null;
+  trackingNumber: string | null;
+  shippedAt: string | null;
+  paymentStatus: PaymentStatus;
   items: {
     name: string;
     price: number;
@@ -86,6 +98,10 @@ export interface PublicOrder {
 export type OrderStatusValue = Order["status"];
 
 export interface OrderFilters {
+  q?: string;
+  paymentStatus?: PaymentStatus;
+  from?: string;
+  to?: string;
   status?: OrderStatusValue;
   page?: number;
   pageSize?: number;
@@ -100,7 +116,9 @@ export interface PagedOrders<T = Order> {
 
 export interface OrderStats {
   total: number;
-  /** Sum of totals of all non-pending orders. */
+  /** Sum of paid, non-cancelled order totals. */
   revenue: number;
   byStatus: Record<Order["status"], number>;
+  unpaidOrders: number;
+  lowStock: { productId: string; productName: string; size: string; color: string; stock: number }[];
 }

@@ -1,9 +1,12 @@
 import { randomBytes } from "node:crypto";
 import prisma from "../../../lib/prisma";
-import { sendOrderConfirmation } from "@/lib/send-mail";
+import { sendOrderConfirmation, sendOrderStatusEmail } from "@/lib/send-mail";
+import type { StatusEmailType } from "@/lib/orders/order-status-templates";
 import { runAfterResponse } from "@/lib/after";
 import { fromCentavos, toCentavos } from "@/lib/money";
 import { isOnSale } from "@/lib/pricing";
+import { LOW_STOCK_THRESHOLD } from "@/lib/stock";
+import { canTransition, canRefund, canSendOrderStatusEmail } from "@/app/shared/order-lifecycle";
 import { ORDER_STATUS_FLOW } from "@/app/shared/order-status";
 import { DomainError } from "@/lib/api-errors";
 import type {
@@ -13,14 +16,8 @@ import type {
   PublicOrder,
 } from "@/app/shared/types/order";
 import type { Prisma } from "@/app/generated/prisma/client";
-import type { CreateOrderInput } from "@/app/shared/zod/order-zod";
-
-type OrderStatus =
-  | "pending"
-  | "confirmed"
-  | "processing"
-  | "shipped"
-  | "delivered";
+import { orderFiltersSchema, type AdminOrderUpdate, type CreateOrderInput } from "@/app/shared/zod/order-zod";
+import type { OrderStatus, PaymentStatus } from "@/app/shared/order-lifecycle";
 
 export interface Order {
   id: string;
@@ -33,6 +30,18 @@ export interface Order {
   meetupLocation: string | null;
   total: number;
   status: OrderStatus;
+  paymentStatus: PaymentStatus;
+  paymentMethod: string | null;
+  paymentRef: string | null;
+  paidAt: Date | null;
+  adminNote: string | null;
+  courier: string | null;
+  trackingNumber: string | null;
+  shippedAt: Date | null;
+  cancelledAt: Date | null;
+  restockedAt: Date | null;
+  confirmedEmailAt: Date | null;
+  shippedEmailAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
   items: {
@@ -53,13 +62,7 @@ export interface Order {
   }[];
 }
 
-export type { CreateOrderInput, OrderFilters, OrderStats, PagedOrders };
-
-export interface UpdateOrderStatusData {
-  status: OrderStatus;
-  /** When set, the update only applies if the order is still in this status. */
-  expectedStatus?: OrderStatus;
-}
+export type { AdminOrderUpdate, CreateOrderInput, OrderFilters, OrderStats, PagedOrders };
 
 /** Thrown when an order request is well-formed but cannot be fulfilled. */
 export class OrderValidationError extends DomainError {
@@ -69,7 +72,7 @@ export class OrderValidationError extends DomainError {
   }
 }
 
-/** Thrown when a status change is not a valid single forward step. */
+/** Thrown when an order edit conflicts with its current state. */
 export class OrderTransitionError extends DomainError {
   constructor(message: string) {
     super(message, 409);
@@ -77,13 +80,24 @@ export class OrderTransitionError extends DomainError {
   }
 }
 
-const STATUS_FLOW: readonly OrderStatus[] = ORDER_STATUS_FLOW;
-
 const CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const ORDER_ID_RANDOM_CHARS = 10;
 const MAX_ID_ATTEMPTS = 3;
 // orders.total is Decimal(10,2): 99,999,999.99
 const MAX_TOTAL_CENTAVOS = 9_999_999_999;
+// Bound pool/lock contention without Prisma's shorter interactive defaults.
+const ORDER_TRANSACTION_OPTIONS = { maxWait: 10_000, timeout: 20_000 };
+
+async function orderTransaction<T>(work: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+  try {
+    return await prisma.$transaction(work, ORDER_TRANSACTION_OPTIONS);
+  } catch (error) {
+    if (typeof error === "object" && error !== null && (error as { code?: unknown }).code === "P2028") {
+      throw new DomainError("Checkout is busy, please try again", 503);
+    }
+    throw error;
+  }
+}
 
 // Generate order ID: PK-YYYY-<10 Crockford base32 chars> (50 bits of entropy)
 export function generateOrderId(): string {
@@ -126,6 +140,10 @@ export function toPublicOrder(order: Order): PublicOrder {
     meetupLocation: order.meetupLocation,
     shippingCity: order.shippingCity,
     customerFirstName: order.customerName.trim().split(/\s+/)[0] || "Customer",
+    courier: order.courier,
+    trackingNumber: order.trackingNumber,
+    shippedAt: order.shippedAt ? new Date(order.shippedAt).toISOString() : null,
+    paymentStatus: order.paymentStatus,
     items: order.items.map((item) => ({
       name: item.name,
       price: item.price,
@@ -151,6 +169,40 @@ function asStringArray(value: unknown): string[] {
     : [];
 }
 
+// Share the admin product writer's lock, and always acquire multiple product
+// locks in the same order so checkouts/cancellations cannot deadlock each other.
+async function lockProducts(tx: Prisma.TransactionClient, ids: string[]): Promise<string[]> {
+  const lockedIds: string[] = [];
+  for (const id of [...new Set(ids)].sort()) {
+    const rows = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM products WHERE id = ${id} FOR UPDATE`;
+    if (rows.length > 0) lockedIds.push(id);
+  }
+  return lockedIds;
+}
+
+function sumVariantQuantities(items: {
+  productId: string | null; size: string; color: string; quantity: number;
+}[]) {
+  const totals = new Map<string, { productId: string; size: string; color: string; quantity: number }>();
+  for (const item of items) {
+    if (item.productId === null) continue; // Deleted product, historical snapshot only.
+    const key = JSON.stringify([item.productId, item.size, item.color]);
+    const existing = totals.get(key);
+    if (existing) existing.quantity += item.quantity;
+    else totals.set(key, {
+      productId: item.productId, size: item.size, color: item.color, quantity: item.quantity,
+    });
+  }
+  return [...totals.values()];
+}
+
+async function refreshProductAvailability(tx: Prisma.TransactionClient, ids: string[]): Promise<void> {
+  for (const id of ids) {
+    const available = await tx.productVariant.count({ where: { productId: id, stock: { gt: 0 } } });
+    await tx.product.update({ where: { id }, data: { inStock: available > 0 } });
+  }
+}
+
 /** Authoritative unit price: discountPrice when on sale, otherwise price. */
 function unitPriceCentavos(product: {
   price: DbNumeric;
@@ -172,11 +224,29 @@ function clampInt(value: unknown, fallback: number, max: number): number {
 }
 
 export async function getOrders(filters?: OrderFilters): Promise<PagedOrders<Order>> {
+  const parsed = orderFiltersSchema.safeParse(filters ?? {});
+  if (!parsed.success) throw new OrderValidationError(parsed.error.issues[0]?.message ?? "Invalid order filters");
+  filters = parsed.data;
   const page = clampInt(filters?.page, 1, Number.MAX_SAFE_INTEGER);
   const pageSize = clampInt(filters?.pageSize, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE);
   const where: Prisma.OrderWhereInput = {};
   if (filters?.status !== undefined) {
     where.status = filters.status;
+  }
+  if (filters.paymentStatus !== undefined) where.paymentStatus = filters.paymentStatus;
+  if (filters.q !== undefined) {
+    // Prisma parameterizes values but PostgreSQL LIKE/ILIKE still interprets
+    // %, _ and backslashes. Escape them so contains searches literal user text.
+    const literal = filters.q.replace(/[\\%_]/g, (character) => `\\${character}`);
+    where.OR = ["id", "customerName", "customerEmail", "customerPhone"].map((field) => ({
+      [field]: { contains: literal, mode: "insensitive" },
+    }));
+  }
+  if (filters.from || filters.to) {
+    where.createdAt = {
+      ...(filters.from ? { gte: new Date(`${filters.from}T00:00:00+08:00`) } : {}),
+      ...(filters.to ? { lt: new Date(new Date(`${filters.to}T00:00:00+08:00`).getTime() + 86_400_000) } : {}),
+    };
   }
 
   const [orders, total] = await prisma.$transaction([
@@ -194,33 +264,52 @@ export async function getOrders(filters?: OrderFilters): Promise<PagedOrders<Ord
 }
 
 export async function getOrderStats(): Promise<OrderStats> {
-  const groups = await prisma.order.groupBy({
-    by: ["status"],
+  const [groups, variants] = await Promise.all([prisma.order.groupBy({
+    by: ["status", "paymentStatus"],
     _count: { _all: true },
     _sum: { total: true },
-  });
+  }), prisma.productVariant.findMany({
+    where: { stock: { lte: LOW_STOCK_THRESHOLD } },
+    orderBy: [{ stock: "asc" }, { productId: "asc" }, { size: "asc" }, { color: "asc" }],
+    take: 20,
+    select: { productId: true, size: true, color: true, stock: true, product: { select: { name: true } } },
+  })]);
   const byStatus: Record<OrderStatus, number> = {
     pending: 0,
     confirmed: 0,
     processing: 0,
     shipped: 0,
     delivered: 0,
+    cancelled: 0,
   };
   let total = 0;
   let revenueCentavos = 0;
+  let unpaidOrders = 0;
   for (const g of groups) {
-    byStatus[g.status as OrderStatus] = g._count._all;
+    byStatus[g.status] += g._count._all;
     total += g._count._all;
-    if (g.status !== "pending" && g._sum.total != null) {
+    if (g.status !== "cancelled" && g.paymentStatus === "unpaid") {
+      unpaidOrders += g._count._all;
+    }
+    if (g.status !== "cancelled" && g.paymentStatus === "paid" && g._sum.total != null) {
       revenueCentavos += toCentavos(g._sum.total);
     }
   }
-  return { total, revenue: revenueCentavos / 100, byStatus };
+  const lowStock = variants.map(({ product, ...variant }) => ({ ...variant, productName: product.name }));
+  return { total, revenue: revenueCentavos / 100, byStatus, unpaidOrders, lowStock };
 }
 
 export async function deleteOrderById(id: string): Promise<void> {
-  await prisma.order.delete({
-    where: { id },
+  await prisma.$transaction(async (tx) => {
+    const current = await tx.order.findUnique({ where: { id } });
+    if (!current) throw new DomainError("Order not found", 404);
+    if (current.status !== "cancelled") {
+      throw new OrderTransitionError("Cancel the order before deleting");
+    }
+    const result = await tx.order.deleteMany({ where: { id, status: "cancelled" } });
+    if (result.count === 0) {
+      throw new OrderTransitionError("Order changed before deletion. Refresh and try again.");
+    }
   });
 }
 
@@ -277,7 +366,7 @@ export async function addOrderWithResult(
 ): Promise<AddOrderResult> {
   for (let attempt = 1; attempt <= MAX_ID_ATTEMPTS; attempt++) {
     try {
-      const result = await prisma.$transaction(
+      const result = await orderTransaction(
         async (tx): Promise<AddOrderResult> => {
           if (idempotencyKey) {
             const existing = await findByIdempotencyKey(tx, idempotencyKey);
@@ -285,6 +374,13 @@ export async function addOrderWithResult(
           }
 
           const productIds = [...new Set(data.items.map((i) => i.productId))];
+          await lockProducts(tx, productIds);
+          // Another checkout with this key may have committed while we waited
+          // for its product lock, including buying the last available pair.
+          if (idempotencyKey) {
+            const existing = await findByIdempotencyKey(tx, idempotencyKey);
+            if (existing) return { order: existing, replayed: true };
+          }
           const products = await tx.product.findMany({
             where: { id: { in: productIds } },
           });
@@ -325,6 +421,22 @@ export async function addOrderWithResult(
           if (totalCentavos > MAX_TOTAL_CENTAVOS) {
             throw new OrderValidationError("Order total is too large");
           }
+
+          for (const { quantity, ...variant } of sumVariantQuantities(data.items)) {
+            const result = await tx.productVariant.updateMany({
+              where: { ...variant, stock: { gte: quantity } },
+              data: { stock: { decrement: quantity } },
+            });
+            if (result.count === 0) {
+              const current = await tx.productVariant.findUnique({
+                where: { productId_size_color: variant }, select: { stock: true },
+              });
+              throw new OrderValidationError(
+                `Only ${current?.stock ?? 0} left in size ${variant.size} / colour ${variant.color}`,
+              );
+            }
+          }
+          await refreshProductAvailability(tx, [...productIds].sort());
 
           const isShipping = data.deliveryMethod === "shipping";
           const created = await tx.order.create({
@@ -377,53 +489,169 @@ function scheduleConfirmationEmail(order: Order): void {
   }
 }
 
-export async function updateOrderStatus(
+const PAYMENT_CONFLICT = "Payment details changed since you loaded this order. Refresh and try again.";
+const STATUS_CONFLICT = "Order status changed since you loaded it. Refresh and try again.";
+
+// Coalesce jobs for the same content on this instance. Database flags suppress
+// later successful deliveries; this is not a durable/distributed email queue.
+const statusEmailInflight = new Map<string, Promise<{ sent: boolean }>>();
+
+export function sendAndRecordOrderStatusEmail(order: Order, type: StatusEmailType, force = false): Promise<{ sent: boolean }> {
+  const key = JSON.stringify([order.id, type, type === "shipped" ? order.trackingNumber : null, force]);
+  const pending = statusEmailInflight.get(key);
+  if (pending) return pending;
+  const task = (async () => {
+    try {
+      const current = await getOrderById(order.id);
+      const field = type === "confirmed" ? "confirmedEmailAt" : "shippedEmailAt";
+      if (!current || !canSendOrderStatusEmail(current.status, type) || (!force && current[field])) return { sent: false };
+      if (type === "shipped" && (!current.courier?.trim() || !current.trackingNumber?.trim() ||
+          current.trackingNumber !== order.trackingNumber)) return { sent: false };
+      const { sent } = await sendOrderStatusEmail(current, type);
+      if (sent) {
+        try {
+          await prisma.order.updateMany({
+            where: { id: order.id, status: { in: ORDER_STATUS_FLOW.filter((status) => canSendOrderStatusEmail(status, type)) },
+              ...(force ? {} : { [field]: null }),
+              ...(type === "shipped" ? { trackingNumber: current.trackingNumber, courier: current.courier } : {}),
+            },
+            data: { [field]: new Date() },
+          });
+        } catch (error) { console.error("Could not record successful order email:", error); }
+      }
+      return { sent };
+    } catch (error) {
+      console.error("Order status email failed:", error);
+      return { sent: false };
+    }
+  })().finally(() => statusEmailInflight.delete(key));
+  statusEmailInflight.set(key, task);
+  return task;
+}
+
+export async function updateOrderAdmin(
   id: string,
-  data: UpdateOrderStatusData
+  input: AdminOrderUpdate
 ): Promise<Order> {
-  const current = await prisma.order.findUnique({
-    where: { id },
-    include: orderInclude,
+  const result = await orderTransaction(async (tx): Promise<{ order: Order; emailType?: StatusEmailType }> => {
+    const current = await tx.order.findUnique({ where: { id }, include: orderInclude });
+    if (!current) throw new DomainError("Order not found", 404);
+    const expected = input.expectedStatus ?? current.status;
+    if (current.status !== expected) throw new OrderTransitionError(STATUS_CONFLICT);
+
+    // The resolved spec permits a paid cancellation to be refunded; all other
+    // cancelled-order edits are limited to the internal note.
+    if (current.status === "cancelled") {
+      const allowed = new Set(["expectedStatus", "adminNote", "paymentStatus"]);
+      if (Object.entries(input).some(([key, value]) => value !== undefined && !allowed.has(key)) ||
+          (input.paymentStatus !== undefined && input.paymentStatus !== "refunded")) {
+        throw new OrderTransitionError("Cancelled orders only allow notes and refunds");
+      }
+    }
+
+    const confirmedStatus = current.status === "pending" ? "confirmed" : current.status;
+    if (input.markPaidAndConfirm &&
+        ((input.paymentStatus !== undefined && input.paymentStatus !== "paid") ||
+         (input.status !== undefined && input.status !== confirmedStatus))) {
+      throw new OrderValidationError("Mark paid and confirm conflicts with the requested status or payment");
+    }
+    const status = input.markPaidAndConfirm ? confirmedStatus : input.status ?? current.status;
+    const paymentStatus = input.markPaidAndConfirm ? "paid" : input.paymentStatus;
+    const changingStatus = status !== current.status;
+    if (changingStatus && !canTransition(current.status, status)) {
+      throw new OrderTransitionError(`Cannot change order status from ${current.status} to ${status}`);
+    }
+    if (paymentStatus === "refunded" && !canRefund(current.paymentStatus)) {
+      throw new OrderTransitionError("Only paid orders can be refunded");
+    }
+
+    if (current.paymentStatus === "refunded" && paymentStatus !== undefined && paymentStatus !== "refunded") {
+      throw new OrderTransitionError("Refunded payments cannot be changed");
+    }
+    if (current.status === "shipped" || current.status === "delivered") {
+      for (const key of ["courier", "trackingNumber"] as const) {
+        if (input[key] !== undefined && !input[key]?.trim()) {
+          throw new OrderValidationError("Courier and tracking number cannot be cleared after shipping");
+        }
+      }
+    }
+
+    const data: Prisma.OrderUpdateManyMutationInput = {};
+    // The shipped-email flag belongs to the current tracking details, including
+    // details saved separately before a later transition back into shipped.
+    const trackingChanged = input.trackingNumber !== undefined && input.trackingNumber !== current.trackingNumber;
+    if (trackingChanged) data.shippedEmailAt = null;
+    for (const key of ["paymentMethod", "paymentRef", "adminNote", "courier", "trackingNumber"] as const) {
+      if (input[key] !== undefined) data[key] = input[key];
+    }
+    const now = new Date();
+    if (changingStatus) {
+      data.status = status;
+      if (status === "cancelled") data.cancelledAt = now;
+      if (status === "shipped") {
+        // Re-shipping must explicitly reconfirm the shipping details. On the
+        // first shipment, saved details can be supplied by an earlier edit.
+        const courier = input.courier !== undefined || current.shippedAt
+          ? input.courier : current.courier;
+        const tracking = input.trackingNumber !== undefined || current.shippedAt
+          ? input.trackingNumber : current.trackingNumber;
+        if (!courier?.trim() || !tracking?.trim()) {
+          throw new OrderValidationError("Courier and tracking number are required to ship an order");
+        }
+        if (!current.shippedAt) data.shippedAt = now;
+      }
+    }
+    if (paymentStatus !== undefined) {
+      data.paymentStatus = paymentStatus;
+      if (paymentStatus === "paid" && !current.paidAt) data.paidAt = now;
+      if (paymentStatus === "unpaid") data.paidAt = null;
+    }
+    if (Object.keys(data).length === 0) return { order: mapOrder(current) };
+
+    const restocking = changingStatus && status === "cancelled" && current.restockedAt === null;
+    const restockItems = restocking ? sumVariantQuantities(current.items) : [];
+    const lockedProducts = restocking
+      ? await lockProducts(tx, restockItems.map((item) => item.productId))
+      : [];
+    if (restocking) data.restockedAt = now;
+
+    const result = await tx.order.updateMany({
+      where: {
+        id, status: expected,
+        ...(paymentStatus !== undefined ? { paymentStatus: current.paymentStatus } : {}),
+        ...(restocking ? { restockedAt: null } : {}),
+      },
+      data,
+    });
+    if (result.count === 0) {
+      const latest = await tx.order.findUnique({ where: { id } });
+      throw new OrderTransitionError(
+        paymentStatus !== undefined && latest?.status === expected && latest.paymentStatus !== current.paymentStatus
+          ? PAYMENT_CONFLICT : STATUS_CONFLICT,
+      );
+    }
+    if (restocking) {
+      const existingProducts = new Set(lockedProducts);
+      for (const { quantity, ...variant } of restockItems) {
+        if (!existingProducts.has(variant.productId)) continue;
+        // updateMany skips removed combinations instead of recreating variants
+        // that an admin intentionally removed while they had no stock.
+        await tx.productVariant.updateMany({
+          where: variant, data: { stock: { increment: quantity } },
+        });
+      }
+      await refreshProductAvailability(tx, lockedProducts);
+    }
+    const updated = await tx.order.findUnique({ where: { id }, include: orderInclude });
+    if (!updated) throw new DomainError("Order not found", 404);
+    const emailType = changingStatus && status === "confirmed" && !current.confirmedEmailAt ? "confirmed"
+      : changingStatus && status === "shipped" && (!current.shippedEmailAt || trackingChanged) ? "shipped" : undefined;
+    return { order: mapOrder(updated), emailType };
   });
-  if (!current) {
-    throw new DomainError("Order not found", 404);
+  if (result.emailType) {
+    const type = result.emailType;
+    try { runAfterResponse(`order-${type}-email`, () => sendAndRecordOrderStatusEmail(result.order, type)); }
+    catch (error) { console.error("Could not schedule order status email:", error); }
   }
-
-  const expected = data.expectedStatus ?? current.status;
-  if (current.status !== expected) {
-    throw new OrderTransitionError(
-      "Order status changed since you loaded it. Refresh and try again."
-    );
-  }
-
-  if (data.status === current.status) {
-    return mapOrder(current);
-  }
-
-  const from = STATUS_FLOW.indexOf(current.status as OrderStatus);
-  const to = STATUS_FLOW.indexOf(data.status);
-  if (from === -1 || to !== from + 1) {
-    throw new OrderTransitionError(
-      `Cannot change order status from ${current.status} to ${data.status}`
-    );
-  }
-
-  const result = await prisma.order.updateMany({
-    where: { id, status: expected },
-    data: { status: data.status },
-  });
-  if (result.count === 0) {
-    throw new OrderTransitionError(
-      "Order status changed since you loaded it. Refresh and try again."
-    );
-  }
-
-  const updated = await prisma.order.findUnique({
-    where: { id },
-    include: orderInclude,
-  });
-  if (!updated) {
-    throw new DomainError("Order not found", 404);
-  }
-  return mapOrder(updated);
+  return result.order;
 }

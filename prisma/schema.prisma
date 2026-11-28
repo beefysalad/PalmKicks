@@ -25,6 +25,13 @@ enum OrderStatus {
   processing
   shipped
   delivered
+  cancelled
+}
+
+enum PaymentStatus {
+  unpaid
+  paid
+  refunded
 }
 
 model Brand {
@@ -58,11 +65,27 @@ model Product {
   brand         Brand          @relation(fields: [brandId], references: [id])
   images        ProductImage[]
   orderItems    OrderItem[]
+  variants      ProductVariant[]
 
   @@index([brandId])
   @@index([featured])
   @@index([latest])
   @@map("products")
+}
+
+model ProductVariant {
+  id        String   @id @default(uuid())
+  productId String
+  size      String
+  color     String
+  stock     Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, size, color])
+  @@index([productId])
+  @@map("product_variants")
 }
 
 model ProductImage {
@@ -78,22 +101,37 @@ model ProductImage {
 }
 
 model Order {
-  id              String      @id // Custom format: PK-YYYY-XXXXXXXXXX (Crockford base32)
-  idempotencyKey  String?     @unique // Client-supplied Idempotency-Key for checkout retries
-  customerName    String
-  customerEmail   String
-  customerPhone   String
-  shippingAddress String?
-  shippingCity    String?
-  shippingZipCode String?
-  meetupLocation  String?
-  total           Decimal     @db.Decimal(10, 2)
-  status          OrderStatus @default(pending)
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
-  items           OrderItem[]
+  id               String        @id // Custom format: PK-YYYY-XXXXXXXXXX (Crockford base32)
+  idempotencyKey   String?       @unique // Client-supplied Idempotency-Key for checkout retries
+  customerName     String
+  customerEmail    String
+  customerPhone    String
+  shippingAddress  String?
+  shippingCity     String?
+  shippingZipCode  String?
+  meetupLocation   String?
+  total            Decimal       @db.Decimal(10, 2)
+  status           OrderStatus   @default(pending)
+  paymentStatus    PaymentStatus @default(unpaid)
+  paymentMethod    String?
+  paymentRef       String?
+  paidAt           DateTime?
+  adminNote        String?
+  courier          String?
+  trackingNumber   String?
+  shippedAt        DateTime?
+  cancelledAt      DateTime?
+  restockedAt      DateTime?
+  confirmedEmailAt DateTime?
+  shippedEmailAt   DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  items            OrderItem[]
 
   @@index([status, createdAt])
+  @@index([paymentStatus])
+  @@index([customerEmail])
+  @@index([createdAt])
   @@map("orders")
 }
 

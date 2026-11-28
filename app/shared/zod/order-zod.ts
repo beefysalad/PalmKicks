@@ -1,4 +1,5 @@
 import z from "zod";
+import { PAYMENT_METHODS } from "../order-lifecycle";
 
 // Order item as sent by the client. Price, name and image are NOT accepted:
 // the server reads them from the product record (unknown keys are stripped).
@@ -58,19 +59,43 @@ export const idempotencyKeySchema = z
   .max(100)
   .regex(/^[A-Za-z0-9_-]+$/, "Invalid Idempotency-Key");
 
+export const resendOrderEmailSchema = z.object({
+  orderId: z.string().trim().min(1, "Order ID is required").max(100),
+  type: z.enum(["confirmation", "confirmed", "shipped"]).default("confirmation"),
+}).strict();
+export type OrderEmailType = z.infer<typeof resendOrderEmailSchema>["type"];
+
 // Update order status schema
-const orderStatusEnum = z.enum([
+export const orderStatusEnum = z.enum([
   "pending",
   "confirmed",
   "processing",
   "shipped",
   "delivered",
+  "cancelled",
 ]);
 
 export const updateOrderStatusSchema = z.object({
   status: orderStatusEnum,
   expectedStatus: orderStatusEnum.optional(),
 });
+
+const nullableText = (max: number) => z.string().trim().max(max).nullable()
+  .transform((value) => value || null).optional();
+
+export const adminOrderUpdateSchema = z.object({
+  status: orderStatusEnum.optional(),
+  expectedStatus: orderStatusEnum.optional(),
+  paymentStatus: z.enum(["unpaid", "paid", "refunded"]).optional(),
+  paymentMethod: z.enum(PAYMENT_METHODS).optional(),
+  paymentRef: nullableText(100),
+  adminNote: nullableText(2000),
+  courier: nullableText(100),
+  trackingNumber: nullableText(100),
+  markPaidAndConfirm: z.boolean().optional(),
+}).strict();
+
+export type AdminOrderUpdate = z.infer<typeof adminOrderUpdateSchema>;
 
 export const deleteOrderSchema = z.object({
   id: z.string().min(1, "Order ID is required"),
@@ -81,3 +106,27 @@ export type CreateOrderInput = TOrderSchema;
 export type TOrderItemSchema = z.infer<typeof orderItemSchema>;
 export type TUpdateOrderStatusSchema = z.infer<typeof updateOrderStatusSchema>;
 export type TDeleteOrderSchema = z.infer<typeof deleteOrderSchema>;
+
+// Validate real calendar dates rather than letting Date normalize 30 February.
+export const orderDateFilterSchema = z.string().refine((value) => {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value.startsWith("0000-")) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}, "Invalid date; use YYYY-MM-DD");
+
+const paginationInput = (fallback: number, max: number) => z.unknown().transform((value) => {
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 1 ? Math.min(Math.floor(n), max) : fallback;
+}).optional();
+
+export const orderFiltersSchema = z.object({
+  q: z.string().trim().min(1, "Search text is required").max(100, "Search text must be at most 100 characters").optional(),
+  status: orderStatusEnum.optional(),
+  paymentStatus: z.enum(["unpaid", "paid", "refunded"]).optional(),
+  from: orderDateFilterSchema.optional(),
+  to: orderDateFilterSchema.optional(),
+  page: paginationInput(1, Number.MAX_SAFE_INTEGER),
+  pageSize: paginationInput(20, 100),
+}).refine((v) => !v.from || !v.to || v.from <= v.to, {
+  message: "From date must not be after to date", path: ["to"],
+});

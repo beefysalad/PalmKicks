@@ -18,7 +18,7 @@ vi.mock("@/app/api/settings/settings-service", async (orig) => ({
 }));
 vi.mock("@/app/api/orders/orders-service", async (orig) => ({
   ...(await orig<typeof import("@/app/api/orders/orders-service")>()),
-  updateOrderStatus: vi.fn(),
+  updateOrderAdmin: vi.fn(),
 }));
 
 import { parseJsonBody } from "@/lib/api-errors";

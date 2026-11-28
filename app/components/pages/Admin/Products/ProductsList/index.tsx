@@ -20,6 +20,8 @@ import {
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { productStockState } from "@/lib/stock";
 
 const ITEMS_PER_PAGE = 7;
 
@@ -255,15 +257,10 @@ const ProductsListPage = () => {
                     <span className='text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded'>
                       {product.category}
                     </span>
-                    <span
-                      className={`text-xs font-medium px-2 py-0.5 rounded ${
-                        product.inStock
-                          ? "bg-green-500/10 text-green-600"
-                          : "bg-red-500/10 text-red-600"
-                      }`}
-                    >
-                      {product.inStock ? "In Stock" : "Out of Stock"}
-                    </span>
+                    <Badge variant={productStockState(product.variants) === "out" ? "destructive" : "secondary"}>
+                      {productStockState(product.variants) === "out" ? "Sold out"
+                        : productStockState(product.variants) === "low" ? "Low stock" : "In stock"}
+                    </Badge>
                   </div>
 
                   <div className='flex items-center justify-between'>

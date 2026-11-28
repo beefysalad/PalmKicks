@@ -3,6 +3,7 @@ import { NextRequest } from "next/server";
 
 const { prismaMock } = vi.hoisted(() => {
   const m = {
+    productVariant: { findMany: vi.fn(async () => []) },
     order: {
       findMany: vi.fn(),
       count: vi.fn(),
@@ -85,6 +86,19 @@ describe("GET /api/orders pagination", () => {
     });
   });
 
+  it("filters cancelled orders", async () => {
+    await get("?status=cancelled");
+    expect(prismaMock.order.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { status: "cancelled" } }),
+    );
+    expect(prismaMock.order.count).toHaveBeenCalledWith({ where: { status: "cancelled" } });
+  });
+
+  it("rejects unknown statuses before querying", async () => {
+    expect((await get("?status=unknown")).status).toBe(400);
+    expect(prismaMock.order.findMany).not.toHaveBeenCalled();
+  });
+
   it("is admin only", async () => {
     requireAdmin.mockResolvedValue(new Response(null, { status: 401 }));
     const res = await get();
@@ -94,22 +108,25 @@ describe("GET /api/orders pagination", () => {
 });
 
 describe("GET /api/orders/stats", () => {
-  it("returns counts per status, total and revenue excluding pending", async () => {
+  it("returns counts per status, total and paid revenue and unpaid count", async () => {
     prismaMock.order.groupBy.mockResolvedValue([
-      { status: "pending", _count: { _all: 2 }, _sum: { total: "20.00" } },
-      { status: "shipped", _count: { _all: 3 }, _sum: { total: "300.50" } },
+      { status: "pending", paymentStatus: "unpaid", _count: { _all: 2 }, _sum: { total: "20.00" } },
+      { status: "shipped", paymentStatus: "paid", _count: { _all: 3 }, _sum: { total: "300.50" } },
     ]);
     const res = await STATS();
     const body = await res.json();
     expect(body.data).toEqual({
       total: 5,
       revenue: 300.5,
+      unpaidOrders: 2,
+      lowStock: [],
       byStatus: {
         pending: 2,
         confirmed: 0,
         processing: 0,
         shipped: 3,
         delivered: 0,
+        cancelled: 0,
       },
     });
   });

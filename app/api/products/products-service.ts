@@ -1,5 +1,7 @@
 import prisma from "../../../lib/prisma";
 import { DomainError } from "@/lib/api-errors";
+import type { ProductVariantStock } from "@/app/shared/types/product";
+import { variantStockSchema } from "@/app/shared/zod/product-zod";
 import type { Prisma } from "@/app/generated/prisma/client";
 
 export interface Product {
@@ -15,6 +17,7 @@ export interface Product {
   sizes: string[];
   colors: string[];
   inStock: boolean;
+  variants: ProductVariantStock[];
   featured: boolean;
   latest: boolean;
   createdAt: Date;
@@ -43,6 +46,7 @@ export interface CreateProductData {
   sizes?: string[];
   colors?: string[];
   inStock?: boolean;
+  variantStock?: ProductVariantStock[];
   sale: boolean;
 }
 
@@ -59,6 +63,7 @@ export interface UpdateProductData {
   sizes?: string[];
   colors?: string[];
   inStock?: boolean;
+  variantStock?: ProductVariantStock[];
   featured?: boolean;
   latest?: boolean;
   sale?: boolean;
@@ -78,65 +83,33 @@ export async function getProducts(filters?: {
 
   const products = await prisma.product.findMany({
     where,
-    include: {
-      brand: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-      images: {
-        orderBy: {
-          order: "asc",
-        },
-      },
-    },
+    include: PRODUCT_INCLUDE,
     orderBy: { createdAt: "desc" },
     take: filters?.latest ? 6 : undefined,
   });
 
-  return products.map((product) => ({
-    ...product,
-    price: Number(product.price),
-    discountPrice: product.discountPrice ? Number(product.discountPrice) : null,
-    sizes: product.sizes as string[],
-    colors: product.colors as string[],
-  }));
+  return products.map(toProduct);
 }
 
 export async function getProductById(id: string): Promise<Product | null> {
   const product = await prisma.product.findUnique({
     where: { id },
-    include: {
-      brand: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-      images: {
-        orderBy: {
-          order: "asc",
-        },
-      },
-    },
+    include: PRODUCT_INCLUDE,
   });
 
   if (!product) return null;
 
-  return {
-    ...product,
-    price: Number(product.price),
-    discountPrice: product.discountPrice ? Number(product.discountPrice) : null,
-    sizes: product.sizes as string[],
-    colors: product.colors as string[],
-  };
+  return toProduct(product);
 }
 
 const PRODUCT_INCLUDE = {
+  variants: {
+    select: { size: true, color: true, stock: true },
+    orderBy: [{ size: "asc" }, { color: "asc" }],
+  },
   brand: { select: { id: true, name: true } },
   images: { orderBy: { order: "asc" } },
-} as const;
+} satisfies Prisma.ProductInclude;
 
 type ProductRow = Prisma.ProductGetPayload<{ include: typeof PRODUCT_INCLUDE }>;
 
@@ -150,8 +123,25 @@ function toProduct(row: ProductRow): Product {
   };
 }
 
+function buildVariants(sizes: string[], colors: string[], stock: ProductVariantStock[] | undefined, existing: ProductVariantStock[] = []): ProductVariantStock[] {
+  const parsed = variantStockSchema.safeParse(stock ?? []);
+  if (!parsed.success) throw new DomainError("Invalid variant stock", 400);
+  if (parsed.data.some((cell) => !sizes.includes(cell.size) || !colors.includes(cell.color))) {
+    throw new DomainError("Variant size and colour must be in the product grid", 400);
+  }
+  if (existing.some((cell) => cell.stock > 0 && (!sizes.includes(cell.size) || !colors.includes(cell.color)))) {
+    throw new DomainError("Remove stock first", 409);
+  }
+  const key = (cell: { size: string; color: string }) => JSON.stringify([cell.size, cell.color]);
+  const counts = new Map([...existing, ...parsed.data].map((cell) => [key(cell), cell.stock]));
+  return [...new Set(sizes)].flatMap((size) => [...new Set(colors)].map((color) => ({
+    size, color, stock: counts.get(key({ size, color })) ?? 0,
+  })));
+}
+
 export async function addProduct(data: CreateProductData): Promise<Product> {
-  const { additionalImages = [], ...productData } = data;
+  const { additionalImages = [], variantStock, ...productData } = data;
+  const variants = buildVariants(productData.sizes ?? [], productData.colors ?? [], variantStock);
 
   if (productData.sale) {
     if (productData.discountPrice === undefined) {
@@ -182,12 +172,16 @@ export async function addProduct(data: CreateProductData): Promise<Product> {
         image: productData.image,
         sizes: productData.sizes || [],
         colors: productData.colors || [],
-        inStock: productData.inStock ?? true,
+        inStock: variants.some((variant) => variant.stock > 0),
         featured: false, // products must be manually featured
         latest: false, // products must be manually added to latest
         sale: productData.sale,
       },
     });
+
+    if (variants.length > 0) {
+      await tx.productVariant.createMany({ data: variants.map((variant) => ({ ...variant, productId: product.id })) });
+    }
 
     if (additionalImages.length > 0) {
       await tx.productImage.createMany({
@@ -214,7 +208,7 @@ export async function updateProduct(
   id: string,
   updates: UpdateProductData
 ): Promise<Product> {
-  const { additionalImages, brandId, ...rest } = updates;
+  const { additionalImages, brandId, variantStock, ...rest } = updates;
 
   const updateData: Prisma.ProductUpdateInput = {};
   if (rest.name !== undefined) updateData.name = rest.name;
@@ -228,13 +222,22 @@ export async function updateProduct(
   if (rest.image !== undefined) updateData.image = rest.image;
   if (rest.sizes !== undefined) updateData.sizes = rest.sizes;
   if (rest.colors !== undefined) updateData.colors = rest.colors;
-  if (rest.inStock !== undefined) updateData.inStock = rest.inStock;
   if (rest.featured !== undefined) updateData.featured = rest.featured;
   if (rest.latest !== undefined) updateData.latest = rest.latest;
   if (rest.sale !== undefined) updateData.sale = rest.sale;
 
   // Field update and image replacement commit together or not at all.
   const updatedProduct = await prisma.$transaction(async (tx) => {
+    // Lock every product write before reading its grid, including flag-only edits.
+    const locked = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM products WHERE id = ${id} FOR UPDATE`;
+    if (locked.length === 0) throw new DomainError("Product not found", 404);
+    const current = await tx.product.findUnique({ where: { id }, include: PRODUCT_INCLUDE });
+    if (!current) throw new DomainError("Product not found", 404);
+    const sizes = rest.sizes ?? current.sizes as string[];
+    const colors = rest.colors ?? current.colors as string[];
+    const variants = buildVariants(sizes, colors, variantStock, current.variants);
+    updateData.inStock = variants.some((variant) => variant.stock > 0);
+
     // Validate the MERGED product so partial updates cannot break the
     // price/discount/sale invariant against the stored row.
     if (
@@ -242,15 +245,6 @@ export async function updateProduct(
       rest.discountPrice !== undefined ||
       rest.sale !== undefined
     ) {
-      // Lock the row first so a concurrent update cannot change price/sale
-      // between this read and the write below (read-merge-validate-write).
-      const locked = await tx.$queryRaw<{ id: string }[]>`SELECT id FROM products WHERE id = ${id} FOR UPDATE`;
-      if (locked.length === 0) throw new DomainError("Product not found", 404);
-      const current = await tx.product.findUnique({
-        where: { id },
-        select: { price: true, discountPrice: true, sale: true },
-      });
-      if (!current) throw new DomainError("Product not found", 404);
       const price = rest.price ?? Number(current.price);
       const sale = rest.sale ?? current.sale;
       const discount =
@@ -274,6 +268,19 @@ export async function updateProduct(
       } else {
         updateData.discountPrice = null;
       }
+    }
+
+    const removed = current.variants.filter((cell) => !sizes.includes(cell.size) || !colors.includes(cell.color));
+    if (removed.length > 0) {
+      await tx.productVariant.deleteMany({ where: { productId: id, OR: removed.map(({ size, color }) => ({ size, color })) } });
+    }
+    for (const variant of variants) {
+      const previous = current.variants.find((cell) => cell.size === variant.size && cell.color === variant.color);
+      if (previous?.stock === variant.stock) continue;
+      await tx.productVariant.upsert({
+        where: { productId_size_color: { productId: id, size: variant.size, color: variant.color } },
+        create: { productId: id, ...variant }, update: { stock: variant.stock },
+      });
     }
 
     await tx.product.update({ where: { id }, data: updateData });

@@ -1,4 +1,5 @@
 import { DeliveryMethod } from "@/app/shared/types/delivery";
+import type { OrderStatus } from "@/app/shared/order-lifecycle";
 
 /**
  * Order interface for email template compatibility
@@ -26,7 +27,7 @@ export interface Order {
     meetupLocation?: string;
   };
   total: number;
-  status: "pending" | "confirmed" | "processing" | "shipped" | "delivered";
+  status: OrderStatus;
   createdAt: string;
   deliveryMethod: DeliveryMethod;
 }

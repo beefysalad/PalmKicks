@@ -23,6 +23,7 @@ import {
 import Image from "next/image";
 import { useState } from "react";
 import { usePublicOrder } from "@/lib/orders/hooks";
+import { paymentLabel } from "@/lib/orders/ui-helpers";
 
 const statusSteps = [
   {
@@ -35,7 +36,7 @@ const statusSteps = [
     status: "confirmed",
     label: "Confirmed",
     icon: Clock,
-    description: "Payment confirmed, preparing your order",
+    description: "Your order is confirmed",
   },
   {
     status: "processing",
@@ -159,10 +160,14 @@ const Tracking = () => {
                 <CardHeader>
                   <CardTitle>Order Status</CardTitle>
                   <CardDescription>Order #{order.id}</CardDescription>
+                  <p className='text-sm text-muted-foreground'>Payment: {paymentLabel[order.paymentStatus]}</p>
                 </CardHeader>
                 <CardContent>
                   <div className='space-y-6'>
-                    {statusSteps.map((step, index) => {
+                    {order.status === "cancelled" ? <div role='status' className='rounded-lg border border-destructive/30 bg-destructive/5 p-4'>
+                      <h3 className='font-semibold'>Cancelled</h3>
+                      <p className='mt-1 text-sm text-muted-foreground'>This order has been cancelled. Contact PalmKicks if you need help.</p>
+                    </div> : statusSteps.map((step, index) => {
                       const Icon = step.icon;
                       const isCompleted = index <= currentStatusIndex;
                       const isCurrent = index === currentStatusIndex;
@@ -266,6 +271,10 @@ const Tracking = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
+                  {(order.status === "shipped" || order.status === "delivered") && <dl className='mb-4 space-y-2 text-sm'>
+                    <div><dt className='text-muted-foreground'>Courier</dt><dd className='font-medium break-words'>{order.courier || "Not available"}</dd></div>
+                    <div><dt className='text-muted-foreground'>Tracking number</dt><dd className='font-mono break-all'>{order.trackingNumber || "Not available"}</dd></div>
+                  </dl>}
                   <p className='font-medium'>{order.customerFirstName}</p>
                   <p className='mt-2 text-sm'>
                     {order.meetupLocation

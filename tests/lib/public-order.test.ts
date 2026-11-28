@@ -19,6 +19,18 @@ const dbOrder = (customerName = "Juan Dela Cruz") => ({
   meetupLocation: null,
   total: "100",
   status: "pending",
+  paymentStatus: "unpaid",
+  paymentMethod: "bank_transfer",
+  paymentRef: "PRIVATE-PAYMENT-REF",
+  paidAt: null,
+  adminNote: "PRIVATE-ADMIN-NOTE",
+  courier: null,
+  trackingNumber: null,
+  shippedAt: null,
+  cancelledAt: null,
+  restockedAt: new Date("2026-01-02T00:00:00.000Z"),
+  confirmedEmailAt: null,
+  shippedEmailAt: null,
   createdAt: new Date("2026-01-01T00:00:00.000Z"),
   updatedAt: new Date("2026-01-02T00:00:00.000Z"),
   items: [
@@ -40,18 +52,42 @@ describe("getPublicOrderById (real service)", () => {
     expect(r).not.toBeNull();
     expect(Object.keys(r!).sort()).toEqual(
       ["createdAt", "customerFirstName", "id", "items", "meetupLocation",
-       "shippingCity", "status", "total"].sort()
+       "shippingCity", "status", "total", "courier", "trackingNumber",
+       "shippedAt", "paymentStatus"].sort()
     );
     expect(Object.keys(r!.items[0]).sort()).toEqual(
       ["color", "image", "name", "price", "quantity", "size"]
     );
     expect(r!.customerFirstName).toBe("Juan");
     expect(r!.total).toBe(100);
+    expect(r).toMatchObject({
+      courier: null, trackingNumber: null, shippedAt: null, paymentStatus: "unpaid",
+    });
     const text = JSON.stringify(r);
     for (const bad of ["secret-mail", "09171234567", "Private Street", "1000",
-      "Dela Cruz", "updatedAt", "orderId"]) {
+      "Dela Cruz", "updatedAt", "orderId", "PRIVATE-PAYMENT-REF",
+      "PRIVATE-ADMIN-NOTE", "adminNote", "paymentRef", "paymentMethod", "paidAt",
+      "restockedAt", "cancelledAt", "confirmedEmailAt", "shippedEmailAt"]) {
       expect(text).not.toContain(bad);
     }
+  });
+
+  it("projects only the four public lifecycle fields and serializes shippedAt", async () => {
+    findUnique.mockResolvedValue({
+      ...dbOrder(),
+      status: "cancelled",
+      paymentStatus: "paid",
+      courier: "Courier",
+      trackingNumber: "TRACK-123",
+      shippedAt: new Date("2026-01-03T00:00:00.000Z"),
+    });
+    expect(await getPublicOrderById("PK-2026-X")).toMatchObject({
+      status: "cancelled",
+      paymentStatus: "paid",
+      courier: "Courier",
+      trackingNumber: "TRACK-123",
+      shippedAt: "2026-01-03T00:00:00.000Z",
+    });
   });
 
   it("falls back to 'Customer' for empty or whitespace names", async () => {

@@ -5,7 +5,7 @@ import { effectivePrice } from "../pricing";
 /** The fields of a product from GET /api/products/[id] that checkout needs. */
 export type CurrentProduct = Pick<
   Product,
-  "id" | "name" | "price" | "discountPrice" | "sale" | "inStock" | "sizes" | "colors"
+  "id" | "name" | "price" | "discountPrice" | "sale" | "inStock" | "sizes" | "colors" | "variants"
 >;
 
 export type UnavailableReason = "removed" | "out_of_stock" | "size" | "color";
@@ -72,6 +72,7 @@ export function repriceCart(
     else if (!product.inStock) reason = "out_of_stock";
     else if (!product.sizes.includes(item.size)) reason = "size";
     else if (!product.colors.includes(item.color)) reason = "color";
+    else if (!product.variants.some((variant) => variant.size === item.size && variant.color === item.color && variant.stock > 0)) reason = "out_of_stock";
     if (reason || !product) {
       unavailable.push({ ...ref(item), reason: reason ?? "removed" });
       return item;

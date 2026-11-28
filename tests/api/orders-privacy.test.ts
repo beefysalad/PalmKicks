@@ -49,6 +49,7 @@ describe("GET /api/orders/[id] privacy", () => {
       id: "PK-2026-X", status: "pending", total: 100,
       createdAt: full.createdAt, meetupLocation: null, shippingCity: "Manila",
       customerFirstName: "Juan",
+      courier: null, trackingNumber: null, shippedAt: null, paymentStatus: "unpaid",
       items: [{ name: "Shoe", price: 50, image: "/a.png", size: "9", color: "red", quantity: 2 }],
     });
     vi.mocked(ordersSvc.getOrderById).mockResolvedValue(full as never);
@@ -85,6 +86,7 @@ describe("GET /api/orders/[id] privacy", () => {
     vi.mocked(ordersSvc.getPublicOrderById).mockResolvedValue({
       id: "PK-2026-X", status: "pending", total: 100, createdAt: full.createdAt,
       meetupLocation: null, shippingCity: "Manila", customerFirstName: "Juan",
+      courier: null, trackingNumber: null, shippedAt: null, paymentStatus: "unpaid",
       items: [],
     });
     const res = await GET(

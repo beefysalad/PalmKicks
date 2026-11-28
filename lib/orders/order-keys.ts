@@ -1,4 +1,4 @@
-import { OrderFilters } from "./hooks";
+import type { OrderFilters } from "@/app/shared/types/order";
 
 export const orderKeys = {
   all: ["orders"] as const,

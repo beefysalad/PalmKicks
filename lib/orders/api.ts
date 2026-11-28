@@ -1,22 +1,30 @@
+import type { AdminOrderUpdate, OrderEmailType } from "@/app/shared/zod/order-zod";
 import {
   CreateOrderPayload,
   Order,
+  OrderFilters,
   OrderStats,
   PagedOrders,
   PublicOrder,
-  UpdateOrderStatusPayload,
 } from "@/app/shared/types/order";
 import { isAxiosError } from "axios";
 import { api, ApiResponse } from "../axios";
+import { getApiErrorMessage } from "../api-error-message";
 
 export const ordersApi = {
-  fetchOrders: async (filters?: {
-    status?: "pending" | "confirmed" | "processing" | "shipped" | "delivered";
-    page?: number;
-    pageSize?: number;
-  }): Promise<PagedOrders> => {
+  resendEmail: async (orderId: string, type: OrderEmailType = "confirmation"): Promise<{ emailSent: boolean }> => {
+    try {
+      const { data } = await api.post<ApiResponse<{ emailSent: boolean }>>("/orders/confirm", { orderId, type });
+      if (data.success && data.data) return data.data;
+      throw new Error(data.error || "Failed to resend order email");
+    } catch (error) { throw new Error(getApiErrorMessage(error, "Failed to resend order email")); }
+  },
+  fetchOrders: async (filters?: OrderFilters): Promise<PagedOrders> => {
     const params = new URLSearchParams();
     if (filters?.status) params.append("status", filters.status);
+    for (const key of ["q", "paymentStatus", "from", "to"] as const) {
+      if (filters?.[key] !== undefined) params.set(key, filters[key]);
+    }
     if (filters?.page) params.append("page", String(filters.page));
     if (filters?.pageSize) params.append("pageSize", String(filters.pageSize));
     const queryString = params.toString();
@@ -80,20 +88,20 @@ export const ordersApi = {
     throw new Error(response.data.error || "Failed to create order");
   },
 
-  updateOrderStatus: async (
+  updateOrder: async (
     id: string,
-    payload: UpdateOrderStatusPayload
+    payload: AdminOrderUpdate
   ): Promise<Order> => {
-    const response = await api.patch<ApiResponse<Order>>(
-      `/orders/${id}`,
-      payload
-    );
-    if (response.data.success && response.data.data) {
-      return response.data.data;
-    }
-    throw new Error(response.data.error || "Failed to update order status");
+    const response = await api.patch<ApiResponse<Order>>(`/orders/${id}`, payload);
+    if (response.data.success && response.data.data) return response.data.data;
+    throw new Error(response.data.error || "Failed to update order");
   },
+
   deleteOrderById: async (id: string): Promise<void> => {
-    await api.delete<ApiResponse<Order>>(`/orders/${id}`);
+    try {
+      await api.delete<ApiResponse<Order>>(`/orders/${id}`);
+    } catch (error) {
+      throw new Error(getApiErrorMessage(error, "Failed to delete order"));
+    }
   },
 };

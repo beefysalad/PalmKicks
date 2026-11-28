@@ -13,7 +13,6 @@ export const productFormSchema = z.object({
   additionalImages: z.array(z.string()).default([]),
   sizes: z.array(z.string()).default([]),
   colors: z.array(z.string()).default([]),
-  inStock: z.boolean().default(true),
   sale: z.boolean().default(false),
 }).superRefine((v, ctx) => {
   if (!v.sale) return;
@@ -92,6 +91,22 @@ const stringList = (label: string, maxLen: number) =>
     )
     .max(MAX_LIST_ITEMS, `Too many ${label.toLowerCase()}`);
 
+export const variantStockSchema = z.array(z.object({
+  size: z.string().trim().min(1).max(20),
+  color: z.string().trim().min(1).max(50),
+  stock: z.number().int().min(0).max(9999),
+}).strict()).max(MAX_LIST_ITEMS * MAX_LIST_ITEMS).refine(
+  (cells) => new Set(cells.map((cell) => JSON.stringify([cell.size, cell.color]))).size === cells.length,
+  { message: "Duplicate variant stock combination" },
+);
+
+function stockMatchesGrid(value: { sizes?: string[]; colors?: string[]; variantStock?: { size: string; color: string }[] }): boolean {
+  return !value.variantStock || value.variantStock.every((cell) =>
+    (value.sizes === undefined || value.sizes.includes(cell.size)) &&
+    (value.colors === undefined || value.colors.includes(cell.color)));
+}
+const stockGridIssue = { message: "Variant size and colour must be in the product grid", path: ["variantStock"] };
+
 const productFields = {
   name: z.string().trim().min(1, "Product name is required").max(200),
   brandId: z.string().min(1, "Brand is required").max(100),
@@ -107,6 +122,7 @@ const productFields = {
   sizes: stringList("Sizes", 20),
   colors: stringList("Colors", 50),
   inStock: z.boolean(),
+  variantStock: variantStockSchema.optional(),
   featured: z.boolean(),
   latest: z.boolean(),
   sale: z.boolean(),
@@ -140,6 +156,7 @@ export const productSchema = z
     latest: productFields.latest.optional(),
   })
   .strict()
+  .refine(stockMatchesGrid, stockGridIssue)
   .refine(discountNotAbovePrice, discountIssue)
   .refine((v) => !v.sale || v.discountPrice !== undefined, {
     message: "Discount price is required when the product is on sale",
@@ -153,6 +170,7 @@ export const productUpdateSchema = z
   .object(productFields)
   .partial()
   .strict()
+  .refine(stockMatchesGrid, stockGridIssue)
   .refine(discountNotAbovePrice, discountIssue);
 
 // PATCH /api/products/[id]: only the feature toggles, real booleans.

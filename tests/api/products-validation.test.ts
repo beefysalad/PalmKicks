@@ -89,6 +89,18 @@ describe("product validation", () => {
     });
   });
 
+  it("passes variant stock through on POST", async () => {
+    const variantStock = [{ size: "8", color: "Black", stock: 5 }];
+    expect((await POST(req("POST", { ...valid, variantStock }))).status).toBe(201);
+    expect(productsSvc.addProduct).toHaveBeenCalledWith(expect.objectContaining({ variantStock }));
+  });
+
+  it("passes a partial variant grid through on PUT", async () => {
+    const variantStock = [{ size: "8", color: "Black", stock: 0 }];
+    expect((await PUT(req("PUT", { variantStock }), ctx)).status).toBe(200);
+    expect(productsSvc.updateProduct).toHaveBeenCalledWith("p1", { variantStock });
+  });
+
   it("accepts a valid PUT", async () => {
     const res = await PUT(req("PUT", valid), ctx);
     expect(res.status).toBe(200);

@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { productKeys } from "./product-keys";
 import { productsApi } from "./api";
+import { getApiErrorMessage } from "../api-error-message";
 import {
   CreateProductPayload,
   Product,
@@ -80,7 +81,7 @@ export const useCreateProduct = () => {
     },
     onError: (error: Error) => {
       toast.error(
-        error instanceof Error ? error.message : "Failed to create product"
+        getApiErrorMessage(error, "Failed to create product")
       );
     },
   });
@@ -107,7 +108,7 @@ export const useUpdateProduct = () => {
     },
     onError: (error: Error) => {
       toast.error(
-        error instanceof Error ? error.message : "Failed to update product"
+        getApiErrorMessage(error, "Failed to update product")
       );
     },
   });
@@ -124,7 +125,7 @@ export const useDeleteProduct = () => {
     },
     onError: (error: Error) => {
       toast.error(
-        error instanceof Error ? error.message : "Failed to delete product"
+        getApiErrorMessage(error, "Failed to delete product")
       );
     },
   });
@@ -163,7 +164,7 @@ export const useToggleFeatured = () => {
         queryClient.setQueryData(productKeys.all, context.previousProducts);
       }
       toast.error(
-        error instanceof Error ? error.message : "Failed to toggle featured"
+        getApiErrorMessage(error, "Failed to toggle featured")
       );
     },
     onSuccess: () => {
@@ -207,7 +208,7 @@ export const useToggleLatest = () => {
         queryClient.setQueryData(productKeys.all, context.previousProducts);
       }
       toast.error(
-        error instanceof Error ? error.message : "Failed to toggle latest"
+        getApiErrorMessage(error, "Failed to toggle latest")
       );
     },
     onSuccess: () => {
